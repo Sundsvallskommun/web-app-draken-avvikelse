@@ -3,7 +3,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface PersistedState {
-  colorScheme: string;
   filter: Record<string, string | boolean>;
   sort: Record<string, string | number>;
   attestationFilter: Record<string, string | boolean>;
@@ -21,7 +20,6 @@ interface UiState extends PersistedState {
 }
 
 interface UiActions {
-  setColorScheme: (colorScheme: string) => void;
   setFilter: (filter: Record<string, string | boolean>) => void;
   setSort: (sort: Record<string, string | number>) => void;
   setAttestationFilter: (filter: Record<string, string | boolean>) => void;
@@ -38,7 +36,6 @@ interface UiActions {
 type UiSettingsStore = UiState & UiActions;
 
 const initialState: UiState = {
-  colorScheme: 'system',
   filter: {},
   sort: {},
   attestationFilter: {},
@@ -57,7 +54,6 @@ export const useUiSettingsStore = create(
     (set) => ({
       ...initialState,
 
-      setColorScheme: (colorScheme) => set({ colorScheme }),
       setFilter: (filter) => set({ filter }),
       setSort: (sort) => set({ sort }),
       setAttestationFilter: (attestationFilter) => set({ attestationFilter }),
@@ -74,7 +70,6 @@ export const useUiSettingsStore = create(
       name: persistedStoreKey('ui-settings'),
       partialize: (state) =>
         ({
-          colorScheme: state.colorScheme,
           filter: state.filter,
           sort: state.sort,
           attestationFilter: state.attestationFilter,

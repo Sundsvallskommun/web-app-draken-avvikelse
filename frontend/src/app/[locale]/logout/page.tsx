@@ -1,11 +1,11 @@
 'use client';
 
 import { appURL } from '@common/utils/app-url';
+import { clearDeploymentStorageOnLogout } from '@common/utils/clear-deployment-storage';
 import { FC, useEffect } from 'react';
 const Logout: FC = () => {
   useEffect(() => {
-    localStorage.clear();
-    sessionStorage.clear();
+    clearDeploymentStorageOnLogout([localStorage, sessionStorage]);
 
     const query = new URLSearchParams({
       successRedirect: `${appURL()}/login?loggedout`,

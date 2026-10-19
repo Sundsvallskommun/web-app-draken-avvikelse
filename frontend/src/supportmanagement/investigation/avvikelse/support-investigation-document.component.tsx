@@ -5,6 +5,7 @@ import SchemaForm from '@common/components/json/schema/schema-form.component';
 import { getSchemaFormErrors, type SchemaFormError } from '@common/components/json/utils/schema-form-error-handling';
 import { getLatestRjsfSchema, getRjsfSchema, getUiSchemaForSchema } from '@common/components/json/utils/schema-utils';
 import { withRequestGroup } from '@common/services/api-service';
+import { deploymentStorageKey } from '@common/utils/persisted-store-key';
 import { getToastOptions } from '@common/utils/toast-message-settings';
 import type { RJSFSchema, RJSFValidationError, UiSchema } from '@rjsf/utils';
 import { Alert, Button, Label, Spinner, useSnackbar } from '@sk-web-gui/react';
@@ -815,7 +816,7 @@ export function SupportInvestigationDocument({
     setNotice(undefined);
     try {
       // Survives a reload after a lost response. Clear only after the BFF confirms publication.
-      const publicationKey = `investigation-report:${errandId}:${definition.key}`;
+      const publicationKey = deploymentStorageKey(`investigation-report:${errandId}:${definition.key}`);
       const operationId = sessionStorage.getItem(publicationKey) ?? crypto.randomUUID();
       sessionStorage.setItem(publicationKey, operationId);
       const created = await createSupportInvestigationReport(errandId, definition.key, operationId);

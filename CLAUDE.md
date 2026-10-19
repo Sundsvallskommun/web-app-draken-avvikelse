@@ -152,7 +152,10 @@ config/appconfig.tsx  # Application name and the related-reports test toggle
 **Key patterns:**
 
 - Zustand stores in `stores/` hold global state (user, errand, metadata, UI settings); persisted stores are keyed
-  by base path (`persistedStoreKey`), so two deployments on one origin keep them apart
+  by base path (`persistedStoreKey`, `deploymentStorageKey` for anything else kept in the browser), so two
+  deployments on one origin keep them apart. Logging out clears this deployment's keys alone
+  (`clearDeploymentStorageOnLogout`), never the origin's; the color scheme has a store of its own that outlives it
+  (`STORES_KEPT_ON_LOGOUT`)
 - Services use Axios-based `apiService` for API calls
 - Forms use react-hook-form with yup validation
 

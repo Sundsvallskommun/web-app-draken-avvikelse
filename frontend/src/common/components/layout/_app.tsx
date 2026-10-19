@@ -9,8 +9,8 @@ import {
   extendTheme,
   GuiProvider,
 } from '@sk-web-gui/react';
+import { useColorSchemeStore } from '@stores/color-scheme-store';
 import { useMetadataStore } from '@stores/metadata-store';
-import { useUiSettingsStore } from '@stores/ui-settings-store';
 import { useUserStore } from '@stores/user-store';
 import { getInvestigationProfile } from '@supportmanagement/investigation/investigation-profile-service';
 import { useInvestigationProfileStore } from '@supportmanagement/investigation/investigation-profile-store';
@@ -127,8 +127,8 @@ function AppInitializer({ children }: Readonly<{ children: ReactNode }>) {
 
 function AppLayout({ children }: ClientApplicationProps) {
   const colorScheme = useSyncExternalStore(
-    useUiSettingsStore.subscribe,
-    () => (useUiSettingsStore.getState().colorScheme as ColorSchemeMode) || ColorSchemeMode.Light,
+    useColorSchemeStore.subscribe,
+    () => (useColorSchemeStore.getState().colorScheme as ColorSchemeMode) || ColorSchemeMode.Light,
     () => ColorSchemeMode.Light
   );
   const theme = useMemo(
