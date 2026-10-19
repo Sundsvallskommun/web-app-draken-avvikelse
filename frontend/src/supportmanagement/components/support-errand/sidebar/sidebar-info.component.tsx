@@ -245,10 +245,13 @@ export const SidebarInfo: FC<{
   /** Writes the errand's own fields; answers whether they were saved. A failure is told in a toast. */
   const saveErrandFields = async (): Promise<boolean> => {
     try {
-      await updateSupportErrand(municipalityId, getValues(), supportErrand?.version, supportErrand?.parameters);
+      // An errand taken over while it waits accepts nothing but its new handler, so nothing else of it is written.
+      if (!takesOverWaitingErrand) {
+        await updateSupportErrand(municipalityId, getValues(), supportErrand?.version, supportErrand?.parameters);
+      }
 
       // Handle admin change. The update above is ours and moved the version on, so the version
-      // the form was loaded with can no longer be used as the precondition here.
+      // the form was loaded with can no longer be used as the precondition here - unless there was none.
       const newAdmin = findChosenAdmin();
       const newAdminAccount = newAdmin?.adAccount;
       if (supportErrand?.assignedUserId !== newAdminAccount) {
@@ -259,12 +262,14 @@ export const SidebarInfo: FC<{
             newAdminAccount === assigner.adAccount
               ? resolveWorkingStatus(supportErrand?.phases, supportMetadata?.phases)
               : Status.ASSIGNED;
-          const afterUpdate = await readSupportErrandWriteSnapshot(supportErrand!.id!, municipalityId);
+          const expectedVersion = takesOverWaitingErrand
+            ? supportErrand?.version
+            : (await readSupportErrandWriteSnapshot(supportErrand!.id!, municipalityId)).version;
           await setSupportErrandAdmin(
             supportErrand!.id!,
             municipalityId,
             newAdminAccount,
-            afterUpdate.version,
+            expectedVersion,
             newStatus,
             assigner.adAccount
           );
@@ -320,6 +325,18 @@ export const SidebarInfo: FC<{
 
   const errandFieldsDirty = hasDirtyFields(formState.dirtyFields);
   const hasDirtyParticipant = useErrandSaveParticipantsStore(selectHasDirtyParticipant);
+  const { admin: assigneeChanged, ...otherDirtyFields } = formState.dirtyFields ?? {};
+  /**
+   * An errand that waits for its handler to resume it is shut to every change. Nobody takes an errand here, though:
+   * Ansvarig is how another handler takes it over - a LEX manager from another, say - so a save that changes the
+   * assignee and nothing else still goes ahead.
+   */
+  const takesOverWaitingErrand =
+    supportErrand?.status === Status.ASSIGNED &&
+    !supportErrand?.limitedAccess &&
+    Boolean(assigneeChanged) &&
+    !hasDirtyFields(otherDirtyFields) &&
+    !hasDirtyParticipant;
 
   /**
    * Spara ärende saves the errand's own fields, then each part of the errand that holds a draft - the
@@ -460,7 +477,7 @@ export const SidebarInfo: FC<{
             type="button"
             disabled={
               isLoading === true ||
-              isSupportErrandLocked(supportErrand!) ||
+              (isSupportErrandLocked(supportErrand!) && !takesOverWaitingErrand) ||
               !(errandFieldsDirty || hasDirtyParticipant) ||
               (errandFieldsDirty && formIsNotValid)
             }
