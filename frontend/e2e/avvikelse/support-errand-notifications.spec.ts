@@ -36,7 +36,7 @@ test.describe('Notiser på ärendesidan', () => {
     expect(trace.notificationAcknowledgements).toEqual([errandId]);
   });
 
-  test('sparar ärendet som en handling och prenumererar inte på det', async ({ page, dismissCookieConsent }) => {
+  test('sparar ärendet som en handling', async ({ page, dismissCookieConsent }) => {
     const trace = await installIafApiMock(page, { assignedUserId: 'iaf.test' });
     await visitErrand(page, dismissCookieConsent);
     await expect.poll(() => trace.notificationAcknowledgements).toHaveLength(1);
@@ -53,7 +53,6 @@ test.describe('Notiser på ärendesidan', () => {
     expect(saveGroupIds.length).toBeGreaterThan(0);
     expect(saveGroupIds[0]).toMatch(/^[0-9a-f-]{36}$/u);
     expect(new Set(saveGroupIds).size).toBe(1);
-    expect(trace.subscriptionsCreated).toEqual([]);
   });
 
   // The errand's own fields and an investigation written in the same go are saved by one Spara ärende, and are one

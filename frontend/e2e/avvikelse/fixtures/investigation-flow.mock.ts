@@ -188,8 +188,6 @@ export interface IafApiTrace {
   notificationAcknowledgements: string[];
   /** The request group id every write carried, in order; undefined where a write carried none. */
   writeRequestGroupIds: Array<string | undefined>;
-  /** Subscriptions created through the follow button, by errand id. */
-  subscriptionsCreated: string[];
 }
 
 /** One phase of the namespace's workflow, as `supportmetadata` describes it. */
@@ -1099,7 +1097,6 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
     registrations: [],
     notificationAcknowledgements: [],
     writeRequestGroupIds: [],
-    subscriptionsCreated: [],
   };
 
   // Support Management reports the phase an errand is in as the one entry of its history that has
@@ -1198,8 +1195,8 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
     const path = new URL(request.url()).pathname;
     if (method !== 'GET') trace.writeRequestGroupIds.push(request.headers()['x-request-group-id']);
 
-    // Support Management's subscriber model: the user's notifications, their acknowledgement when an
-    // errand opens, and the subscriptions behind the follow button.
+    // Support Management's subscriber model: the user's notifications and their acknowledgement when an
+    // errand opens.
     if (method === 'GET' && path.endsWith(`/supportnotifications`)) {
       await fulfillJson(route, []);
       return;
@@ -1208,16 +1205,6 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
     if (method === 'PUT' && acknowledgeAll) {
       trace.notificationAcknowledgements.push(acknowledgeAll[1]);
       await fulfillJson(route, { acknowledged: [], failed: [] });
-      return;
-    }
-    if (method === 'GET' && path.endsWith(`/supportsubscriptions`)) {
-      await fulfillJson(route, []);
-      return;
-    }
-    if (method === 'POST' && path.endsWith(`/supportsubscriptions`)) {
-      const target = (request.postDataJSON() as { target?: { id?: string } } | null)?.target;
-      trace.subscriptionsCreated.push(target?.id ?? '');
-      await fulfillJson(route, { id: 'subscription-1', target }, 201);
       return;
     }
 

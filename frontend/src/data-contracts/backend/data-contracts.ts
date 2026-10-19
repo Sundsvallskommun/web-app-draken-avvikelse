@@ -640,23 +640,12 @@ export interface EventFilterDto {
   subtype?: string;
 }
 
-export interface SubscriptionTargetDto {
-  type: string;
-  id?: string;
-}
-
 export interface SubscriberUpdateDto {
   name?: string;
   channels?: NotificationChannelDto[];
   eventFilters?: EventFilterDto[];
   pausedFrom?: string;
   pausedUntil?: string;
-}
-
-export interface SubscriptionCreateDto {
-  target: SubscriptionTargetDto;
-  eventFilters?: EventFilterDto[];
-  expiresAt?: string;
 }
 
 export enum ConversationIdentifierDtoTypeEnum {

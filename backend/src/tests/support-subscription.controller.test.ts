@@ -3,16 +3,10 @@ import { validate } from 'class-validator';
 
 import { apiServiceName } from '@/config/api-config';
 import { SubscriberUpdateDto, SupportSubscriptionController } from '@/controllers/supportmanagement/support-subscription.controller';
-import {
-  IdentifierTypeEnum,
-  NotificationChannelTypeEnum,
-  Subscriber,
-  Subscription,
-  SubscriptionTargetTypeEnum,
-} from '@/data-contracts/supportmanagement/data-contracts';
+import { IdentifierTypeEnum, NotificationChannelTypeEnum, Subscriber } from '@/data-contracts/supportmanagement/data-contracts';
 
 import { mockReq, mockRes, mockUser } from './helpers/http';
-import { mockAdUsername, mockMunicipalityId, mockSupportErrandId, mockSupportNamespace } from './helpers/mock-data';
+import { mockAdUsername, mockMunicipalityId, mockSupportNamespace } from './helpers/mock-data';
 
 const SERVICE = apiServiceName('supportmanagement');
 const MUNICIPALITY_ID = mockMunicipalityId;
@@ -20,13 +14,11 @@ const NAMESPACE = mockSupportNamespace;
 const SUBSCRIBER_ID = 'subscriber-1';
 
 const SUBSCRIBERS_URL = `${SERVICE}/${MUNICIPALITY_ID}/${NAMESPACE}/subscribers`;
-const SUBSCRIPTIONS_URL = `${SUBSCRIBERS_URL}/${SUBSCRIBER_ID}/subscriptions`;
 
 interface ApiStub {
   get: ReturnType<typeof vi.fn>;
   post: ReturnType<typeof vi.fn>;
   patch: ReturnType<typeof vi.fn>;
-  delete: ReturnType<typeof vi.fn>;
 }
 
 const existingSubscriber: Subscriber = {
@@ -44,7 +36,6 @@ const makeController = () => {
     get: vi.fn(async () => ({ data: [existingSubscriber], message: 'success' })),
     post: vi.fn(async () => ({ data: {}, message: 'success' })),
     patch: vi.fn(async () => ({ data: {}, message: 'success' })),
-    delete: vi.fn(async () => ({ data: {}, message: 'success' })),
   };
   (controller as unknown as { apiService: ApiStub }).apiService = api;
   return { controller, api };
@@ -138,78 +129,6 @@ describe('SupportSubscriptionController', () => {
       await controller.fetchMySubscriber(mockReq(mockUser({ username: 'xyz99xyz' })), res);
 
       expect(getUrls(api)[0]).toContain('identifierValue=xyz99xyz');
-    });
-  });
-
-  describe('createSubscription', () => {
-    const errandTarget = { type: SubscriptionTargetTypeEnum.ERRAND, id: mockSupportErrandId };
-
-    it('creates the subscription when the user has none for that errand', async () => {
-      const { controller, api } = makeController();
-      api.get.mockResolvedValueOnce({ data: [existingSubscriber], message: 'success' }).mockResolvedValueOnce({ data: [], message: 'success' });
-      api.post.mockResolvedValueOnce({ data: { id: 'subscription-1', target: errandTarget }, message: 'success' });
-      const res = mockRes<Subscription>();
-
-      await controller.createSubscription(mockReq(), { target: errandTarget }, res);
-
-      expect(api.post).toHaveBeenCalledTimes(1);
-      expect(api.post.mock.calls[0][0].url).toBe(SUBSCRIPTIONS_URL);
-      expect(res.statusCode).toBe(201);
-    });
-
-    it('returns the existing subscription instead of creating a duplicate', async () => {
-      const existing: Subscription = { id: 'subscription-1', target: errandTarget };
-      const { controller, api } = makeController();
-      api.get
-        .mockResolvedValueOnce({ data: [existingSubscriber], message: 'success' })
-        .mockResolvedValueOnce({ data: [existing], message: 'success' });
-      const res = mockRes<Subscription>();
-
-      await controller.createSubscription(mockReq(), { target: errandTarget }, res);
-
-      expect(api.post).not.toHaveBeenCalled();
-      expect(res.statusCode).toBe(200);
-      expect(res.body).toEqual(existing);
-    });
-
-    it('does not treat a subscription for another errand as a duplicate', async () => {
-      const otherErrand: Subscription = { id: 'subscription-2', target: { type: SubscriptionTargetTypeEnum.ERRAND, id: 'another-errand' } };
-      const { controller, api } = makeController();
-      api.get
-        .mockResolvedValueOnce({ data: [existingSubscriber], message: 'success' })
-        .mockResolvedValueOnce({ data: [otherErrand], message: 'success' });
-      api.post.mockResolvedValueOnce({ data: { id: 'subscription-3', target: errandTarget }, message: 'success' });
-      const res = mockRes<Subscription>();
-
-      await controller.createSubscription(mockReq(), { target: errandTarget }, res);
-
-      expect(api.post).toHaveBeenCalledTimes(1);
-    });
-
-    it('treats a namespace subscription as distinct from an errand subscription', async () => {
-      const namespaceSubscription: Subscription = { id: 'subscription-4', target: { type: SubscriptionTargetTypeEnum.NAMESPACE } };
-      const { controller, api } = makeController();
-      api.get
-        .mockResolvedValueOnce({ data: [existingSubscriber], message: 'success' })
-        .mockResolvedValueOnce({ data: [namespaceSubscription], message: 'success' });
-      api.post.mockResolvedValueOnce({ data: { id: 'subscription-5', target: errandTarget }, message: 'success' });
-      const res = mockRes<Subscription>();
-
-      await controller.createSubscription(mockReq(), { target: errandTarget }, res);
-
-      expect(api.post).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('deleteSubscription', () => {
-    it('scopes the delete to the subscriber of the logged in user', async () => {
-      const { controller, api } = makeController();
-      const res = mockRes();
-
-      await controller.deleteSubscription(mockReq(), 'subscription-1', res);
-
-      expect(api.delete).toHaveBeenCalledWith({ url: `${SUBSCRIPTIONS_URL}/subscription-1` }, expect.anything());
-      expect(res.statusCode).toBe(204);
     });
   });
 

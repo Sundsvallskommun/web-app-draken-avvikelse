@@ -39,7 +39,7 @@ test('sends every request of one action with the same group id', async () => {
   await withRequestGroup(async () => {
     await apiService.patch('supporterrands/2281/errand-1', {});
     await apiService.put('supporterrands/2281/errand-1/parameters/street', { values: [] });
-    await apiService.deleteRequest('supportsubscriptions/2281/subscription-1');
+    await apiService.deleteRequest('supporterrands/2281/errand-1/attachments/attachment-1');
   });
 
   const groupIds = groupIdsSent();

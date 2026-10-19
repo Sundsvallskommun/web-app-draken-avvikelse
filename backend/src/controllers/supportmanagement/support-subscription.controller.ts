@@ -1,24 +1,17 @@
 import { Type as TypeTransformer } from 'class-transformer';
 import { IsArray, IsEnum, IsOptional, IsString, ValidateNested } from 'class-validator';
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Req, Res, UseBefore } from 'routing-controllers';
+import { Body, Controller, Get, Patch, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
 import { MUNICIPALITY_ID, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
 import { apiServiceName } from '@/config/api-config';
-import {
-  EventFilter,
-  NotificationChannel,
-  NotificationChannelTypeEnum,
-  Subscriber,
-  Subscription,
-  SubscriptionTarget,
-} from '@/data-contracts/supportmanagement/data-contracts';
+import { EventFilter, NotificationChannel, NotificationChannelTypeEnum, Subscriber } from '@/data-contracts/supportmanagement/data-contracts';
 import { RequestWithUser } from '@/interfaces/auth.interface';
 import { User } from '@/interfaces/users.interface';
 import authMiddleware from '@/middlewares/auth.middleware';
 import { validationMiddleware } from '@/middlewares/validation.middleware';
 import ApiService from '@/services/api.service';
-import { loadOrCreateSubscriber, sameSubscriptionTarget, subscriptionsUrl, SupportSubscriberApi } from '@/services/support-subscriber.service';
+import { loadOrCreateSubscriber, SupportSubscriberApi } from '@/services/support-subscriber.service';
 import { logger } from '@/utils/logger';
 
 /**
@@ -36,14 +29,6 @@ class EventFilterDto {
   @IsString()
   @IsOptional()
   subtype?: string;
-}
-
-class SubscriptionTargetDto {
-  @IsString()
-  type!: SubscriptionTarget['type'];
-  @IsString()
-  @IsOptional()
-  id?: string;
 }
 
 /**
@@ -72,20 +57,6 @@ export class SubscriberUpdateDto {
   pausedUntil?: string;
 }
 
-class SubscriptionCreateDto {
-  @ValidateNested()
-  @TypeTransformer(() => SubscriptionTargetDto)
-  target!: SubscriptionTargetDto;
-  @IsArray()
-  @ValidateNested({ each: true })
-  @TypeTransformer(() => EventFilterDto)
-  @IsOptional()
-  eventFilters?: EventFilterDto[];
-  @IsString()
-  @IsOptional()
-  expiresAt?: string;
-}
-
 /**
  * The channels to store: each kind once, and always the one in Draken. Choosing e-mail or SMS adds to the
  * notifications in Draken; it does not replace them.
@@ -103,14 +74,11 @@ export class SupportSubscriptionController {
   private pendingSubscribers = new Map<string, Promise<Subscriber>>();
 
   /**
-   * Resolve the subscriber belonging to the logged in user, creating it on first use.
+   * Resolve the subscriber belonging to the logged in user, creating it on first use, so Notiser has
+   * channels to read and save before anyone has made the user follow an errand.
    *
-   * The subscriber is the anchor every subscription hangs off, so the frontend would otherwise have
-   * to bootstrap it explicitly before it could subscribe to anything. Creating it lazily here keeps
-   * that ceremony out of the client and makes every subscription call safe to fire blindly.
-   *
-   * Concurrent calls share one resolve: the errand page reads the subscriptions while the follow
-   * button may be subscribing, which would otherwise create two subscribers on a user's first visit.
+   * Concurrent calls share one resolve: two tabs opening Notiser at once would otherwise create two
+   * subscribers on a user's first visit.
    */
   private resolveSubscriber(municipalityId: string, user: User): Promise<Subscriber> {
     const key = `${municipalityId}:${user.username}`;
@@ -129,10 +97,6 @@ export class SupportSubscriptionController {
   /** Built per call from the controller's own collaborators, so a test that replaces `apiService` reaches it too. */
   private subscriberApi(): SupportSubscriberApi {
     return { apiService: this.apiService, service: this.SERVICE, namespace: this.namespace };
-  }
-
-  private subscriptionsUrl(municipalityId: string, subscriberId: string): string {
-    return subscriptionsUrl(this.subscriberApi(), municipalityId, subscriberId);
   }
 
   @Get('/supportsubscribers/me')
@@ -156,65 +120,5 @@ export class SupportSubscriptionController {
       throw e;
     });
     return response.status(200).send(res.data);
-  }
-
-  @Get('/supportsubscriptions')
-  @OpenAPI({ summary: 'List the subscriptions of the logged in user' })
-  @UseBefore(authMiddleware)
-  async fetchMySubscriptions(@Req() req: RequestWithUser, @Res() response: any): Promise<Subscription[]> {
-    const subscriber = await this.resolveSubscriber(MUNICIPALITY_ID, req.user);
-    const url = this.subscriptionsUrl(MUNICIPALITY_ID, subscriber.id!);
-    const res = await this.apiService.get<Subscription[]>({ url }, req.user);
-    return response.status(200).send(res.data ?? []);
-  }
-
-  /**
-   * Create a subscription for the logged in user.
-   *
-   * Idempotent by design: Support Management subscribes the handler itself when an errand is
-   * assigned, so following an errand the user already follows - or following twice from two tabs -
-   * must not create a second subscription. Upstream documents no conflict response for duplicates,
-   * so the existing subscriptions are compared here rather than relying on a status code.
-   */
-  @Post('/supportsubscriptions')
-  @HttpCode(201)
-  @OpenAPI({ summary: 'Subscribe the logged in user to an errand or the namespace' })
-  @UseBefore(authMiddleware, validationMiddleware(SubscriptionCreateDto, 'body'))
-  async createSubscription(@Req() req: RequestWithUser, @Body() data: SubscriptionCreateDto, @Res() response: any): Promise<Subscription> {
-    const subscriber = await this.resolveSubscriber(MUNICIPALITY_ID, req.user);
-    const url = this.subscriptionsUrl(MUNICIPALITY_ID, subscriber.id!);
-
-    const existing = await this.apiService.get<Subscription[]>({ url }, req.user);
-    const alreadySubscribed = (existing.data ?? []).find(subscription => sameSubscriptionTarget(subscription.target, data.target));
-    if (alreadySubscribed) {
-      return response.status(200).send(alreadySubscribed);
-    }
-
-    const created = await this.apiService.post<Subscription, SubscriptionCreateDto>({ url, data }, req.user).catch(e => {
-      logger.error('Error when creating subscription');
-      logger.error(e);
-      throw e;
-    });
-    if (created.data?.id) {
-      return response.status(201).send(created.data);
-    }
-
-    const reread = await this.apiService.get<Subscription[]>({ url }, req.user);
-    const subscription = (reread.data ?? []).find(s => sameSubscriptionTarget(s.target, data.target));
-    return response.status(201).send(subscription ?? null);
-  }
-
-  @Delete('/supportsubscriptions/:subscriptionId')
-  @OpenAPI({ summary: 'Remove a subscription belonging to the logged in user' })
-  @UseBefore(authMiddleware)
-  async deleteSubscription(@Req() req: RequestWithUser, @Param('subscriptionId') subscriptionId: string, @Res() response: any): Promise<void> {
-    const subscriber = await this.resolveSubscriber(MUNICIPALITY_ID, req.user);
-    const url = `${this.subscriptionsUrl(MUNICIPALITY_ID, subscriber.id!)}/${subscriptionId}`;
-    await this.apiService.delete({ url }, req.user).catch(e => {
-      logger.error('Error when deleting subscription');
-      logger.error(e);
-      throw e;
-    });
-    return response.status(204).send();
   }
 }

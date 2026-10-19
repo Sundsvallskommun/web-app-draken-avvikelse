@@ -27,7 +27,7 @@ interface SubscriberIdentity {
 
 const DEFAULT_CHANNELS: NotificationChannel[] = [{ type: NotificationChannelTypeEnum.INTERNAL }];
 
-export const sameSubscriptionTarget = (a?: SubscriptionTarget, b?: SubscriptionTarget): boolean =>
+const sameSubscriptionTarget = (a?: SubscriptionTarget, b?: SubscriptionTarget): boolean =>
   a?.type === b?.type && (a?.id ?? null) === (b?.id ?? null);
 
 /** Duplicates are possible and the list order undefined, so order by id to converge on one subscriber. */
@@ -36,7 +36,7 @@ const pickSubscriber = (subscribers?: Subscriber[]): Subscriber | undefined =>
 
 const subscribersUrl = (api: SupportSubscriberApi, municipalityId: string): string => `${api.service}/${municipalityId}/${api.namespace}/subscribers`;
 
-export const subscriptionsUrl = (api: SupportSubscriberApi, municipalityId: string, subscriberId: string): string =>
+const subscriptionsUrl = (api: SupportSubscriberApi, municipalityId: string, subscriberId: string): string =>
   `${subscribersUrl(api, municipalityId)}/${subscriberId}/subscriptions`;
 
 /** Every subscriber Support Management keeps for the account; usually one, but duplicates happen. */
