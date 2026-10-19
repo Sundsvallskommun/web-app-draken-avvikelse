@@ -21,6 +21,7 @@ import {
 } from '@/services/measure-action-plan.service';
 import { MEASURE_ACTION_PLAN_TEMPLATE } from '@/services/measure-action-plan.template';
 import { assertSupportErrandWritable } from '@/services/support-errand.service';
+import { supportMetadataCache } from '@/services/support-metadata-cache';
 import { attachPdfToSupportErrand, renderPdfWithTemplating } from '@/services/support-pdf-attachment.service';
 
 interface CreatedMeasureActionPlan {
@@ -85,7 +86,9 @@ export class SupportMeasureActionPlanController {
     }
 
     const [metadata, attachments, displayNames] = await Promise.all([
-      this.apiService.get<MetadataResponse>({ url: `${base}/metadata`, propagateClientError: true }, req.user).then(result => result.data),
+      supportMetadataCache
+        .read<MetadataResponse>(this.apiService, { url: `${base}/metadata`, propagateClientError: true }, req.user)
+        .then(result => result.data),
       this.apiService
         .get<ErrandAttachment[]>({ url: `${errandUrl}/attachments`, propagateClientError: true }, req.user)
         .then(result => (Array.isArray(result.data) ? result.data : [])),

@@ -29,6 +29,7 @@ import {
 import { SupportInvestigationPolicyService } from '@/services/support-investigation-policy.service';
 import { SupportJsonParameterService } from '@/services/support-json-parameter.service';
 import { assertMeasuresHandledBeforeClose, assertProposalsDecidedBeforeFollowUp } from '@/services/support-measure-closing';
+import { supportMetadataCache } from '@/services/support-metadata-cache';
 import { logger } from '@/utils/logger';
 import { apiURL } from '@/utils/util';
 
@@ -116,7 +117,11 @@ export class SupportPhaseController {
         { url, baseURL, includeResponseHeaders: true, propagateClientError: true, mapUnauthorizedToForbidden: true },
         req.user,
       ),
-      this.apiService.get<SupportMetadata>({ url: metadataUrl, baseURL, propagateClientError: true, mapUnauthorizedToForbidden: true }, req.user),
+      supportMetadataCache.read<SupportMetadata>(
+        this.apiService,
+        { url: metadataUrl, baseURL, propagateClientError: true, mapUnauthorizedToForbidden: true },
+        req.user,
+      ),
     ]);
     if ((data.expectedActivePhaseId ?? undefined) !== getActiveErrandPhaseId(currentErrand.data)) {
       throw new HttpException(409, 'Support errand phase has changed since it was loaded');

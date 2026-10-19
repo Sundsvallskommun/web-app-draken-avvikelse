@@ -26,6 +26,7 @@ import { JsonObject } from '@/services/schema-bound-json.service';
 import { SupportInvestigationAccessService } from '@/services/support-investigation-access.service';
 import { SupportInvestigationPolicyService } from '@/services/support-investigation-policy.service';
 import { SupportJsonParameter, SupportJsonParameterService } from '@/services/support-json-parameter.service';
+import { supportMetadataCache } from '@/services/support-metadata-cache';
 import { REPORT_DOCUMENT_REFUSALS, resolveReportDocumentEditability } from '@/services/support-report-document.service';
 import { logger } from '@/utils/logger';
 
@@ -303,7 +304,11 @@ export class SupportErrandJsonParameterController {
 
   private async readWorkflowPhases(municipalityId: string, user: User): Promise<Phase[] | undefined> {
     const url = `${apiServiceName('supportmanagement')}/${municipalityId}/${SUPPORTMANAGEMENT_NAMESPACE}/metadata`;
-    const metadata = await this.apiService.get<MetadataResponse>({ url, propagateClientError: true, mapUnauthorizedToForbidden: true }, user);
+    const metadata = await supportMetadataCache.read<MetadataResponse>(
+      this.apiService,
+      { url, propagateClientError: true, mapUnauthorizedToForbidden: true },
+      user,
+    );
     return metadata.data.phases;
   }
 

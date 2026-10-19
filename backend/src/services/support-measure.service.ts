@@ -12,6 +12,7 @@ import {
 } from '@/dtos/support-measure.dto';
 import { HttpException } from '@/exceptions/HttpException';
 import { User } from '@/interfaces/users.interface';
+import { supportMetadataCache } from '@/services/support-metadata-cache';
 
 import ApiService from './api.service';
 import { assertSupportErrandWritable, getActiveErrandPhaseId, getErrandVersion } from './support-errand.service';
@@ -134,7 +135,8 @@ export class SupportMeasureService {
 
   private async errandIsInvestigated(municipalityId: string, errand: Errand, user: User): Promise<boolean> {
     const metadata = (
-      await this.apiService.get<MetadataResponse>(
+      await supportMetadataCache.read<MetadataResponse>(
+        this.apiService,
         { url: `${this.baseUrl(municipalityId)}/metadata`, propagateClientError: true, mapUnauthorizedToForbidden: true },
         user,
       )
@@ -162,7 +164,8 @@ export class SupportMeasureService {
       user,
     );
     const metadata = (
-      await this.apiService.get<MetadataResponse>(
+      await supportMetadataCache.read<MetadataResponse>(
+        this.apiService,
         { url: `${this.baseUrl(municipalityId)}/metadata`, propagateClientError: true, mapUnauthorizedToForbidden: true },
         user,
       )
@@ -223,7 +226,8 @@ export class SupportMeasureService {
       if (content.length === 0 || result.data.last !== false) break;
     }
     const metadata = (
-      await this.apiService.get<MetadataResponse>(
+      await supportMetadataCache.read<MetadataResponse>(
+        this.apiService,
         { url: `${this.baseUrl(municipalityId)}/metadata`, propagateClientError: true, mapUnauthorizedToForbidden: true },
         user,
       )
@@ -241,7 +245,8 @@ export class SupportMeasureService {
     assertSupportErrandWritable(current.data, 'measure changes');
 
     const metadata = (
-      await this.apiService.get<MetadataResponse>(
+      await supportMetadataCache.read<MetadataResponse>(
+        this.apiService,
         { url: `${this.baseUrl(municipalityId)}/metadata`, propagateClientError: true, mapUnauthorizedToForbidden: true },
         user,
       )
@@ -296,7 +301,8 @@ export class SupportMeasureService {
     const reportsExecuted = data.executed !== undefined && !existing.executed;
     if (changesType && data.type !== undefined) {
       const metadata = (
-        await this.apiService.get<MetadataResponse>(
+        await supportMetadataCache.read<MetadataResponse>(
+          this.apiService,
           { url: `${this.baseUrl(municipalityId)}/metadata`, propagateClientError: true, mapUnauthorizedToForbidden: true },
           user,
         )
@@ -372,7 +378,8 @@ export class SupportMeasureService {
     const url = this.errandUrl(municipalityId, errandId);
     const existing = await this.readWritableMeasure(url, measureId, ifMatch, user);
     const metadata = (
-      await this.apiService.get<MetadataResponse>(
+      await supportMetadataCache.read<MetadataResponse>(
+        this.apiService,
         { url: `${this.baseUrl(municipalityId)}/metadata`, propagateClientError: true, mapUnauthorizedToForbidden: true },
         user,
       )

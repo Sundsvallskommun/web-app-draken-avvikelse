@@ -260,6 +260,13 @@ Läs- och skrivrättigheter för utredningsdokumentens JSON Parameter-nycklar ko
 AccessMapper för aktuellt namespace. Draken skickar den inloggades AD-identitet i `X-Sent-By` och låter Support
 Management vara enda ägare till åtkomstbeslutet.
 
+### Metadata från Support Management
+
+BFF:en sparar namespacets metadata från Support Management – kategorier, etiketter, statusar, faser, roller och
+åtgärdstyper – i en timme och delar den mellan alla anrop (`backend/src/services/support-metadata-cache.ts`). En
+ändring i metadatan, till exempel en ny plats eller kategori, syns därför i Draken inom en timme, eller direkt efter
+att backend har startats om.
+
 ### Testmiljöer
 
 I testmiljöer där CaseStatus inte ser applikationens rapporter kan frontend visa exempelrapporter under

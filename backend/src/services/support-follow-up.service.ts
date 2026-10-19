@@ -7,6 +7,7 @@ import type { MeasureType, MetadataResponse, PageErrand } from '@/data-contracts
 import { HttpException } from '@/exceptions/HttpException';
 import { User } from '@/interfaces/users.interface';
 import ApiService from '@/services/api.service';
+import { supportMetadataCache } from '@/services/support-metadata-cache';
 import { formatOffsetDateTime } from '@/utils/util';
 
 import { SupportInvestigationPolicyService } from './support-investigation-policy.service';
@@ -93,7 +94,8 @@ export class SupportFollowUpService {
     }
 
     const metadata = (
-      await this.apiService.get<MetadataResponse>(
+      await supportMetadataCache.read<MetadataResponse>(
+        this.apiService,
         { url: `${this.baseUrl(municipalityId)}/metadata`, propagateClientError: true, mapUnauthorizedToForbidden: true },
         user,
       )

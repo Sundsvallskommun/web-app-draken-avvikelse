@@ -23,6 +23,7 @@ import {
   resolveAdministeredPlace,
 } from '@/services/place-manager-assignments';
 import { SupportInvestigationPolicyService } from '@/services/support-investigation-policy.service';
+import { supportMetadataCache } from '@/services/support-metadata-cache';
 import { type ManagerRoleOption, managerRoleOptions } from '@/services/unit-manager-resolution';
 import { logger } from '@/utils/logger';
 import { apiURL } from '@/utils/util';
@@ -189,7 +190,8 @@ export class SupportPlaceManagerController {
   }
 
   private async readMetadata(req: RequestWithUser, municipalityId: string): Promise<SupportMetadata> {
-    const response = await this.apiService.get<SupportMetadata>(
+    const response = await supportMetadataCache.read<SupportMetadata>(
+      this.apiService,
       {
         url: `${municipalityId}/${this.namespace}/metadata`,
         baseURL: apiURL(this.SERVICE),

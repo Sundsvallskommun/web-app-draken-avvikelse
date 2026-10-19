@@ -4,6 +4,7 @@ import { normalizeSupportManagementResourcePath } from '@/config/supportmanageme
 import { CountResponse, Label, Labels, PageErrand, SearchCountResponse } from '@/data-contracts/supportmanagement/data-contracts';
 import { HttpException } from '@/exceptions/HttpException';
 import { User } from '@/interfaces/users.interface';
+import { supportMetadataCache } from '@/services/support-metadata-cache';
 import { logger } from '@/utils/logger';
 
 import ApiService from './api.service';
@@ -195,7 +196,7 @@ export class SupportErrandListingService {
 
   private async readLabels(municipalityId: string, user: User): Promise<Labels> {
     const url = `${this.dependencies.service}/${municipalityId}/${this.dependencies.namespace}/metadata/labels`;
-    const response = await this.dependencies.apiService.get<Labels>({ url, propagateClientError: true }, user);
+    const response = await supportMetadataCache.read<Labels>(this.dependencies.apiService, { url, propagateClientError: true }, user);
     return response.data;
   }
 

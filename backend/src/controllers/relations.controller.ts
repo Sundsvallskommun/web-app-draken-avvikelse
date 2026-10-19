@@ -18,6 +18,7 @@ import { ExternalIdType } from '@/interfaces/externalIdType.interface';
 import authMiddleware from '@/middlewares/auth.middleware';
 import ApiService from '@/services/api.service';
 import { OrganizationService } from '@/services/organization.service';
+import { supportMetadataCache } from '@/services/support-metadata-cache';
 import { logger } from '@/utils/logger';
 import { apiURL, formatOrgNr, OrgNumberFormat } from '@/utils/util';
 
@@ -239,7 +240,7 @@ export class RelationsController {
   private async fetchSupportManagementMetadata(municipalityId: string, namespace: string, user: any): Promise<MetadataResponse | null> {
     const url = `${municipalityId}/${namespace}/metadata`;
     const baseURL = apiURL(this.SUPPORTMANAGEMENT_SERVICE);
-    const res = await this.apiService.get<MetadataResponse>({ url, baseURL }, user).catch(e => {
+    const res = await supportMetadataCache.read<MetadataResponse>(this.apiService, { url, baseURL }, user).catch(e => {
       logger.error(`Error fetching support management metadata for namespace ${namespace}: `, e);
       return null;
     });

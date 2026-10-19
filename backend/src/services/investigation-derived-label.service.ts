@@ -3,6 +3,7 @@ import { apiServiceName } from '@/config/api-config';
 import type { Errand, Labels } from '@/data-contracts/supportmanagement/data-contracts';
 import { User } from '@/interfaces/users.interface';
 import ApiService from '@/services/api.service';
+import { supportMetadataCache } from '@/services/support-metadata-cache';
 import { apiURL } from '@/utils/util';
 
 import { buildLabelAdditionUpdate } from './errand-label-presence';
@@ -55,7 +56,8 @@ export class InvestigationDerivedLabelService {
     };
     const [errand, labels] = await Promise.all([
       readErrandVersion(),
-      this.apiService.get<Labels | null>(
+      supportMetadataCache.read<Labels | null>(
+        this.apiService,
         { url: `${municipalityId}/${this.namespace}/metadata/labels`, baseURL, propagateClientError: true, mapUnauthorizedToForbidden: true },
         user,
       ),

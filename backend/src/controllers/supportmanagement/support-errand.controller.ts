@@ -99,6 +99,7 @@ import {
 import { SupportInvestigationPolicyService } from '@/services/support-investigation-policy.service';
 import { SupportJsonParameterService } from '@/services/support-json-parameter.service';
 import { assertMeasuresHandledBeforeClose } from '@/services/support-measure-closing';
+import { supportMetadataCache } from '@/services/support-metadata-cache';
 import { assertCanWriteSupportServiceNote, buildSupportServiceNote } from '@/services/support-note.service';
 import { followErrandWithAssignee, SupportSubscriberApi } from '@/services/support-subscriber.service';
 import { logger } from '@/utils/logger';
@@ -853,7 +854,7 @@ export class SupportErrandController {
 
   private readSupportMetadata(req: RequestWithUser, municipalityId: string) {
     const url = `${this.SERVICE}/${municipalityId}/${this.namespace}/metadata`;
-    return this.apiService.get<SupportMetadata>({ url }, req.user);
+    return supportMetadataCache.read<SupportMetadata>(this.apiService, { url }, req.user);
   }
 
   /**
@@ -969,7 +970,8 @@ export class SupportErrandController {
   ): Promise<NonNullable<SupportErrandDto['labels']>> {
     const sentIds = new Set(labels.map(label => label.id));
     if ((currentLabels ?? []).every(label => sentIds.has(label.id))) return labels;
-    const labelMetadata = await this.apiService.get<SupportLabels | null>(
+    const labelMetadata = await supportMetadataCache.read<SupportLabels | null>(
+      this.apiService,
       { url: `${municipalityId}/${this.namespace}/metadata/labels`, baseURL: apiURL(this.SERVICE), propagateClientError: true },
       req.user,
     );
@@ -1054,7 +1056,7 @@ export class SupportErrandController {
     const baseURL = apiURL(this.SERVICE);
     const [currentErrand, metadata] = await Promise.all([
       this.apiService.get<SupportErrand>({ url, baseURL, includeResponseHeaders: true, propagateClientError: true }, req.user),
-      this.apiService.get<SupportMetadata>({ url: metadataUrl, baseURL, propagateClientError: true }, req.user),
+      supportMetadataCache.read<SupportMetadata>(this.apiService, { url: metadataUrl, baseURL, propagateClientError: true }, req.user),
     ]);
     const currentVersion = getErrandVersion(currentErrand.data, currentErrand.headers?.etag);
     if (currentVersion !== data.expectedVersion) {
@@ -1207,7 +1209,7 @@ export class SupportErrandController {
     const baseURL = apiURL(this.SERVICE);
     const [currentErrand, labelMetadata, classificationDocument] = await Promise.all([
       this.apiService.get<SupportErrand>({ url, baseURL, includeResponseHeaders: true, propagateClientError: true }, req.user),
-      this.apiService.get<SupportLabels | null>({ url: metadataUrl, baseURL, propagateClientError: true }, req.user),
+      supportMetadataCache.read<SupportLabels | null>(this.apiService, { url: metadataUrl, baseURL, propagateClientError: true }, req.user),
       this.jsonParameterService.readJsonParameter({
         definition,
         municipalityId,

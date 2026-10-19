@@ -23,6 +23,7 @@ import {
 import { RequestWithUser } from '@/interfaces/auth.interface';
 import authMiddleware from '@/middlewares/auth.middleware';
 import ApiService from '@/services/api.service';
+import { supportMetadataCache } from '@/services/support-metadata-cache';
 
 class Type implements IType {
   @IsString()
@@ -351,7 +352,7 @@ export class SupportMetadataController {
     @Res() response: any,
   ): Promise<IMetadataResponse> {
     const url = `${this.SERVICE}/${municipalityId}/${this.namespace}/metadata`;
-    const res = await this.apiService.get<IMetadataResponse>({ url }, req.user);
+    const res = await supportMetadataCache.read<IMetadataResponse>(this.apiService, { url }, req.user);
     return response.status(200).send(res.data);
   }
 
@@ -365,7 +366,7 @@ export class SupportMetadataController {
     @Res() response: any,
   ): Promise<IRole[]> {
     const url = `${this.SERVICE}/${municipalityId}/${this.namespace}/metadata/roles`;
-    const res = await this.apiService.get<IRole[]>({ url }, req.user);
+    const res = await supportMetadataCache.read<IRole[]>(this.apiService, { url }, req.user);
     return response.status(200).send(res.data);
   }
 }

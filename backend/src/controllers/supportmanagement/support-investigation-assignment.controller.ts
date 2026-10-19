@@ -38,6 +38,7 @@ import {
 import { assertRequestedErrandVersion, assertSupportErrandAdminAssignable, getErrandVersion } from '@/services/support-errand.service';
 import { SupportInvestigationAccessService } from '@/services/support-investigation-access.service';
 import { SupportInvestigationPolicyService } from '@/services/support-investigation-policy.service';
+import { supportMetadataCache } from '@/services/support-metadata-cache';
 import {
   assertCanWriteSupportServiceNote,
   buildSupportServiceNote,
@@ -436,7 +437,8 @@ export class SupportInvestigationAssignmentController {
         },
         req.user,
       ),
-      this.apiService.get<SupportMetadata>(
+      supportMetadataCache.read<SupportMetadata>(
+        this.apiService,
         { url: `${municipalityId}/${this.namespace}/metadata`, baseURL, propagateClientError: true, mapUnauthorizedToForbidden: true },
         req.user,
       ),

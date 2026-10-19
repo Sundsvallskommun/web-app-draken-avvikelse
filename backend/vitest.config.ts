@@ -51,7 +51,7 @@ export default defineConfig({
     // `toOffsetDateTime` formats with a numeric UTC offset, so date-range filter
     // assertions depend on the machine timezone. Pin it so CI and local agree.
     env: { TZ: 'Europe/Stockholm' },
-    setupFiles: ['./src/tests/setup.ts'],
+    setupFiles: ['./src/tests/setup.ts', './src/tests/reset-caches.ts'],
     include: ['src/**/*.{test,spec}.ts'],
     coverage: {
       provider: 'v8',
