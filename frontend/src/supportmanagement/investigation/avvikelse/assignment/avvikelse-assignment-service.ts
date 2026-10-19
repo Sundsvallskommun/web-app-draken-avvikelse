@@ -35,24 +35,16 @@ export interface UnitManagerResponse {
  * Resolves who the errand goes back to, so the choice can be shown before it is made. The backend
  * resolves it again when the handover is applied; this is a preview, never the decision itself.
  */
-export const getUnitManager = (municipalityId: string, errandId: string): Promise<UnitManagerResponse> =>
-  apiService
-    .get<UnitManagerResponse>(`supporterrands/${municipalityId}/${errandId}/unit-manager`)
-    .then((res) => res.data);
+export const getUnitManager = (errandId: string): Promise<UnitManagerResponse> =>
+  apiService.get<UnitManagerResponse>(`supporterrands/${errandId}/unit-manager`).then((res) => res.data);
 
 /**
  * Resolves the managers of a place the errand would be moved to, so the choice can be shown before
  * it is made. Like the return preview, the backend resolves the list again when the move is applied.
  */
-export const getLocationManagers = (
-  municipalityId: string,
-  errandId: string,
-  locationLabelId: string
-): Promise<UnitManagerResponse> =>
+export const getLocationManagers = (errandId: string, locationLabelId: string): Promise<UnitManagerResponse> =>
   apiService
-    .get<UnitManagerResponse>(
-      `supporterrands/${municipalityId}/${errandId}/location-managers/${encodeURIComponent(locationLabelId)}`
-    )
+    .get<UnitManagerResponse>(`supporterrands/${errandId}/location-managers/${encodeURIComponent(locationLabelId)}`)
     .then((res) => res.data);
 
 export interface InvestigationHandoverOptions {
@@ -68,7 +60,6 @@ export interface InvestigationHandoverOptions {
  * away instead of refreshing.
  */
 export const applyInvestigationHandover = async (
-  municipalityId: string,
   errandId: string,
   step: InvestigationHandoverStep,
   expectedVersion: number,
@@ -80,10 +71,7 @@ export const applyInvestigationHandover = async (
     ...(assignedUserId ? { assignedUserId } : {}),
     ...(options.locationLabelId ? { locationLabelId: options.locationLabelId } : {}),
   };
-  await apiService.post<void, typeof body>(
-    `supporterrands/${municipalityId}/${errandId}/investigation-handover/${step}`,
-    body
-  );
+  await apiService.post<void, typeof body>(`supporterrands/${errandId}/investigation-handover/${step}`, body);
 };
 
 const conflictMessages: Record<string, string> = {

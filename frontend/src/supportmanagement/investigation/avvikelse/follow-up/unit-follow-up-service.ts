@@ -67,9 +67,9 @@ export interface UnitFollowUpSnapshot {
   readonly truncated: boolean;
 }
 
-export const getUnitFollowUp = (municipalityId: string, period: UnitFollowUpPeriod): Promise<UnitFollowUpSnapshot> =>
+export const getUnitFollowUp = (period: UnitFollowUpPeriod): Promise<UnitFollowUpSnapshot> =>
   apiService
-    .get<UnitFollowUpSnapshot>(`supportfollowup/${municipalityId}/units`, {
+    .get<UnitFollowUpSnapshot>(`supportfollowup/units`, {
       params: { from: period.from, to: period.to },
     })
     .then((response) => response.data);

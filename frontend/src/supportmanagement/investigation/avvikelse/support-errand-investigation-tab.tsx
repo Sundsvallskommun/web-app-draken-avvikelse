@@ -1,7 +1,7 @@
 'use client';
 
 import { Alert, Button, cx, Spinner, Tabs } from '@sk-web-gui/react';
-import { useConfigStore, useSupportStore, useUserStore } from '@stores/index';
+import { useSupportStore, useUserStore } from '@stores/index';
 import {
   isSupportErrandLocked,
   isSupportErrandOpenToHandover,
@@ -92,11 +92,10 @@ interface SupportErrandInvestigationTabProps extends InvestigationTabProps {
 }
 
 export function SupportErrandInvestigationTab(props: Readonly<SupportErrandInvestigationTabProps>) {
-  const municipalityId = useConfigStore((state) => state.municipalityId);
   const errandId = useSupportStore((state) => state.supportErrand?.id);
   const username = useUserStore((state) => state.user.username);
   // Drafts live only in this user's currently opened errand, never across navigation or logout.
-  return <InvestigationDocuments key={JSON.stringify([municipalityId, errandId, username])} {...props} />;
+  return <InvestigationDocuments key={JSON.stringify([errandId, username])} {...props} />;
 }
 
 /** The document menu's bar: set apart from the form, and with a marker thick enough to be seen at a glance. */

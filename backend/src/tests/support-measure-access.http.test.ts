@@ -50,7 +50,7 @@ it.each(['errand', 'measure-list', 'measure', 'write'])('returns 403 for upstrea
   });
   useExpressServer(app, { controllers: [SupportMeasureController], validation: false, defaultErrorHandler: false });
   app.use(errorMiddleware);
-  const url = '/supporterrands/2281/errand-1/measures';
+  const url = '/supporterrands/errand-1/measures';
   const response =
     denial === 'measure-list' || denial === 'errand'
       ? await request(app).get(url)

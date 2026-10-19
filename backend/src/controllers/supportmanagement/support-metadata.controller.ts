@@ -1,9 +1,9 @@
 import { Type as TypeTransformer } from 'class-transformer';
 import { IsArray, IsBoolean, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
-import { Controller, Get, Param, Req, Res, UseBefore } from 'routing-controllers';
+import { Controller, Get, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 
-import { SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
+import { MUNICIPALITY_ID, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
 import { apiServiceName } from '@/config/api-config';
 import {
   Category as ICategory,
@@ -342,30 +342,22 @@ export class SupportMetadataController {
   private namespace = SUPPORTMANAGEMENT_NAMESPACE;
   private SERVICE = apiServiceName('supportmanagement');
 
-  @Get('/supportmetadata/:municipalityId')
+  @Get('/supportmetadata')
   @OpenAPI({ summary: 'Get support metadata' })
   @ResponseSchema(MetadataResponse)
   @UseBefore(authMiddleware)
-  async fetchSupportMetadata(
-    @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
-    @Res() response: any,
-  ): Promise<IMetadataResponse> {
-    const url = `${this.SERVICE}/${municipalityId}/${this.namespace}/metadata`;
+  async fetchSupportMetadata(@Req() req: RequestWithUser, @Res() response: any): Promise<IMetadataResponse> {
+    const url = `${this.SERVICE}/${MUNICIPALITY_ID}/${this.namespace}/metadata`;
     const res = await supportMetadataCache.read<IMetadataResponse>(this.apiService, { url }, req.user);
     return response.status(200).send(res.data);
   }
 
-  @Get('/supportmetadata/:municipalityId/roles')
+  @Get('/supportmetadata/roles')
   @OpenAPI({ summary: 'Get support roles' })
   @ResponseSchema(Role, { isArray: true })
   @UseBefore(authMiddleware)
-  async fetchSupportMetadataRoles(
-    @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
-    @Res() response: any,
-  ): Promise<IRole[]> {
-    const url = `${this.SERVICE}/${municipalityId}/${this.namespace}/metadata/roles`;
+  async fetchSupportMetadataRoles(@Req() req: RequestWithUser, @Res() response: any): Promise<IRole[]> {
+    const url = `${this.SERVICE}/${MUNICIPALITY_ID}/${this.namespace}/metadata/roles`;
     const res = await supportMetadataCache.read<IRole[]>(this.apiService, { url }, req.user);
     return response.status(200).send(res.data);
   }

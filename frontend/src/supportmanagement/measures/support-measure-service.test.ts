@@ -15,20 +15,16 @@ beforeEach(() => vi.resetAllMocks());
 
 test('sends only follow-up answers to the dedicated route with the measure version', async () => {
   const answers = { desiredEffectAchieved: false, followUpDescription: 'Ingen förbättring.' };
-  await followUpSupportMeasure('2281', 'errand/id', 'measure/id', 0, answers);
-  expect(apiService.patch).toHaveBeenCalledWith(
-    'supporterrands/2281/errand%2Fid/measures/measure%2Fid/follow-up',
-    answers,
-    {
-      headers: { 'If-Match': '"0"' },
-    }
-  );
+  await followUpSupportMeasure('errand/id', 'measure/id', 0, answers);
+  expect(apiService.patch).toHaveBeenCalledWith('supporterrands/errand%2Fid/measures/measure%2Fid/follow-up', answers, {
+    headers: { 'If-Match': '"0"' },
+  });
 });
 
 test('moves only the end date, through its own route and with the measure version', async () => {
-  await changeSupportMeasurePlannedComplete('2281', 'errand/id', 'measure/id', 4, '2026-10-15T00:00:00+02:00');
+  await changeSupportMeasurePlannedComplete('errand/id', 'measure/id', 4, '2026-10-15T00:00:00+02:00');
   expect(apiService.patch).toHaveBeenCalledWith(
-    'supporterrands/2281/errand%2Fid/measures/measure%2Fid/planned-complete',
+    'supporterrands/errand%2Fid/measures/measure%2Fid/planned-complete',
     { plannedComplete: '2026-10-15T00:00:00+02:00' },
     { headers: { 'If-Match': '"4"' } }
   );
@@ -37,7 +33,6 @@ test('moves only the end date, through its own route and with the measure versio
 // Ä11. The one moving the date says why in the description, and both are saved in the one request.
 test('sends a rewritten description with the end date it explains', async () => {
   await changeSupportMeasurePlannedComplete(
-    '2281',
     'errand/id',
     'measure/id',
     4,
@@ -45,7 +40,7 @@ test('sends a rewritten description with the end date it explains', async () => 
     'Utbildningen flyttas: föreläsaren är sjuk.'
   );
   expect(apiService.patch).toHaveBeenLastCalledWith(
-    'supporterrands/2281/errand%2Fid/measures/measure%2Fid/planned-complete',
+    'supporterrands/errand%2Fid/measures/measure%2Fid/planned-complete',
     { plannedComplete: '2026-10-15T00:00:00+02:00', description: 'Utbildningen flyttas: föreläsaren är sjuk.' },
     { headers: { 'If-Match': '"4"' } }
   );
@@ -53,7 +48,7 @@ test('sends a rewritten description with the end date it explains', async () => 
 
 test('does not follow up a measure without its version', async () => {
   await expect(
-    followUpSupportMeasure('2281', 'errand', 'measure', undefined, {
+    followUpSupportMeasure('errand', 'measure', undefined, {
       desiredEffectAchieved: true,
       followUpDescription: 'Klart.',
     })
@@ -68,20 +63,20 @@ test('creates with a type name and role key without an errand version or browser
     goal: 'Säkrare arbetssätt',
     description: 'Gemensam utbildning',
   };
-  await createSupportMeasure('2281', 'errand-id', data);
-  expect(apiService.post).toHaveBeenCalledWith('supporterrands/2281/errand-id/measures', data);
+  await createSupportMeasure('errand-id', data);
+  expect(apiService.post).toHaveBeenCalledWith('supporterrands/errand-id/measures', data);
 });
 
 test('sends the edited measure version and type name in separate header and body fields', async () => {
   const changes = { type: 'EDUCATION' };
-  await updateSupportMeasure('2281', 'errand-id', 'measure-id', 3, changes);
-  expect(apiService.patch).toHaveBeenCalledWith('supporterrands/2281/errand-id/measures/measure-id', changes, {
+  await updateSupportMeasure('errand-id', 'measure-id', 3, changes);
+  expect(apiService.patch).toHaveBeenCalledWith('supporterrands/errand-id/measures/measure-id', changes, {
     headers: { 'If-Match': '"3"' },
   });
 });
 
 test('accepts the initial measure version zero', async () => {
-  await updateSupportMeasure('2281', 'errand-id', 'measure-id', 0, { goal: 'Revised' });
+  await updateSupportMeasure('errand-id', 'measure-id', 0, { goal: 'Revised' });
   expect(apiService.patch).toHaveBeenCalledWith(
     expect.any(String),
     { goal: 'Revised' },
@@ -92,7 +87,7 @@ test('accepts the initial measure version zero', async () => {
 test.each([undefined, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1])(
   'does not write with an invalid measure version: %s',
   async (version) => {
-    await expect(updateSupportMeasure('2281', 'errand-id', 'measure-id', version, { goal: 'Revised' })).rejects.toThrow(
+    await expect(updateSupportMeasure('errand-id', 'measure-id', version, { goal: 'Revised' })).rejects.toThrow(
       'measure version'
     );
     expect(apiService.patch).not.toHaveBeenCalled();
@@ -106,14 +101,10 @@ test('sends only the decision to the dedicated route using the measure version',
     plannedStart: '2026-10-12T00:00:00+02:00',
     plannedComplete: '2026-11-30T00:00:00+01:00',
   };
-  await decideSupportMeasure('2281', 'errand/id', 'measure/id', 0, decision);
-  expect(apiService.patch).toHaveBeenCalledWith(
-    'supporterrands/2281/errand%2Fid/measures/measure%2Fid/decision',
-    decision,
-    {
-      headers: { 'If-Match': '"0"' },
-    }
-  );
+  await decideSupportMeasure('errand/id', 'measure/id', 0, decision);
+  expect(apiService.patch).toHaveBeenCalledWith('supporterrands/errand%2Fid/measures/measure%2Fid/decision', decision, {
+    headers: { 'If-Match': '"0"' },
+  });
 });
 
 test.each([undefined, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1])(
@@ -124,9 +115,7 @@ test.each([undefined, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1])(
       plannedStart: '2026-10-12T00:00:00+02:00',
       plannedComplete: '2026-11-30T00:00:00+01:00',
     };
-    await expect(decideSupportMeasure('2281', 'errand-id', 'measure-id', version, approval)).rejects.toThrow(
-      'measure version'
-    );
+    await expect(decideSupportMeasure('errand-id', 'measure-id', version, approval)).rejects.toThrow('measure version');
     expect(apiService.patch).not.toHaveBeenCalled();
   }
 );

@@ -32,13 +32,10 @@ const normalizeService = (service?: string): string => {
   return service ?? '';
 };
 
-export const getAllRelatedErrands = async (
-  municipalityId: string,
-  resourceId: string
-): Promise<RelationWithErrandNumber[]> => {
+export const getAllRelatedErrands = async (resourceId: string): Promise<RelationWithErrandNumber[]> => {
   const [sourceResult, targetResult] = await Promise.all([
-    getResolvedRelations('source', municipalityId, resourceId, 'ASC'),
-    getResolvedRelations('target', municipalityId, resourceId, 'ASC'),
+    getResolvedRelations('source', resourceId, 'ASC'),
+    getResolvedRelations('target', resourceId, 'ASC'),
   ]);
 
   const allStatuses = [...sourceResult.caseStatuses, ...targetResult.caseStatuses];
@@ -110,11 +107,8 @@ export interface ReferredFromErrandResponse {
   stakeholders: ReferredFromStakeholder[];
 }
 
-export const getReferredFromErrands = (
-  municipalityId: string,
-  resourceId: string
-): Promise<ReferredFromErrandResponse[]> => {
-  const url = `${municipalityId}/relations/referredfrom/${resourceId}`;
+export const getReferredFromErrands = (resourceId: string): Promise<ReferredFromErrandResponse[]> => {
+  const url = `relations/referredfrom/${resourceId}`;
 
   return apiService
     .get<ApiResponse<ReferredFromErrandResponse[]>>(url)
@@ -127,11 +121,10 @@ export const getReferredFromErrands = (
 
 const getResolvedRelations = (
   direction: 'source' | 'target',
-  municipalityId: string,
   resourceId: string,
   sort: string
 ): Promise<ResolvedRelationsResponse> => {
-  const url = `${municipalityId}/resolvedrelations/${direction}/${sort}/${resourceId}`;
+  const url = `resolvedrelations/${direction}/${sort}/${resourceId}`;
 
   return apiService
     .get<ApiResponse<ResolvedRelationsResponse>>(url)

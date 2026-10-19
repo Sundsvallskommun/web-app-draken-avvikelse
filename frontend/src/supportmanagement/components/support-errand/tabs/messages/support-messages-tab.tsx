@@ -1,6 +1,6 @@
 import { MessageWrapper } from '@common/components/message/message-wrapper.component';
 import { Alert, Button, Divider, FormControl, FormLabel, Icon, Select } from '@sk-web-gui/react';
-import { useConfigStore, useSupportStore, useUserStore } from '@stores/index';
+import { useSupportStore, useUserStore } from '@stores/index';
 import { getInvestigationMessagesIntroduction } from '@supportmanagement/investigation/investigation-variant-registry';
 import { SupportCommunicationType } from '@supportmanagement/services/support-communication-types';
 import { markSupportConversationMessagesAsRead } from '@supportmanagement/services/support-conversation-service';
@@ -25,10 +25,8 @@ export const SupportMessagesTab: FC<{
   conversationMessageTree: Message[];
   setUnsaved: (unsaved: boolean) => void;
   update: () => void;
-  municipalityId: string;
 }> = (props) => {
   const supportErrand = useSupportStore((s) => s.supportErrand);
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const user = useUserStore((s) => s.user);
   const [showMessageForm, setShowMessageForm] = useState<boolean>(false);
   const [selectedMessage, setSelectedMessage] = useState<Message>();
@@ -52,13 +50,11 @@ export const SupportMessagesTab: FC<{
 
   const onSelect = (message: Message) => {
     if (message.conversationId && message.messageId) {
-      markSupportConversationMessagesAsRead(municipalityId, supportErrand!.id!, message.conversationId, [
-        message.messageId,
-      ])
+      markSupportConversationMessagesAsRead(supportErrand!.id!, message.conversationId, [message.messageId])
         .then(() => props.update())
         .catch((error) => console.error('Could not mark conversation message as read', error));
     } else if (!message.viewed && supportErrand?.assignedUserId === user.username) {
-      setMessageViewStatus(supportErrand!.id!, municipalityId, message.communicationID, true).then(() => {
+      setMessageViewStatus(supportErrand!.id!, message.communicationID, true).then(() => {
         props.update();
       });
     }

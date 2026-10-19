@@ -37,7 +37,7 @@ the handler fields, the next step, the decision tab and so on - and leave out wh
   decides when the user does not reach the decision.
 - **The investigation-only surface.** Investigation documents (`json-parameters`), JSON schemas, the profile's
   `labelFilter` (the overview's category filters come from its groups) and the classification PATCH
-  (`supporterrands/{municipalityId}/{errandId}/classification`, the atomic write used when the investigation owns
+  (`supporterrands/{errandId}/classification`, the atomic write used when the investigation owns
   classification). The handover routes (`.../investigation-handover/{step}`, `.../unit-manager` and
   `.../location-managers/{labelId}`) write the `access/*` labels that move an errand between the unit manager and
   the LEX roles, and the `LOCATION` label chain that moves a wrongly routed errand to the unit it concerns. The
@@ -126,6 +126,8 @@ dtos/                 # Data Transfer Objects for validation
 - Support Management's metadata (`…/metadata`, `/metadata/labels`, `/metadata/roles`) is read through
   `supportMetadataCache` (`services/support-metadata-cache.ts`), never `apiService.get` directly: it is the namespace's
   configuration, the same for every user, so the BFF keeps each answer for an hour and shares it across requests
+- The BFF serves one municipality, `MUNICIPALITY_ID` from its own env, which `validateEnv` requires. No route takes a
+  municipality from the client and the frontend has none (`tests/controllers.test.ts` holds the routes to that)
 - Custom `HttpException` class for error handling
 
 ### Frontend Structure (`frontend/src/`)
@@ -265,12 +267,12 @@ and — worse — sending a whole collection rewrites entries another user just 
 
 | What you write | Route | Precondition |
 | --- | --- | --- |
-| One parameter | `PUT /supporterrands/:m/:id/parameters/:key` | that parameter's version |
-| One JSON parameter | `PUT /supporterrands/:m/:id/json-parameters/:key` | that document's ETag |
-| Errand-level fields (`title`, `stakeholders`, `labels`, `externalTags`, …) | `PATCH /supporterrands/:m/:id` | the errand's version |
+| One parameter | `PUT /supporterrands/:id/parameters/:key` | that parameter's version |
+| One JSON parameter | `PUT /supporterrands/:id/json-parameters/:key` | that document's ETag |
+| Errand-level fields (`title`, `stakeholders`, `labels`, `externalTags`, …) | `PATCH /supporterrands/:id` | the errand's version |
 | Assignee / status / classification / handover | their own command routes | the errand's version |
-| Phase | `PATCH /supporterrands/:m/:id/phase` | the active phase the client saw; the BFF conditions the upstream write on the version it just read |
-| One measure (its fields, decision, end date, follow-up) | `PATCH /supporterrands/:m/:id/measures/:measureId[/…]` | that measure's version (`requireMeasureVersion`, `readWritableMeasure`) |
+| Phase | `PATCH /supporterrands/:id/phase` | the active phase the client saw; the BFF conditions the upstream write on the version it just read |
+| One measure (its fields, decision, end date, follow-up) | `PATCH /supporterrands/:id/measures/:measureId[/…]` | that measure's version (`requireMeasureVersion`, `readWritableMeasure`) |
 
 Two consequences worth keeping:
 

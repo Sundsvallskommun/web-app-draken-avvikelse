@@ -15,7 +15,7 @@ import {
   useConfirm,
   useSnackbar,
 } from '@sk-web-gui/react';
-import { useConfigStore, useSupportStore, useUserStore } from '@stores/index';
+import { useSupportStore, useUserStore } from '@stores/index';
 import { ErrandNotesTabFormModel, GenericNote } from '@supportmanagement/interfaces/genericNote';
 import {
   ExternalIdType,
@@ -57,7 +57,6 @@ export const SidebarGenericNotes: FC<{
   const supportErrand = useSupportStore((s) => s.supportErrand);
   const setSupportErrand = useSupportStore((s) => s.setSupportErrand);
   const administrators = useUserStore((s) => s.administrators);
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const [selectedNote, setSelectedNote] = useState<GenericNote>();
   const [notes, setNotes] = useState<SupportNote[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -89,10 +88,10 @@ export const SidebarGenericNotes: FC<{
     let createNote = true;
 
     const apiCall = serviceNote
-      ? saveSupportServiceNote(supportErrand!.id!, municipalityId, note.text, note.partyId)
+      ? saveSupportServiceNote(supportErrand!.id!, note.text, note.partyId)
       : note.id
-      ? updateSupportNote(supportErrand!.id!, municipalityId, note.id, note.text)
-      : saveSupportNote(supportErrand!.id!, municipalityId, note.text, note.partyId);
+      ? updateSupportNote(supportErrand!.id!, note.id, note.text)
+      : saveSupportNote(supportErrand!.id!, note.text, note.partyId);
 
     return apiCall
       .then(() => {
@@ -103,7 +102,7 @@ export const SidebarGenericNotes: FC<{
           })
         );
         setIsLoading(false);
-        getSupportErrandById(supportErrand!.id!, municipalityId).then((res) => setSupportErrand(res.errand));
+        getSupportErrandById(supportErrand!.id!).then((res) => setSupportErrand(res.errand));
         setValue('text', '');
       })
       .catch((e) => {
@@ -125,7 +124,7 @@ export const SidebarGenericNotes: FC<{
 
   useEffect(() => {
     // Both readers answer an empty list on failure; they never reject.
-    void (serviceNote ? getSupportServiceNotes : getSupportNotes)(supportErrand!.id!, municipalityId).then((res) =>
+    void (serviceNote ? getSupportServiceNotes : getSupportNotes)(supportErrand!.id!).then((res) =>
       setNotes(res.notes)
     );
     if (selectedNote) {
@@ -144,7 +143,7 @@ export const SidebarGenericNotes: FC<{
 
   const saveModifiedNote = () => {
     const note: ErrandNotesTabFormModel = getValues();
-    return updateSupportNote(supportErrand!.id!, municipalityId, note.id!, note.text)
+    return updateSupportNote(supportErrand!.id!, note.id!, note.text)
       .then(() => {
         toastMessage(
           getToastOptions({
@@ -152,7 +151,7 @@ export const SidebarGenericNotes: FC<{
             status: 'success',
           })
         );
-        getSupportErrandById(supportErrand!.id!, municipalityId).then((res) => setSupportErrand(res.errand));
+        getSupportErrandById(supportErrand!.id!).then((res) => setSupportErrand(res.errand));
         setValue('text', '');
         setValue('id', '');
         setEditNote(false);
@@ -170,7 +169,7 @@ export const SidebarGenericNotes: FC<{
   };
 
   const removeNote = (inNote: GenericNote) => {
-    return deleteSupportNote(supportErrand!.id!, municipalityId, inNote.id)
+    return deleteSupportNote(supportErrand!.id!, inNote.id)
       .then(() => {
         toastMessage(
           getToastOptions({
@@ -178,7 +177,7 @@ export const SidebarGenericNotes: FC<{
             status: 'success',
           })
         );
-        getSupportErrandById(supportErrand!.id!, municipalityId).then((res) => setSupportErrand(res.errand));
+        getSupportErrandById(supportErrand!.id!).then((res) => setSupportErrand(res.errand));
         setValue('text', '');
       })
       .catch((e) => {

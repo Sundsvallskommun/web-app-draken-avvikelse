@@ -28,14 +28,7 @@ describe('getOrCreateSupportConversationId', () => {
   test('creates Mina sidor conversation without relation even if a relation is still selected', async () => {
     givenConversations([]);
 
-    const id = await getOrCreateSupportConversationId(
-      '2281',
-      supportErrand,
-      'minasidor',
-      'errand-2',
-      relationErrands,
-      ''
-    );
+    const id = await getOrCreateSupportConversationId(supportErrand, 'minasidor', 'errand-2', relationErrands, '');
 
     expect(id).toBe('new-conversation');
     expect(createdBody()).toEqual({ topic: 'Mina sidor', type: 'EXTERNAL' });
@@ -44,7 +37,7 @@ describe('getOrCreateSupportConversationId', () => {
   test('creates Draken conversation linked to the selected relation', async () => {
     givenConversations([]);
 
-    await getOrCreateSupportConversationId('2281', supportErrand, 'draken', 'errand-2', relationErrands, '');
+    await getOrCreateSupportConversationId(supportErrand, 'draken', 'errand-2', relationErrands, '');
 
     expect(createdBody()).toEqual({ topic: 'KC-1 - KC-2', type: 'INTERNAL', relationIds: ['relation-1'] });
   });
@@ -52,7 +45,7 @@ describe('getOrCreateSupportConversationId', () => {
   test('never reuses an external conversation for Draken', async () => {
     givenConversations([{ id: 'external', type: 'EXTERNAL', relationIds: [] }]);
 
-    const id = await getOrCreateSupportConversationId('2281', supportErrand, 'draken', '', [], '');
+    const id = await getOrCreateSupportConversationId(supportErrand, 'draken', '', [], '');
 
     expect(id).toBe('new-conversation');
     expect(createdBody()).toEqual({ topic: 'KC-1', type: 'INTERNAL' });
@@ -64,7 +57,7 @@ describe('getOrCreateSupportConversationId', () => {
       { id: 'internal', type: 'INTERNAL', relationIds: ['relation-1'] },
     ]);
 
-    const id = await getOrCreateSupportConversationId('2281', supportErrand, 'draken', 'errand-2', relationErrands, '');
+    const id = await getOrCreateSupportConversationId(supportErrand, 'draken', 'errand-2', relationErrands, '');
 
     expect(id).toBe('internal');
     expect(apiService.post).not.toHaveBeenCalled();

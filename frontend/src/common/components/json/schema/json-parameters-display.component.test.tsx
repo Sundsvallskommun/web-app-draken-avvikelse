@@ -37,12 +37,7 @@ test('shows loading before a schema failure and then explains which document cou
   );
   const errorLog = vi.spyOn(console, 'error').mockImplementation(() => undefined);
   try {
-    render(
-      <JsonParametersDisplay
-        municipalityId="2281"
-        jsonParameters={[{ key: 'Document', schemaId: 'schema-id', value: {} }]}
-      />
-    );
+    render(<JsonParametersDisplay jsonParameters={[{ key: 'Document', schemaId: 'schema-id', value: {} }]} />);
     expect(screen.getByText('Laddar schema...')).toBeTruthy();
     expect(screen.queryByText(/kunde inte visas/)).toBeNull();
     await act(async () => {
@@ -62,7 +57,7 @@ test('displays the saved data read-only when the optional UI schema is unavailab
   const jsonParameters: JsonParameter[] = [{ key: 'Document', schemaId: 'schema-id', value: savedFormData }];
   vi.mocked(getRjsfSchema).mockResolvedValue(schema);
   vi.mocked(getUiSchemaForSchema).mockRejectedValue(new Error('No UI schema'));
-  render(<JsonParametersDisplay municipalityId="2281" jsonParameters={jsonParameters} />);
+  render(<JsonParametersDisplay jsonParameters={jsonParameters} />);
   const input = await screen.findByDisplayValue('Sparat svar');
   expect(input.hasAttribute('disabled')).toBe(true);
   expect(screen.queryByRole('button', { name: 'Lägg till' })).toBeNull();
@@ -93,7 +88,7 @@ test('shows a plain-text answer with the line breaks it was written with', async
     markup: 'rad ett\nrad två',
     editorText: '<p>Redan\nmarkup</p>',
   } as unknown as JsonNode;
-  render(<JsonParametersDisplay municipalityId="2281" jsonParameters={[{ key: 'report', schemaId: 'id', value }]} />);
+  render(<JsonParametersDisplay jsonParameters={[{ key: 'report', schemaId: 'id', value }]} />);
 
   expect((await screen.findByTestId('editor-report_event')).textContent).toBe(
     '<p>Brukaren föll.</p><p><br></p><p>Personalen var inte på plats &lt; 5 minuter.</p>'
@@ -118,7 +113,7 @@ test('shows the saved answers without the descriptions and help texts that told 
     other: { 'ui:description': 'Beskrivning från UI-schemat' },
   });
   const value = { place: 'Hemtjänst Norr', other: 'Inget' } as unknown as JsonNode;
-  render(<JsonParametersDisplay municipalityId="2281" jsonParameters={[{ key: 'report', schemaId: 'id', value }]} />);
+  render(<JsonParametersDisplay jsonParameters={[{ key: 'report', schemaId: 'id', value }]} />);
 
   expect(await screen.findByDisplayValue('Hemtjänst Norr')).toBeTruthy();
   expect(screen.getByText('Plats')).toBeTruthy();
@@ -151,7 +146,7 @@ test('leaves out the instructions of collections and grouped answers as well', a
     details: { 'ui:options': { showObjectFieldset: true } },
   });
   const value = { participants: [{ name: 'Anna Andersson' }], details: { where: 'Korridoren' } } as unknown as JsonNode;
-  render(<JsonParametersDisplay municipalityId="2281" jsonParameters={[{ key: 'report', schemaId: 'id', value }]} />);
+  render(<JsonParametersDisplay jsonParameters={[{ key: 'report', schemaId: 'id', value }]} />);
 
   expect(await screen.findByDisplayValue('Anna Andersson')).toBeTruthy();
   expect(screen.getByDisplayValue('Korridoren')).toBeTruthy();

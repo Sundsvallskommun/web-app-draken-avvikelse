@@ -632,39 +632,24 @@ export class SupportErrandController {
     @Param('errandNumber') errandNumber: string,
     @Res() response: any,
   ): Promise<SupportErrand> {
-    if (!MUNICIPALITY_ID) {
-      console.error('No municipality id found, needed to fetch errands.');
-      logger.error('No municipality id found, needed to fetch errands.');
-      return response.status(400).send('Municipality id missing');
-    }
     const url = `${this.SERVICE}/${MUNICIPALITY_ID}/${this.namespace}/errands?filter=errandNumber:'${errandNumber}'`;
     const errandResponse = await this.apiService.get<any>({ url }, req.user);
     const errandData = errandResponse.data.content[0];
     return response.send((await this.preparedErrandResponse(errandData, req)).data);
   }
 
-  @Get('/supporterrands/:municipalityId/:id')
+  @Get('/supporterrands/:id')
   @OpenAPI({ summary: 'Return an errand by id' })
   @UseBefore(authMiddleware)
-  async errand(
-    @Req() req: RequestWithUser,
-    @Param('id') id: string,
-    @Param('municipalityId') municipalityId: string,
-    @Res() response: any,
-  ): Promise<SupportErrand> {
-    if (!municipalityId) {
-      console.error('No municipality id found, needed to fetch errands.');
-      logger.error('No municipality id found, needed to fetch errands.');
-      return response.status(400).send('Municipality id missing');
-    }
-    const url = `${this.SERVICE}/${municipalityId}/${this.namespace}/errands/${id}`;
+  async errand(@Req() req: RequestWithUser, @Param('id') id: string, @Res() response: any): Promise<SupportErrand> {
+    const url = `${this.SERVICE}/${MUNICIPALITY_ID}/${this.namespace}/errands/${id}`;
     const errandResponse = await this.apiService.get<SupportErrand>({ url }, req.user);
     const errandData = errandResponse.data;
 
     return response.send((await this.preparedErrandResponse(errandData, req)).data);
   }
 
-  @Get('/supporterrands/:municipalityId')
+  @Get('/supporterrands')
   @OpenAPI({ summary: 'Return all support errands for municipality' })
   @UseBefore(authMiddleware, hasPermissions(['canEditSupportManagement']))
   async errands(
@@ -686,15 +671,8 @@ export class SupportErrandController {
     @QueryParam('start') start: string,
     @QueryParam('end') end: string,
     @QueryParam('sort') sort: string,
-    @Param('municipalityId') municipalityId: string,
     @Res() response: any,
   ): Promise<PageErrand> {
-    if (!municipalityId) {
-      console.error('No municipality id found, needed to fetch errands.');
-      logger.error('No municipality id found, needed to fetch errands.');
-      return response.status(400).send('Municipality id missing');
-    }
-
     const criteria = await this.resolveOverviewCriteria(req, {
       query,
       stakeholders,
@@ -711,11 +689,11 @@ export class SupportErrandController {
       start,
       end,
     });
-    const errands = await this.errandListing().list(municipalityId, criteria, { page: page || 0, size: size || 8, sort }, req.user);
+    const errands = await this.errandListing().list(MUNICIPALITY_ID, criteria, { page: page || 0, size: size || 8, sort }, req.user);
     return response.status(200).send(errands);
   }
 
-  @Get('/countsupporterrands/:municipalityId/statusgroups')
+  @Get('/countsupporterrands/statusgroups')
   @OpenAPI({ summary: 'Counts the errands matching the filters in each group of statuses, in the order the groups are given' })
   @UseBefore(authMiddleware, hasPermissions(['canEditSupportManagement']))
   async countErrandsByStatusGroups(
@@ -734,15 +712,8 @@ export class SupportErrandController {
     @QueryParam('resolution') resolution: string,
     @QueryParam('start') start: string,
     @QueryParam('end') end: string,
-    @Param('municipalityId') municipalityId: string,
     @Res() response: any,
   ): Promise<SupportErrandStatusGroupCounts> {
-    if (!municipalityId) {
-      console.error('No municipality id found, needed to fetch errands.');
-      logger.error('No municipality id found, needed to fetch errands.');
-      return response.status(400).send('Municipality id missing');
-    }
-
     const groups = parseStatusGroups(statusGroups);
     const criteria = await this.resolveOverviewCriteria(req, {
       query,
@@ -759,30 +730,23 @@ export class SupportErrandController {
       start,
       end,
     });
-    const counts = await this.errandListing().countByStatusGroups(municipalityId, criteria, groups, req.user);
+    const counts = await this.errandListing().countByStatusGroups(MUNICIPALITY_ID, criteria, groups, req.user);
     return response.status(200).send({ counts });
   }
 
-  @Post('/newerrand/:municipalityId')
+  @Post('/newerrand')
   @HttpCode(201)
   @OpenAPI({ summary: 'Initiate a new support errand' })
   @UseBefore(authMiddleware, validationMiddleware(NewSupportErrandDto, 'body'))
   async registerSupportErrand(
     @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
     @Body() data: NewSupportErrandDto,
     @Res() response: any,
   ): Promise<{ data: SupportErrandDto; message: string }> {
-    if (!municipalityId) {
-      console.error('No municipality id found, needed to fetch errands.');
-      logger.error('No municipality id found, needed to fetch errands.');
-      return response.status(400).send('Municipality id missing');
-    }
-
     const defaults = await this.assertRegistrationEnabled();
 
     // The whole metadata rather than just its labels: a new errand also needs the phase it starts in.
-    const metadataRes = await this.readSupportMetadata(req, municipalityId);
+    const metadataRes = await this.readSupportMetadata(req, MUNICIPALITY_ID);
 
     // An errand created without a phase stands outside the workflow, and the phase strip has nothing
     // to advance from. A namespace with no phases configured simply has no workflow, and the errand
@@ -790,9 +754,9 @@ export class SupportErrandController {
     const initialPhase = findInitialSupportErrandPhase(metadataRes.data.phases);
     const initialStatus = initialPhase ? (resolvePhaseStatus(Status.NEW, initialPhase) ?? Status.NEW) : Status.NEW;
 
-    const registration = await this.resolveRegistrationChoice(req, municipalityId, data, metadataRes.data);
+    const registration = await this.resolveRegistrationChoice(req, MUNICIPALITY_ID, data, metadataRes.data);
 
-    const url = `${municipalityId}/${this.namespace}/errands`;
+    const url = `${MUNICIPALITY_ID}/${this.namespace}/errands`;
     const baseURL = apiURL(this.SERVICE);
     const body: Partial<SupportErrandDto> = {
       reporterUserId: req.user.username,
@@ -816,7 +780,11 @@ export class SupportErrandController {
       return response.status(500).send('Something went wrong when initiating support errand');
     }
     if (this.investigationPolicyService.assigneeFollowsErrand && res.data.id) {
-      await followErrandWithAssignee(this.subscriberApi(), { municipalityId, errandId: res.data.id, nextAssignee: req.user.username }, req.user);
+      await followErrandWithAssignee(
+        this.subscriberApi(),
+        { municipalityId: MUNICIPALITY_ID, errandId: res.data.id, nextAssignee: req.user.username },
+        req.user,
+      );
     }
     return response.status(201).send(res.data);
   }
@@ -825,16 +793,16 @@ export class SupportErrandController {
    * What the registration form offers the signed-in handler: the report types the application
    * configures, and the places their employment - or else their AccessMapper configuration - gives.
    */
-  @Get('/newerrand/:municipalityId/options')
+  @Get('/newerrand/options')
   @OpenAPI({ summary: 'The choices the registration form offers the signed-in handler' })
   @UseBefore(authMiddleware)
-  async getNewErrandOptions(@Req() req: RequestWithUser, @Param('municipalityId') municipalityId: string): Promise<NewErrandOptionsResponse> {
+  async getNewErrandOptions(@Req() req: RequestWithUser): Promise<NewErrandOptionsResponse> {
     const { form } = await this.assertRegistrationEnabled();
 
-    const metadata = await this.readSupportMetadata(req, municipalityId);
+    const metadata = await this.readSupportMetadata(req, MUNICIPALITY_ID);
     const labelStructure = metadata.data.labels?.labelStructure;
 
-    const handlerLocations = form.location ? await this.resolveHandlerLocations(req, municipalityId, labelStructure) : undefined;
+    const handlerLocations = form.location ? await this.resolveHandlerLocations(req, MUNICIPALITY_ID, labelStructure) : undefined;
     return {
       reportTypes: resolveRegistrationReportTypes(labelStructure, form.reportTypes),
       locations: handlerLocations?.locations ?? [],
@@ -983,25 +951,19 @@ export class SupportErrandController {
     });
   }
 
-  @Patch('/supporterrands/:municipalityId/:id')
+  @Patch('/supporterrands/:id')
   @OpenAPI({ summary: 'Update a support errand' })
   @UseBefore(authMiddleware, hasPermissions(['canEditSupportManagement']), validationMiddleware(SupportErrandDto, 'body'))
   async updateSupportErrand(
     @Req() req: RequestWithUser,
     @Param('id') id: string,
-    @Param('municipalityId') municipalityId: string,
     @HeaderParam('If-Match') ifMatch: string,
     @Body() data: Partial<SupportErrandDto>,
     @Res() response: any,
   ): Promise<{ data: any; message: string }> {
-    if (!municipalityId) {
-      console.error('No municipality id found, it is needed to fetch errands.');
-      logger.error('No municipality id found, it is needed to fetch errands.');
-      return response.status(400).send('Municipality id missing');
-    }
     assertGenericUpdateFields(data);
     const requestedVersion = requireStrongErrandVersion(ifMatch);
-    const url = `${municipalityId}/${this.namespace}/errands/${id}`;
+    const url = `${MUNICIPALITY_ID}/${this.namespace}/errands/${id}`;
     const baseURL = apiURL(this.SERVICE);
     const currentErrand = await this.apiService.get<SupportErrand>(
       { url, baseURL, includeResponseHeaders: true, propagateClientError: true },
@@ -1014,7 +976,7 @@ export class SupportErrandController {
 
     await this.assertGenericClassificationUpdateAllowed(req, currentErrand.data, data);
     const body: Partial<SupportErrandDto> = stripErrandVersions({ ...data });
-    if (body.labels) body.labels = await this.keepPermanentLabels(req, municipalityId, currentErrand.data.labels, body.labels);
+    if (body.labels) body.labels = await this.keepPermanentLabels(req, MUNICIPALITY_ID, currentErrand.data.labels, body.labels);
     const res = await this.apiService
       .patch<any, Partial<SupportErrandDto>>(
         {
@@ -1035,24 +997,18 @@ export class SupportErrandController {
     return response.status(200).send(res.data);
   }
 
-  @Patch('/supporterrands/:municipalityId/:id/status')
+  @Patch('/supporterrands/:id/status')
   @HttpCode(200)
   @OpenAPI({ summary: 'Apply one explicit status transition to a support errand' })
   @UseBefore(authMiddleware, hasPermissions(['canEditSupportManagement']), validationMiddleware(UpdateSupportErrandStatusDto, 'body'))
   async updateSupportErrandStatus(
     @Req() req: RequestWithUser,
     @Param('id') id: string,
-    @Param('municipalityId') municipalityId: string,
     @Body() data: UpdateSupportErrandStatusDto,
     @Res() response: any,
   ): Promise<any> {
-    if (!municipalityId) {
-      logger.error('No municipality id found, it is needed to update the errand status.');
-      return response.status(400).send('Municipality id missing');
-    }
-
-    const url = `${municipalityId}/${this.namespace}/errands/${id}`;
-    const metadataUrl = `${municipalityId}/${this.namespace}/metadata`;
+    const url = `${MUNICIPALITY_ID}/${this.namespace}/errands/${id}`;
+    const metadataUrl = `${MUNICIPALITY_ID}/${this.namespace}/metadata`;
     const baseURL = apiURL(this.SERVICE);
     const [currentErrand, metadata] = await Promise.all([
       this.apiService.get<SupportErrand>({ url, baseURL, includeResponseHeaders: true, propagateClientError: true }, req.user),
@@ -1075,7 +1031,7 @@ export class SupportErrandController {
       policyService: this.investigationPolicyService,
       documentService: this.jsonParameterService,
       user: req.user,
-      municipalityId,
+      municipalityId: MUNICIPALITY_ID,
       errandId: id,
       errand: currentErrand.data,
       closes: data.status === CLOSED_SUPPORT_ERRAND_STATUS,
@@ -1167,22 +1123,16 @@ export class SupportErrandController {
     });
   }
 
-  @Patch('/supporterrands/:municipalityId/:id/classification')
+  @Patch('/supporterrands/:id/classification')
   @HttpCode(200)
   @OpenAPI({ summary: 'Update the classification and labels of a support errand' })
   @UseBefore(authMiddleware, hasPermissions(['canEditSupportManagement']), validationMiddleware(UpdateSupportErrandClassificationDto, 'body'))
   async updateSupportErrandClassification(
     @Req() req: RequestWithUser,
     @Param('id') id: string,
-    @Param('municipalityId') municipalityId: string,
     @Body() data: UpdateSupportErrandClassificationDto,
     @Res() response: any,
   ): Promise<any> {
-    if (!municipalityId) {
-      console.error('No municipality id found, it is needed to update errand classification.');
-      logger.error('No municipality id found, it is needed to update errand classification.');
-      return response.status(400).send('Municipality id missing');
-    }
     const classificationOwner = await this.investigationPolicyService.getClassificationOwner();
     if (classificationOwner === 'unavailable') {
       throw new HttpException(503, 'Investigation classification ownership is temporarily unavailable');
@@ -1203,16 +1153,16 @@ export class SupportErrandController {
     // therefore not enough: this is a write. The document grant stays the authority even when the
     // errand's own level is R and this write reaches labels: /access is trusted as given, and a
     // grant on the key is a grant to what writing that document entails.
-    await this.investigationAccessService.assertCanWriteDocument(req.user, municipalityId, id, definition.key);
-    const url = `${municipalityId}/${this.namespace}/errands/${id}`;
-    const metadataUrl = `${municipalityId}/${this.namespace}/metadata/labels`;
+    await this.investigationAccessService.assertCanWriteDocument(req.user, MUNICIPALITY_ID, id, definition.key);
+    const url = `${MUNICIPALITY_ID}/${this.namespace}/errands/${id}`;
+    const metadataUrl = `${MUNICIPALITY_ID}/${this.namespace}/metadata/labels`;
     const baseURL = apiURL(this.SERVICE);
     const [currentErrand, labelMetadata, classificationDocument] = await Promise.all([
       this.apiService.get<SupportErrand>({ url, baseURL, includeResponseHeaders: true, propagateClientError: true }, req.user),
       supportMetadataCache.read<SupportLabels | null>(this.apiService, { url: metadataUrl, baseURL, propagateClientError: true }, req.user),
       this.jsonParameterService.readJsonParameter({
         definition,
-        municipalityId,
+        municipalityId: MUNICIPALITY_ID,
         errandId: id,
         user: req.user,
       }),
@@ -1262,24 +1212,18 @@ export class SupportErrandController {
     return response.status(200).send({ ...savedErrand.data, version: savedVersion });
   }
 
-  @Patch('/supporterrands/:municipalityId/:id/admin')
+  @Patch('/supporterrands/:id/admin')
   @OpenAPI({ summary: 'Set user as admin for support errand' })
   @UseBefore(authMiddleware, hasPermissions(['canEditSupportManagement']), validationMiddleware(AssignSupportErrandDto, 'body'))
   async becomeAdminForSupportErrand(
     @Req() req: RequestWithUser,
     @Param('id') id: string,
-    @Param('municipalityId') municipalityId: string,
     @HeaderParam('If-Match') ifMatch: string,
     @Body() data: AssignSupportErrandDto,
     @Res() response: any,
   ): Promise<{ data: any; message: string }> {
-    if (!municipalityId) {
-      console.error('No municipality id found, it is needed to update errand.');
-      logger.error('No municipality id found, it is needed to update errand.');
-      return response.status(400).send('Municipality id missing');
-    }
     const requestedVersion = requireStrongErrandVersion(ifMatch);
-    const url = `${municipalityId}/${this.namespace}/errands/${id}`;
+    const url = `${MUNICIPALITY_ID}/${this.namespace}/errands/${id}`;
     const baseURL = apiURL(this.SERVICE);
     const currentErrand = await this.apiService.get<SupportErrand>(
       { url, baseURL, includeResponseHeaders: true, propagateClientError: true },
@@ -1310,7 +1254,7 @@ export class SupportErrandController {
     if (this.investigationPolicyService.assigneeFollowsErrand) {
       await followErrandWithAssignee(
         this.subscriberApi(),
-        { municipalityId, errandId: id, previousAssignee: currentErrand.data.assignedUserId, nextAssignee: data.assignedUserId },
+        { municipalityId: MUNICIPALITY_ID, errandId: id, previousAssignee: currentErrand.data.assignedUserId, nextAssignee: data.assignedUserId },
         req.user,
       );
     }

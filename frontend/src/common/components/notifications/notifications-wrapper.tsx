@@ -1,7 +1,6 @@
 import { sortBy } from '@common/services/helper-service';
 import { Button, Checkbox, cx, Divider, useSnackbar } from '@sk-web-gui/react';
 import { useSupportStore } from '@stores/index';
-import { useConfigStore } from '@stores/index';
 import { Bell, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -15,7 +14,6 @@ export const NotificationsWrapper: React.FC<{
   setShow: (arg0: boolean) => void;
   refresh?: () => Promise<void>;
 }> = ({ show, setShow, refresh }) => {
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const notifications = useSupportStore((s) => s.notifications);
   const toastMessage = useSnackbar();
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
@@ -77,7 +75,7 @@ export const NotificationsWrapper: React.FC<{
     const count = selectedNotifications.length;
     setIsAcknowledging(true);
     try {
-      const { failed } = await acknowledgeNotifications(municipalityId, selectedNotifications);
+      const { failed } = await acknowledgeNotifications(selectedNotifications);
       await refresh?.();
       // Keep the failed ones selected so a retry does not mean re-ticking them.
       setSelectedKeys(new Set(failed));

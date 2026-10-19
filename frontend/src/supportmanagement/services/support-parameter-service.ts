@@ -139,14 +139,10 @@ interface ErrandParameterWrite {
  * A concurrent edit to some other part of the errand neither fails this write nor is overwritten by
  * it - which is what sending the whole parameter array used to do.
  */
-const saveErrandParameter = (
-  municipalityId: string,
-  errandId: string,
-  write: ErrandParameterWrite
-): Promise<Parameter> =>
+const saveErrandParameter = (errandId: string, write: ErrandParameterWrite): Promise<Parameter> =>
   apiService
     .put<Parameter, Omit<ErrandParameterWrite, 'key' | 'version'>>(
-      `supporterrands/${municipalityId}/${errandId}/parameters/${encodeURIComponent(write.key)}`,
+      `supporterrands/${errandId}/parameters/${encodeURIComponent(write.key)}`,
       {
         values: write.values,
         ...(write.displayName ? { displayName: write.displayName } : {}),
@@ -179,7 +175,6 @@ const sameValues = (left: string[] | undefined, right: string[] | undefined): bo
  * people following the errand get one notification rather than one for each parameter.
  */
 export const saveChangedErrandParameters = (
-  municipalityId: string,
   errandId: string,
   currentParameters: Parameter[] | undefined,
   nextParameters: Parameter[] | undefined
@@ -192,7 +187,7 @@ export const saveChangedErrandParameters = (
       const existing = current.get(next.key);
       if (existing && sameValues(existing.values, next.values)) continue;
 
-      await saveErrandParameter(municipalityId, errandId, {
+      await saveErrandParameter(errandId, {
         key: next.key,
         values: next.values ?? [],
         displayName: next.displayName,

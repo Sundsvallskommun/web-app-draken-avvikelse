@@ -176,7 +176,6 @@ export async function prepareInvestigationClassification({
 }
 
 interface SaveDocumentStepInput {
-  readonly municipalityId: string;
   readonly errandId: string;
   readonly documentKey: InvestigationDocumentKey;
   readonly schemaId: string;
@@ -190,7 +189,6 @@ interface SaveDocumentStepInput {
 }
 
 export async function saveInvestigationDocumentStep({
-  municipalityId,
   errandId,
   documentKey,
   schemaId,
@@ -214,18 +212,10 @@ export async function saveInvestigationDocumentStep({
       ? parentErrandVersion
       : undefined;
 
-  return saveSupportInvestigationDocument(
-    municipalityId,
-    errandId,
-    documentKey,
-    { schemaId, value },
-    loadedParentErrandVersion,
-    etag
-  );
+  return saveSupportInvestigationDocument(errandId, documentKey, { schemaId, value }, loadedParentErrandVersion, etag);
 }
 
 interface SaveClassificationStepInput {
-  readonly municipalityId: string;
   readonly errandId: string;
   readonly documentKey: InvestigationDocumentKey;
   readonly prepared?: PreparedInvestigationClassification;
@@ -242,7 +232,6 @@ export const savedBeyondTheDocument = (saved: { readonly ownErrandWrites?: numbe
   (saved?.ownErrandWrites ?? 1) > 1;
 
 export async function saveInvestigationClassificationStep({
-  municipalityId,
   errandId,
   documentKey,
   prepared,
@@ -256,7 +245,7 @@ export async function saveInvestigationClassificationStep({
     documentKey,
     documentETag
   );
-  return saveSupportInvestigationClassification(municipalityId, errandId, request);
+  return saveSupportInvestigationClassification(errandId, request);
 }
 
 /**

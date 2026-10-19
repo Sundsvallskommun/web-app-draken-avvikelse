@@ -3,7 +3,7 @@
 import { getNameFromADUsername } from '@common/services/user-service';
 import { countWithNoun } from '@common/utils/count-with-noun';
 import { Alert, Spinner, Tabs } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore, useUserStore } from '@stores/index';
+import { useMetadataStore, useUserStore } from '@stores/index';
 import { newStatuses } from '@supportmanagement/services/support-errand-service';
 import { isAxiosError } from 'axios';
 import dayjs from 'dayjs';
@@ -57,7 +57,6 @@ const readErrorMessage = (cause: unknown): string =>
  * which errands the user reaches; this reads, it never writes.
  */
 export const UnitFollowUp: FC = () => {
-  const municipalityId = useConfigStore((state) => state.municipalityId);
   const supportMetadata = useMetadataStore((state) => state.supportMetadata);
   const administrators = useUserStore((state) => state.administrators);
   const user = useUserStore((state) => state.user);
@@ -68,26 +67,24 @@ export const UnitFollowUp: FC = () => {
   const [vocabulary, setVocabulary] = useState<UnitFollowUpVocabulary>(EMPTY_UNIT_FOLLOW_UP_VOCABULARY);
 
   useEffect(() => {
-    if (!municipalityId) return;
     let current = true;
-    getUnitFollowUp(municipalityId, period).then(
+    getUnitFollowUp(period).then(
       (snapshot) => current && setState({ status: 'ready', snapshot }),
       (cause: unknown) => current && setState({ status: 'failed', message: readErrorMessage(cause) })
     );
     return () => {
       current = false;
     };
-  }, [municipalityId, period]);
+  }, [period]);
 
   useEffect(() => {
-    if (!municipalityId) return;
     let current = true;
     // The vocabulary falls back to its own words on a schema that cannot be read; it never rejects.
-    void loadUnitFollowUpVocabulary(municipalityId).then((loaded) => current && setVocabulary(loaded));
+    void loadUnitFollowUpVocabulary().then((loaded) => current && setVocabulary(loaded));
     return () => {
       current = false;
     };
-  }, [municipalityId]);
+  }, []);
 
   // A new period starts a new read; the lists wait for it rather than showing the old period's rows.
   const changePeriod = (next: UnitFollowUpPeriod) => {

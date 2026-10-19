@@ -110,7 +110,7 @@ test('MAS/MAR opens VC kommentar HSL from the analysis, and the errand version f
 
   // The errand's own next save is conditioned on the version the request left.
   const errandWrite = page.waitForRequest(
-    (request) => request.method() === 'PATCH' && /\/supporterrands\/2281\/[^/]+$/u.test(new URL(request.url()).pathname)
+    (request) => request.method() === 'PATCH' && /\/supporterrands\/[^/]+$/u.test(new URL(request.url()).pathname)
   );
   await page.locator('[data-cy="priority-input"]').selectOption('HIGH');
   await page.locator('[data-cy="manage-sidebar"] [data-cy="save-button"]').filter({ hasText: 'Spara ärende' }).click();

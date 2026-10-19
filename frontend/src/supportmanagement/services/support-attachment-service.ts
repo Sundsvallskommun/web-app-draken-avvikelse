@@ -84,11 +84,10 @@ export const ACCEPTED_UPLOAD_FILETYPES = [
 
 export const getSupportAttachment: (
   errandId: string,
-  municipalityId: string,
   attachment: SupportAttachment
-) => Promise<SingleSupportAttachment> = (errandId, municipalityId, attachment) => {
+) => Promise<SingleSupportAttachment> = (errandId, attachment) => {
   return apiService
-    .get<string>(`supportattachments/${municipalityId}/errands/${errandId}/attachments/${attachment.id}`)
+    .get<string>(`supportattachments/errands/${errandId}/attachments/${attachment.id}`)
     .then((res) => {
       const att: SingleSupportAttachment = {
         errandAttachmentHeader: {
@@ -106,13 +105,10 @@ export const getSupportAttachment: (
     });
 };
 
-export const getSupportAttachments: (errandId: string, municipalityId: string) => Promise<SupportAttachment[]> = (
-  errandId,
-  municipalityId
-) => {
+export const getSupportAttachments: (errandId: string) => Promise<SupportAttachment[]> = (errandId) => {
   // return Promise.resolve([]);
   return apiService
-    .get<SupportAttachment[]>(`supportattachments/${municipalityId}/errands/${errandId}/attachments`)
+    .get<SupportAttachment[]>(`supportattachments/errands/${errandId}/attachments`)
     .then((res) => {
       return res.data;
     })
@@ -122,14 +118,14 @@ export const getSupportAttachments: (errandId: string, municipalityId: string) =
     });
 };
 
-export const deleteSupportAttachment = (errandId: string, municipalityId: string, attachmentId: string) => {
+export const deleteSupportAttachment = (errandId: string, attachmentId: string) => {
   if (!attachmentId) {
     console.error('No id found, cannot continue.');
     return;
   }
 
   return apiService
-    .deleteRequest<boolean>(`supportattachments/${municipalityId}/errands/${errandId}/attachments/${attachmentId}`)
+    .deleteRequest<boolean>(`supportattachments/errands/${errandId}/attachments/${attachmentId}`)
     .then((res) => {
       return res;
     })
@@ -145,13 +141,8 @@ export const deleteSupportAttachment = (errandId: string, municipalityId: string
  */
 export const saveSupportAttachments: (
   errandId: string,
-  municipalityId: string,
   attachments: { file: File }[]
-) => Promise<({ status: 'fulfilled'; value: any } | { status: 'rejected'; reason: any })[]> = (
-  errandId,
-  municipalityId,
-  attachments
-) =>
+) => Promise<({ status: 'fulfilled'; value: any } | { status: 'rejected'; reason: any })[]> = (errandId, attachments) =>
   withRequestGroup(() => {
     const attachmentPromises = attachments.map(async (attachment, idx) => {
       // await delay(idx * 500);
@@ -169,7 +160,7 @@ export const saveSupportAttachments: (
       formData.append(`files`, blob, fileItem.name);
       formData.append(`name`, fileItem.name);
       return apiService
-        .post<boolean, FormData>(`supportattachments/${municipalityId}/errands/${errandId}/attachments`, formData, {
+        .post<boolean, FormData>(`supportattachments/errands/${errandId}/attachments`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         })
         .then((res) => {

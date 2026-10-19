@@ -47,7 +47,7 @@ describe('SupportConversationController read state', () => {
     ];
     api.get.mockResolvedValue({ data: counts, message: 'success' });
 
-    const result = await controller.returnConversationReadByCounts(mockReq(), mockSupportErrandId, mockMunicipalityId, undefined);
+    const result = await controller.returnConversationReadByCounts(mockReq(), mockSupportErrandId, undefined);
 
     expect(api.get).toHaveBeenCalledWith(
       {
@@ -63,7 +63,7 @@ describe('SupportConversationController read state', () => {
   it('forwards the optional conversation filter and preserves an empty result', async () => {
     const { controller, api } = makeController();
 
-    const result = await controller.returnConversationReadByCounts(mockReq(), mockSupportErrandId, mockMunicipalityId, false, mockConversationId);
+    const result = await controller.returnConversationReadByCounts(mockReq(), mockSupportErrandId, false, mockConversationId);
 
     expect(api.get).toHaveBeenCalledWith(
       expect.objectContaining({ params: { includeSystemMessages: false, conversationId: mockConversationId } }),
@@ -76,7 +76,7 @@ describe('SupportConversationController read state', () => {
     const { controller, api } = makeController();
     const request = { messageIds: ['message-1', 'message-2'] };
 
-    await controller.markConversationMessagesAsRead(mockReq(), mockSupportErrandId, mockMunicipalityId, mockConversationId, request);
+    await controller.markConversationMessagesAsRead(mockReq(), mockSupportErrandId, mockConversationId, request);
 
     expect(api.post).toHaveBeenCalledWith(
       {
@@ -111,7 +111,7 @@ describe('SupportConversationController read state', () => {
         message: 'success',
       });
 
-    const result = await controller.returnAllMessages(mockReq(), mockSupportErrandId, mockMunicipalityId, mockConversationId);
+    const result = await controller.returnAllMessages(mockReq(), mockSupportErrandId, mockConversationId);
 
     expect(result.data).toEqual([
       expect.objectContaining({ messageId: 'unread-message', viewed: false }),

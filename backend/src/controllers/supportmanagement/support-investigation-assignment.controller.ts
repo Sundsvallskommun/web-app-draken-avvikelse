@@ -2,7 +2,7 @@ import { IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validato
 import { Body, Controller, Get, HttpCode, Param, Post, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
-import { SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
+import { MUNICIPALITY_ID, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
 import { apiServiceName } from '@/config/api-config';
 import { awaitsLexHandover } from '@/config/iaf-vof-decision-investigation';
 import {
@@ -114,19 +114,15 @@ export class SupportInvestigationAssignmentController {
   private namespace = SUPPORTMANAGEMENT_NAMESPACE;
   SERVICE = apiServiceName('supportmanagement');
 
-  @Get('/supporterrands/:municipalityId/:id/unit-manager')
+  @Get('/supporterrands/:id/unit-manager')
   @OpenAPI({ summary: "Resolve the unit manager owning the errand's location" })
   @UseBefore(authMiddleware)
-  async getUnitManager(
-    @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
-    @Param('id') id: string,
-  ): Promise<UnitManagerResponse> {
+  async getUnitManager(@Req() req: RequestWithUser, @Param('id') id: string): Promise<UnitManagerResponse> {
     const step = this.requireStep('return-to-manager');
-    await this.assertStepAllowed(req, municipalityId, id, step);
+    await this.assertStepAllowed(req, MUNICIPALITY_ID, id, step);
 
-    const { errand, metadata } = await this.readErrandAndMetadata(req, municipalityId, id);
-    const { location, managers } = await this.resolveManagersForErrand(req, municipalityId, errand, metadata);
+    const { errand, metadata } = await this.readErrandAndMetadata(req, MUNICIPALITY_ID, id);
+    const { location, managers } = await this.resolveManagersForErrand(req, MUNICIPALITY_ID, errand, metadata);
 
     return {
       candidates: managers,
@@ -144,21 +140,16 @@ export class SupportInvestigationAssignmentController {
    * investigation may move the errand. A wrongly routed errand is first seen by the manager it
    * wrongly reached, and that is the person who has to be able to send it on.
    */
-  @Get('/supporterrands/:municipalityId/:id/location-managers/:labelId')
+  @Get('/supporterrands/:id/location-managers/:labelId')
   @OpenAPI({ summary: 'Resolve the managers of the place an errand would be moved to' })
   @UseBefore(authMiddleware)
-  async getLocationManagers(
-    @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
-    @Param('id') id: string,
-    @Param('labelId') labelId: string,
-  ): Promise<UnitManagerResponse> {
+  async getLocationManagers(@Req() req: RequestWithUser, @Param('id') id: string, @Param('labelId') labelId: string): Promise<UnitManagerResponse> {
     const step = this.requireStep('move-location');
-    await this.assertStepAllowed(req, municipalityId, id, step);
+    await this.assertStepAllowed(req, MUNICIPALITY_ID, id, step);
 
-    const { errand, metadata } = await this.readErrandAndMetadata(req, municipalityId, id);
+    const { errand, metadata } = await this.readErrandAndMetadata(req, MUNICIPALITY_ID, id);
     const target = this.requireLocationTarget(errand, metadata, labelId);
-    const managers = await this.resolveManagersForLocation(req, municipalityId, target.location);
+    const managers = await this.resolveManagersForLocation(req, MUNICIPALITY_ID, target.location);
 
     return {
       candidates: managers,
@@ -184,14 +175,10 @@ export class SupportInvestigationAssignmentController {
    * - and where none of that applies - no location, or a profile without the avvikelse
    *   classification policy - the unchanged list.
    */
-  @Get('/supporterrands/:municipalityId/:id/assignable-handlers')
+  @Get('/supporterrands/:id/assignable-handlers')
   @OpenAPI({ summary: 'Return the handlers who can be assigned this errand' })
   @UseBefore(authMiddleware)
-  async getAssignableHandlers(
-    @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
-    @Param('id') id: string,
-  ): Promise<AssignableHandlersResponse> {
+  async getAssignableHandlers(@Req() req: RequestWithUser, @Param('id') id: string): Promise<AssignableHandlersResponse> {
     const unfiltered = async (): Promise<AssignableHandlersResponse> => {
       const data = await this.handlerDirectory.listHandlers(req.user);
       return { data, roles: this.handlerDirectory.roles.map(({ key, label }) => ({ key, label })), message: 'ok' };
@@ -202,7 +189,7 @@ export class SupportInvestigationAssignmentController {
     // Ansvarig list would leave it unable to assign anybody at all.
     if (!this.investigationPolicyService.iafVofClassificationPolicy || !this.namespace?.trim()) return unfiltered();
 
-    const { errand, metadata } = await this.readErrandAndMetadata(req, municipalityId, id);
+    const { errand, metadata } = await this.readErrandAndMetadata(req, MUNICIPALITY_ID, id);
     const labelStructure = metadata.labels?.labelStructure;
 
     if (hasInvestigationAccessLexLabel(errand.labels, labelStructure)) {
@@ -217,7 +204,7 @@ export class SupportInvestigationAssignmentController {
 
     let managers: ManagerCandidate[];
     try {
-      ({ managers } = await this.resolveManagersForErrand(req, municipalityId, errand, metadata));
+      ({ managers } = await this.resolveManagersForErrand(req, MUNICIPALITY_ID, errand, metadata));
     } catch (error) {
       // An errand with no place - or more than one - has no managers to offer, but it still has to
       // be assignable. Falling back keeps the list usable instead of emptying it over a data problem.
@@ -242,27 +229,26 @@ export class SupportInvestigationAssignmentController {
     };
   }
 
-  @Post('/supporterrands/:municipalityId/:id/investigation-handover/:step')
+  @Post('/supporterrands/:id/investigation-handover/:step')
   @HttpCode(204)
   @OpenAPI({ summary: 'Apply one named investigation handover step to a support errand' })
   @UseBefore(authMiddleware, validationMiddleware(InvestigationHandoverDto, 'body'))
   async applyHandover(
     @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
     @Param('id') id: string,
     @Param('step') stepName: string,
     @Body() data: InvestigationHandoverDto,
     @Res() response: any,
   ): Promise<any> {
     const step = this.requireStep(stepName);
-    const authorizingDocumentKey = await this.assertStepAllowed(req, municipalityId, id, step);
+    const authorizingDocumentKey = await this.assertStepAllowed(req, MUNICIPALITY_ID, id, step);
 
-    let { errand, metadata, currentVersion } = await this.readErrandAndMetadata(req, municipalityId, id);
+    let { errand, metadata, currentVersion } = await this.readErrandAndMetadata(req, MUNICIPALITY_ID, id);
     assertRequestedErrandVersion(data.expectedVersion, currentVersion);
     assertSupportErrandAdminAssignable(errand, `the ${step.step} handover`);
-    if (await this.carryOutSavedDecision(req, municipalityId, id, step, authorizingDocumentKey, errand)) {
+    if (await this.carryOutSavedDecision(req, MUNICIPALITY_ID, id, step, authorizingDocumentKey, errand)) {
       // The service note was this step's own write, so the handover applies to the errand as it now stands.
-      ({ errand, metadata, currentVersion } = await this.readErrandAfterOwnWrite(req, municipalityId, id, currentVersion));
+      ({ errand, metadata, currentVersion } = await this.readErrandAfterOwnWrite(req, MUNICIPALITY_ID, id, currentVersion));
     }
 
     let assignedUserId: string | undefined;
@@ -273,11 +259,11 @@ export class SupportInvestigationAssignmentController {
       // moves - in particular not the incoming JSON parameter, which stays the record of what was
       // reported even when it names the wrong unit.
       const target = this.requireLocationTarget(errand, metadata, data.locationLabelId);
-      const managers = await this.resolveManagersForLocation(req, municipalityId, target.location);
+      const managers = await this.resolveManagersForLocation(req, MUNICIPALITY_ID, target.location);
       assignedUserId = this.pickManager(step, data, managers, target.location);
       labels = buildInvestigationLocationLabelUpdate({ currentLabels: errand.labels, labelStructure: metadata.labels?.labelStructure, target });
     } else {
-      assignedUserId = step.assigneeSource === 'none' ? undefined : await this.resolveAssignee(req, municipalityId, step, data, errand, metadata);
+      assignedUserId = step.assigneeSource === 'none' ? undefined : await this.resolveAssignee(req, MUNICIPALITY_ID, step, data, errand, metadata);
       labels = buildInvestigationHandoverLabelUpdate({
         currentLabels: errand.labels,
         labelStructure: metadata.labels?.labelStructure,
@@ -299,7 +285,7 @@ export class SupportInvestigationAssignmentController {
 
     await this.apiService.patch<SupportErrand, HandoverWriteBody>(
       {
-        url: `${municipalityId}/${this.namespace}/errands/${id}`,
+        url: `${MUNICIPALITY_ID}/${this.namespace}/errands/${id}`,
         baseURL: apiURL(this.SERVICE),
         data: body,
         headers: { 'If-Match': `"${currentVersion}"` },
@@ -313,7 +299,7 @@ export class SupportInvestigationAssignmentController {
     if (assignedUserId && this.investigationPolicyService.assigneeFollowsErrand) {
       await followErrandWithAssignee(
         { apiService: this.apiService, service: this.SERVICE, namespace: this.namespace },
-        { municipalityId, errandId: id, previousAssignee: errand.assignedUserId, nextAssignee: assignedUserId },
+        { municipalityId: MUNICIPALITY_ID, errandId: id, previousAssignee: errand.assignedUserId, nextAssignee: assignedUserId },
         req.user,
       );
     }

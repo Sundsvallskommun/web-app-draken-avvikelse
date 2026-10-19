@@ -3,7 +3,7 @@
 import { useToastMessages } from '@common/hooks/use-toast-messages';
 import { countWithNoun } from '@common/utils/count-with-noun';
 import { Alert, Checkbox, SearchField, Spinner, useConfirm } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore } from '@stores/index';
+import { useMetadataStore } from '@stores/index';
 import { FC, useEffect, useMemo, useState } from 'react';
 
 import { PlaceManagerPanel } from './place-manager-panel.component';
@@ -54,7 +54,6 @@ const describeUnits = (place: PlaceTreeNode): string =>
  * an AD group ordered elsewhere, so the view shows the role and says when a person with a place lacks it.
  */
 export const PlaceManagers: FC = () => {
-  const municipalityId = useConfigStore((state) => state.municipalityId);
   const labelStructure = useMetadataStore((state) => state.supportMetadata?.labels?.labelStructure);
   const confirm = useConfirm();
   const { showSuccess, showError } = useToastMessages();
@@ -65,9 +64,8 @@ export const PlaceManagers: FC = () => {
   const [savingAccount, setSavingAccount] = useState<string>();
 
   useEffect(() => {
-    if (!municipalityId) return;
     let current = true;
-    getPlaceManagerAssignments(municipalityId).then(
+    getPlaceManagerAssignments().then(
       ({ assignments, roles }) => current && setState({ status: 'ready', assignments, roles }),
       (cause: unknown) =>
         current &&
@@ -79,7 +77,7 @@ export const PlaceManagers: FC = () => {
     return () => {
       current = false;
     };
-  }, [municipalityId]);
+  }, []);
 
   const assignments = state.status === 'ready' ? state.assignments : NO_ASSIGNMENTS;
   const roles = state.status === 'ready' ? state.roles : NO_ROLES;
@@ -89,7 +87,7 @@ export const PlaceManagers: FC = () => {
   const selected = useMemo(() => findPlaceTreeNode(tree, selectedLabelId), [tree, selectedLabelId]);
   const holders = useMemo(() => (selected ? holdersOfPlace(selected, assignments) : []), [selected, assignments]);
   const shownAccounts = useMemo(() => holders.map((holder) => holder.adAccount), [holders]);
-  const { people, failed: peopleFailed, remember } = usePlaceManagerPeople(municipalityId, shownAccounts);
+  const { people, failed: peopleFailed, remember } = usePlaceManagerPeople(shownAccounts);
   const rows = useMemo(
     () => (selected ? toPlaceManagerRows(selected, holders, people, roles) : []),
     [selected, holders, people, roles]
@@ -111,10 +109,9 @@ export const PlaceManagers: FC = () => {
     });
 
   const change = async (adAccount: string, placeChange: PlaceManagerPlaceChange, done: string): Promise<boolean> => {
-    if (!municipalityId) return false;
     setSavingAccount(adAccount);
     try {
-      const changed = await changePlaceManagerPlaces(municipalityId, adAccount, placeChange);
+      const changed = await changePlaceManagerPlaces(adAccount, placeChange);
       setState((current) =>
         current.status === 'ready'
           ? { ...current, assignments: withChangedAssignment(current.assignments, changed) }
@@ -131,7 +128,7 @@ export const PlaceManagers: FC = () => {
   };
 
   const lookup = async (adAccount: string): Promise<PlaceManagerPerson> => {
-    const [person] = await lookupPlaceManagerPeople(municipalityId, [adAccount]);
+    const [person] = await lookupPlaceManagerPeople([adAccount]);
     if (person.displayName) remember([person]);
     return person;
   };

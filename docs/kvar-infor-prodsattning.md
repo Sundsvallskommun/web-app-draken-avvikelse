@@ -66,7 +66,8 @@ och skriv i den berörda README:n vad som gjordes och när, som scheman och mall
 
 - [ ] **Produktionens env för båda driftsättningarna**, med produktionens AD-grupper: `AUTHORIZED_GROUPS`,
       `ADMIN_GROUP`, `DEVELOPER_GROUP`, `SUPERADMIN_GROUP` och `HEALTHCAREDEVIATION_HANDLER_ROLES`, som är obligatorisk.
-      Varje roll- och superadmingrupp ska också finnas i `AUTHORIZED_GROUPS`.
+      Varje roll- och superadmingrupp ska också finnas i `AUTHORIZED_GROUPS`. `MUNICIPALITY_ID` är också obligatorisk:
+      det är den enda källan till kommunkoden, och frontend har ingen.
 - [ ] **Frontendens env i produktion.** `NEXT_PUBLIC_ENVIRONMENT` får inte vara `TEST` (då visas utredningens
       felsökningspaneler och TEST-märkningen), och `NEXT_PUBLIC_USE_RELATED_REPORTS_MOCK` ska vara `false`.
 - [ ] **`docker-compose.override.yml`** kräver bara en del av backendens inställningar; bland annat saknas

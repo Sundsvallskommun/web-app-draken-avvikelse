@@ -1,7 +1,6 @@
 import { getStatusesUsingPartyId } from '@common/services/casestatus-service';
 import { appConfig } from '@config/appconfig';
 import { Disclosure, Spinner, Table } from '@sk-web-gui/react';
-import { useConfigStore } from '@stores/index';
 import type { SupportErrand } from '@supportmanagement/services/support-errand-service';
 import { getSupportOwnerStakeholder } from '@supportmanagement/services/support-stakeholder-service';
 import { Link2 } from 'lucide-react';
@@ -43,7 +42,6 @@ export const RelatedReportsDisclosure: FC<{
   /** Closed for an errand that is not yet registered. */
   disabled: boolean;
 }> = ({ errand, disabled }) => {
-  const municipalityId = useConfigStore((state) => state.municipalityId);
   const reportsAreMocked = appConfig.useRelatedReportsMock;
   const partyId = reportsAreMocked ? undefined : brukarePartyId(getSupportOwnerStakeholder(errand));
   // The answer is kept with the brukare it was read for, so a reply for somebody else is never shown.
@@ -58,7 +56,7 @@ export const RelatedReportsDisclosure: FC<{
   useEffect(() => {
     if (!partyId) return;
     let cancelled = false;
-    getStatusesUsingPartyId(municipalityId, partyId)
+    getStatusesUsingPartyId(partyId)
       .then((statuses) => {
         if (!cancelled) setAnswer({ readFor: partyId, reports: otherReports(statuses ?? [], errand.id) });
       })
@@ -68,7 +66,7 @@ export const RelatedReportsDisclosure: FC<{
     return () => {
       cancelled = true;
     };
-  }, [municipalityId, partyId, errand.id]);
+  }, [partyId, errand.id]);
 
   return (
     <Disclosure disabled={disabled} variant="alt" data-cy="connected-errands-disclosure">

@@ -1,6 +1,6 @@
 import { getToastOptions } from '@common/utils/toast-message-settings';
 import { Button, useConfirm, useSnackbar } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore, useSupportStore } from '@stores/index';
+import { useMetadataStore, useSupportStore } from '@stores/index';
 import {
   getSupportErrandById,
   resolveWorkingStatus,
@@ -13,7 +13,6 @@ import { CirclePlay } from 'lucide-react';
 import { useState } from 'react';
 
 export const SupportResumeErrandButton: React.FC<{ disabled: boolean }> = ({ disabled }) => {
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const supportErrand = useSupportStore((s) => s.supportErrand);
   const setSupportErrand = useSupportStore((s) => s.setSupportErrand);
   const supportMetadata = useMetadataStore((s) => s.supportMetadata);
@@ -26,7 +25,7 @@ export const SupportResumeErrandButton: React.FC<{ disabled: boolean }> = ({ dis
     // Resuming returns the errand to the status it works in: its phase's main status where the
     // namespace runs a workflow, the ongoing status everywhere else.
     const workingStatus = resolveWorkingStatus(supportErrand?.phases, supportMetadata?.phases);
-    return setSupportErrandStatus(supportErrand!.id!, municipalityId, workingStatus, supportErrand!)
+    return setSupportErrandStatus(supportErrand!.id!, workingStatus, supportErrand!)
       .then(() => {
         toastMessage(
           getToastOptions({
@@ -34,7 +33,7 @@ export const SupportResumeErrandButton: React.FC<{ disabled: boolean }> = ({ dis
             status: 'success',
           })
         );
-        return getSupportErrandById(supportErrand!.id!, municipalityId).then((res) => {
+        return getSupportErrandById(supportErrand!.id!).then((res) => {
           setSupportErrand(res.errand);
           setIsLoading(false);
         });

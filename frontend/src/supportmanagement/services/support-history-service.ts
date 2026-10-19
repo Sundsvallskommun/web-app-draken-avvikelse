@@ -10,9 +10,8 @@ import dayjs from 'dayjs';
 const parseChange: (
   event: SupportEvent,
   errandId: string,
-  municipalityId: string,
   keyMapper: { [key: string]: string }
-) => Promise<ParsedSupportEvent> = async (event, errandId, municipalityId, keyMapper) => {
+) => Promise<ParsedSupportEvent> = async (event, errandId, keyMapper) => {
   const currentVersion = event.metadata.find((item) => item.key === 'CurrentVersion')?.value || 'unknown';
   const previousVersion = event.metadata.find((item) => item.key === 'PreviousVersion')?.value || 'unknown';
   const executedBy = event.metadata.find((item) => item.key === 'ExecutedBy')?.value || 'unknown';
@@ -26,19 +25,18 @@ const parseChange: (
     },
   } as ParsedSupportEvent;
   return p;
-  // const diff = await fetchRevisionDiff(errandId, parsedChange, municipalityId, keyMapper);
+  // const diff = await fetchRevisionDiff(errandId, parsedChange, keyMapper);
   // parsedChange.parsed.diffList = diff;
 };
 
 export const getSupportErrandEvents: (
   errandId: string,
-  municipalityId: string,
   keyMapper: { [key: string]: string }
-) => Promise<ParsedSupportEvent[]> = (errandId, municipalityId, keyMapper) => {
+) => Promise<ParsedSupportEvent[]> = (errandId, keyMapper) => {
   return apiService
-    .get<SupportEvents>(`supporthistory/${municipalityId}/${errandId}`)
+    .get<SupportEvents>(`supporthistory/${errandId}`)
     .then((res) => {
-      const ps = res.data.content.map((event) => parseChange(event, errandId, municipalityId, keyMapper));
+      const ps = res.data.content.map((event) => parseChange(event, errandId, keyMapper));
       return Promise.all(ps);
     })
     .catch((e) => {
@@ -51,21 +49,18 @@ export const getSupportErrandEvents: (
  * When the errand's current handler took it up after it was given to them, as the errand's history tells it.
  * Undefined when the history names no assignment to them.
  */
-export const getSupportErrandAssigneeResumedAt = (
-  errandId: string,
-  municipalityId: string
-): Promise<string | undefined> =>
+export const getSupportErrandAssigneeResumedAt = (errandId: string): Promise<string | undefined> =>
   apiService
-    .get<{ resumedAt: string | null }>(`supporthistory/${municipalityId}/${errandId}/assignee-resumed`)
+    .get<{ resumedAt: string | null }>(`supporthistory/${errandId}/assignee-resumed`)
     .then((res) => res.data?.resumedAt ?? undefined);
 
 /**
  * Who gave the errand to its current handler, as the errand's history tells it. Undefined when the history names
  * no assignment to them, or not who made it.
  */
-export const getSupportErrandAssignedBy = (errandId: string, municipalityId: string): Promise<string | undefined> =>
+export const getSupportErrandAssignedBy = (errandId: string): Promise<string | undefined> =>
   apiService
-    .get<{ assignedBy: string | null }>(`supporthistory/${municipalityId}/${errandId}/assigned-by`)
+    .get<{ assignedBy: string | null }>(`supporthistory/${errandId}/assigned-by`)
     .then((res) => res.data?.assignedBy ?? undefined);
 
 /**

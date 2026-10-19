@@ -44,10 +44,10 @@ export const recordMeasuresSnapshot = (
   });
 };
 
-const readMeasureSummary = (municipalityId: string, errandId: string, readFor: string): void => {
+const readMeasureSummary = (errandId: string, readFor: string): void => {
   if (useMeasureSummaryStore.getState().pending[errandId] === readFor) return;
   useMeasureSummaryStore.setState((state) => ({ pending: { ...state.pending, [errandId]: readFor } }));
-  getSupportMeasures(municipalityId, errandId).then(
+  getSupportMeasures(errandId).then(
     (snapshot) => recordMeasuresSnapshot(errandId, snapshot, readFor),
     // Left unknown: whoever asked then says nothing about the measures, and the BFF holds the rules either way.
     () =>
@@ -67,7 +67,6 @@ const readMeasureSummary = (municipalityId: string, errandId: string, readFor: s
  * is, and asks only when there is none.
  */
 export function useErrandMeasureSummary(
-  municipalityId: string | undefined,
   errand: { readonly id?: string; readonly version?: number } | undefined,
   enabled: boolean,
   freshFor: 'version' | 'any' = 'version'
@@ -78,9 +77,9 @@ export function useErrandMeasureSummary(
   const current = summary !== undefined && (freshFor === 'any' || summary.readFor === readFor);
 
   useEffect(() => {
-    if (!enabled || !municipalityId || !errandId || !readFor || current) return;
-    readMeasureSummary(municipalityId, errandId, readFor);
-  }, [enabled, municipalityId, errandId, readFor, current]);
+    if (!enabled || !errandId || !readFor || current) return;
+    readMeasureSummary(errandId, readFor);
+  }, [enabled, errandId, readFor, current]);
 
   return enabled && current ? summary : undefined;
 }

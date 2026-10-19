@@ -118,7 +118,7 @@ describe('getAssignments', () => {
   it('answers with the places each person has, and the manager roles in display order', async () => {
     const { controller, stubs } = makeController();
 
-    const response = await controller.getAssignments(mockReq(), MUNICIPALITY_ID);
+    const response = await controller.getAssignments(mockReq());
 
     expect(stubs.listAccessUsers).toHaveBeenCalledWith(expect.anything(), MUNICIPALITY_ID, NAMESPACE);
     expect(response).toEqual({
@@ -136,9 +136,9 @@ describe('getAssignments', () => {
   it('is not offered by an application that has no place managers to set', async () => {
     const { controller, stubs } = makeController({ administersPlaceManagers: false });
 
-    await expect(controller.getAssignments(mockReq(), MUNICIPALITY_ID)).rejects.toMatchObject({ status: 404 });
-    await expect(controller.lookupPeople(mockReq(), MUNICIPALITY_ID, { adAccounts: [mockAdUsername] })).rejects.toMatchObject({ status: 404 });
-    await expect(controller.changePlaces(mockReq(), MUNICIPALITY_ID, mockAdUsername, { add: ['north-home'], remove: [] })).rejects.toMatchObject({
+    await expect(controller.getAssignments(mockReq())).rejects.toMatchObject({ status: 404 });
+    await expect(controller.lookupPeople(mockReq(), { adAccounts: [mockAdUsername] })).rejects.toMatchObject({ status: 404 });
+    await expect(controller.changePlaces(mockReq(), mockAdUsername, { add: ['north-home'], remove: [] })).rejects.toMatchObject({
       status: 404,
     });
     expect(stubs.listAccessUsers).not.toHaveBeenCalled();
@@ -150,7 +150,7 @@ describe('lookupPeople', () => {
   it('names each account once and says which manager roles it holds', async () => {
     const { controller } = makeController();
 
-    const response = await controller.lookupPeople(mockReq(), MUNICIPALITY_ID, {
+    const response = await controller.lookupPeople(mockReq(), {
       adAccounts: [mockAdUsername, ` ${mockAdUsername.toUpperCase()} `, 'unknown01'],
     });
 
@@ -166,7 +166,7 @@ describe('lookupPeople', () => {
   it('reports the manager roles and leaves out roles that are not a manager', async () => {
     const { controller } = makeController();
 
-    const response = await controller.lookupPeople(mockReq(), MUNICIPALITY_ID, { adAccounts: [mockAdUsername] });
+    const response = await controller.lookupPeople(mockReq(), { adAccounts: [mockAdUsername] });
 
     expect(response.people).toEqual([{ adAccount: mockAdUsername, displayName: 'Nora Norr', roleKeys: ['UNIT_MANAGER'] }]);
   });
@@ -176,7 +176,7 @@ describe('changePlaces', () => {
   it('gives a unit to a person who already has places, by replacing their entry', async () => {
     const { controller, stubs } = makeController();
 
-    const response = await controller.changePlaces(mockReq(), MUNICIPALITY_ID, mockAdUsername, { add: ['north-housing'], remove: [] });
+    const response = await controller.changePlaces(mockReq(), mockAdUsername, { add: ['north-housing'], remove: [] });
 
     expect(stubs.updateAccessUser).toHaveBeenCalledWith(expect.anything(), MUNICIPALITY_ID, NAMESPACE, 'entry-north', {
       userId: mockAdUsername.toUpperCase(),
@@ -196,7 +196,7 @@ describe('changePlaces', () => {
   it('gives an area as one pattern per unit, to a person who is new to AccessMapper but known to the directory', async () => {
     const { controller, stubs } = makeController();
 
-    const response = await controller.changePlaces(mockReq(), MUNICIPALITY_ID, NEW_MANAGER.toUpperCase(), { add: ['north'], remove: [] });
+    const response = await controller.changePlaces(mockReq(), NEW_MANAGER.toUpperCase(), { add: ['north'], remove: [] });
 
     expect(stubs.lookupDisplayNames).toHaveBeenCalledWith(expect.anything(), [NEW_MANAGER]);
     expect(stubs.createAccessUser).toHaveBeenCalledWith(expect.anything(), MUNICIPALITY_ID, NAMESPACE, {
@@ -210,7 +210,7 @@ describe('changePlaces', () => {
   it('refuses a new account the directory does not know, before anything is written', async () => {
     const { controller, stubs } = makeController();
 
-    await expect(controller.changePlaces(mockReq(), MUNICIPALITY_ID, 'typo01', { add: ['north-home'], remove: [] })).rejects.toMatchObject({
+    await expect(controller.changePlaces(mockReq(), 'typo01', { add: ['north-home'], remove: [] })).rejects.toMatchObject({
       status: 400,
     });
     expect(stubs.createAccessUser).not.toHaveBeenCalled();
@@ -221,7 +221,7 @@ describe('changePlaces', () => {
       accessUsers: [accessUser('entry-north', mockAdUsername, 'AUTOMATIC', ['LOCATION/NORTH/HOME/**'])],
     });
 
-    const response = await controller.changePlaces(mockReq(), MUNICIPALITY_ID, mockAdUsername, { add: [], remove: ['north-home'] });
+    const response = await controller.changePlaces(mockReq(), mockAdUsername, { add: [], remove: ['north-home'] });
 
     expect(stubs.deleteAccessUser).toHaveBeenCalledWith(expect.anything(), MUNICIPALITY_ID, NAMESPACE, 'entry-north');
     expect(stubs.updateAccessUser).not.toHaveBeenCalled();
@@ -231,7 +231,7 @@ describe('changePlaces', () => {
   it('takes an area away from a person who holds it as one pattern on the area', async () => {
     const { controller, stubs } = makeController();
 
-    await controller.changePlaces(mockReq(), MUNICIPALITY_ID, 'area01man', { add: [], remove: ['south'] });
+    await controller.changePlaces(mockReq(), 'area01man', { add: [], remove: ['south'] });
 
     expect(stubs.deleteAccessUser).toHaveBeenCalledWith(expect.anything(), MUNICIPALITY_ID, NAMESPACE, 'entry-area');
   });
@@ -239,7 +239,7 @@ describe('changePlaces', () => {
   it('writes nothing when nothing changes, and needs no directory for it', async () => {
     const { controller, stubs } = makeController();
 
-    const response = await controller.changePlaces(mockReq(), MUNICIPALITY_ID, mockAdUsername, { add: ['north-home'], remove: ['south-home'] });
+    const response = await controller.changePlaces(mockReq(), mockAdUsername, { add: ['north-home'], remove: ['south-home'] });
 
     expect(stubs.updateAccessUser).not.toHaveBeenCalled();
     expect(stubs.lookupDisplayNames).not.toHaveBeenCalled();
@@ -249,10 +249,10 @@ describe('changePlaces', () => {
   it('refuses a label that is not a place before reading anybody', async () => {
     const { controller, stubs } = makeController();
 
-    await expect(controller.changePlaces(mockReq(), MUNICIPALITY_ID, mockAdUsername, { add: ['category-hsl'], remove: [] })).rejects.toMatchObject({
+    await expect(controller.changePlaces(mockReq(), mockAdUsername, { add: ['category-hsl'], remove: [] })).rejects.toMatchObject({
       status: 400,
     });
-    await expect(controller.changePlaces(mockReq(), MUNICIPALITY_ID, ' ', { add: ['north-home'], remove: [] })).rejects.toMatchObject({
+    await expect(controller.changePlaces(mockReq(), ' ', { add: ['north-home'], remove: [] })).rejects.toMatchObject({
       status: 400,
     });
     expect(stubs.listAccessUsers).not.toHaveBeenCalled();
@@ -263,7 +263,7 @@ describe('changePlaces', () => {
       accessUsers: [{ ...accessUser('', mockAdUsername, 'AUTOMATIC', ['LOCATION/NORTH/HOME/**']), id: undefined }],
     });
 
-    await expect(controller.changePlaces(mockReq(), MUNICIPALITY_ID, mockAdUsername, { add: ['north-housing'], remove: [] })).rejects.toMatchObject({
+    await expect(controller.changePlaces(mockReq(), mockAdUsername, { add: ['north-housing'], remove: [] })).rejects.toMatchObject({
       status: 502,
     });
     expect(stubs.updateAccessUser).not.toHaveBeenCalled();

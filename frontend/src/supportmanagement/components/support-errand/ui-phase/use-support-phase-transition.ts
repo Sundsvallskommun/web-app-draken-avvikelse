@@ -1,7 +1,7 @@
 import { closeErrandTabSoon } from '@common/utils/close-errand-tab';
 import { getToastOptions } from '@common/utils/toast-message-settings';
 import { useConfirm, useSnackbar } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
+import { useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
 import { useInvestigationProfileStore } from '@supportmanagement/investigation/investigation-profile-store';
 import { findHeldPhaseEntryRequirement, hidesPhaseEntry } from '@supportmanagement/investigation/investigation-variant';
 import { getInvestigationVariant } from '@supportmanagement/investigation/investigation-variant-registry';
@@ -42,7 +42,6 @@ export const useSupportPhaseTransition = (hasUnsavedChanges: boolean) => {
   const setSupportErrand = useSupportStore((s) => s.setSupportErrand);
   const canEditSupportManagement = useUserStore((s) => s.user.permissions.canEditSupportManagement);
   const user = useUserStore((s) => s.user);
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const investigationProfile = useInvestigationProfileStore((s) => s.profile);
   const form = useFormContext<SupportErrand>();
   const toastMessage = useSnackbar();
@@ -110,7 +109,7 @@ export const useSupportPhaseTransition = (hasUnsavedChanges: boolean) => {
     if (!isDecisionPhase(selectedTransition?.target)) return true;
     let measureCount: number;
     try {
-      measureCount = (await getSupportMeasures(municipalityId, errandId)).measures.length;
+      measureCount = (await getSupportMeasures(errandId)).measures.length;
     } catch {
       toastMessage({
         position: 'bottom',
@@ -132,7 +131,7 @@ export const useSupportPhaseTransition = (hasUnsavedChanges: boolean) => {
   };
 
   const advancePhase = async () => {
-    if (!municipalityId || !supportErrand?.id) return;
+    if (!supportErrand?.id) return;
     if (!entersWorkflow && !selectedTransition?.transition.id) return;
     if (heldRequirement) {
       setRequirementShown(true);
@@ -142,7 +141,6 @@ export const useSupportPhaseTransition = (hasUnsavedChanges: boolean) => {
     try {
       if (!(await confirmMissingMeasures(supportErrand.id))) return;
       const savedErrand = await updateSupportErrandPhase(
-        municipalityId,
         supportErrand.id,
         entersWorkflow ? undefined : selectedTransition?.transition.id,
         activePhaseId
@@ -168,14 +166,14 @@ export const useSupportPhaseTransition = (hasUnsavedChanges: boolean) => {
    * the tab closes, as it does wherever an errand is closed.
    */
   const closeErrand = async () => {
-    if (!municipalityId || !supportErrand?.id || typeof supportErrand.version !== 'number') return;
+    if (!supportErrand?.id || typeof supportErrand.version !== 'number') return;
     setIsSaving(true);
     try {
-      await setSupportErrandStatus(supportErrand.id, municipalityId, Status.SOLVED, {
+      await setSupportErrandStatus(supportErrand.id, Status.SOLVED, {
         status: supportErrand.status,
         version: supportErrand.version,
       });
-      const closed = await getSupportErrandById(supportErrand.id, municipalityId);
+      const closed = await getSupportErrandById(supportErrand.id);
       if (closed.error) throw new Error('Could not read back the closed support errand');
       setSupportErrand(closed.errand);
       form.reset(closed.errand);

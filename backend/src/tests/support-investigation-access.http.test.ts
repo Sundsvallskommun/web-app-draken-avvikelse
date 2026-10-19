@@ -26,7 +26,7 @@ vi.mock('@/config/support-investigation-profile', async importOriginal => {
 });
 
 const key = 'utredning-hsl';
-const url = `/supporterrands/2281/one/json-parameters/${key}`;
+const url = `/supporterrands/one/json-parameters/${key}`;
 const body = { schemaId: '2281_utredning-hsl_1.0', value: { assessment: 'Saved' } };
 let authenticated = true;
 
@@ -110,7 +110,7 @@ describe('investigation access over HTTP', () => {
   });
 
   it('publishes the current errand grants as a non-cacheable response', async () => {
-    const response = await request(server()).get('/supporterrands/2281/one/investigation-access');
+    const response = await request(server()).get('/supporterrands/one/investigation-access');
     expect(response.status).toBe(200);
     expect(response.headers['cache-control']).toBe('no-store');
     expect(response.body).toEqual({ municipalityId: '2281', errandId: 'one', documents: [{ key, access: 'edit' }] });

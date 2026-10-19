@@ -1,5 +1,5 @@
 import { useDebounceEffect } from '@common/utils/useDebounceEffect';
-import { useConfigStore, useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
+import { useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
 import { useUiSettingsStore } from '@stores/ui-settings-store';
 import {
   parsePersistedLabelFilterSelections,
@@ -183,7 +183,6 @@ export const OngoingSupportErrands: FC = () => {
   const labelFilterProfile = useInvestigationProfileStore((state) => state.profile?.labelFilter);
   const setSupportErrand = useSupportStore((s) => s.setSupportErrand);
   const administrators = useUserStore((s) => s.administrators);
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const setSelectedErrandStatuses = useUiSettingsStore((s) => s.setSelectedErrandStatuses);
   const selectedErrandStatuses = useUiSettingsStore((s) => s.selectedErrandStatuses);
   const setSidebarLabel = useUiSettingsStore((s) => s.setSidebarLabel);
@@ -255,7 +254,7 @@ export const OngoingSupportErrands: FC = () => {
   });
   const filterInitialized = useRef(false);
 
-  const errands = useSupportErrands(municipalityId, page, pageSize, filterObject, sortObject);
+  const errands = useSupportErrands(page, pageSize, filterObject, sortObject);
 
   const initialFocus = useRef<HTMLButtonElement>(null);
 

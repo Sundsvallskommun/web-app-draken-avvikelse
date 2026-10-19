@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { Controller, Get, Param, QueryParam, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
-import { SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
+import { MUNICIPALITY_ID, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
 import { apiServiceName } from '@/config/api-config';
 import { DifferenceResponse, Errand, PageEvent } from '@/data-contracts/supportmanagement/data-contracts';
 import { RequestWithUser } from '@/interfaces/auth.interface';
@@ -45,13 +45,12 @@ export class SupportHistoryController {
     this.investigationDocumentService = investigationDocumentService;
   }
 
-  @Get('/supporthistory/:municipalityId/:id')
+  @Get('/supporthistory/:id')
   @OpenAPI({ summary: 'Get events for errand' })
   @UseBefore(authMiddleware)
   async fetchSupportEvents(
     @Req() req: RequestWithUser,
     @Param('id') id: string,
-    @Param('municipalityId') municipalityId: string,
     @QueryParam('page') page: number,
     @QueryParam('size') size: number,
     @QueryParam('sort') sort: string,
@@ -62,7 +61,7 @@ export class SupportHistoryController {
       size: String(size ?? 100),
       sort: sort || 'created,desc',
     }).toString();
-    const url = `${this.SERVICE}/${municipalityId}/${this.namespace}/errands/${id}/events?${query}`;
+    const url = `${this.SERVICE}/${MUNICIPALITY_ID}/${this.namespace}/errands/${id}/events?${query}`;
     const res = await this.apiService.get<PageEvent>({ url }, req.user);
     return response.status(200).send(res.data);
   }
@@ -102,15 +101,11 @@ export class SupportHistoryController {
    * When the errand's current handler took it up after it was given to them, read from the errand's history. The
    * lex Sarah investigation records it as the day the report reached its investigator.
    */
-  @Get('/supporthistory/:municipalityId/:id/assignee-resumed')
+  @Get('/supporthistory/:id/assignee-resumed')
   @OpenAPI({ summary: "When the errand's current handler took it up after it was assigned to them" })
   @UseBefore(authMiddleware)
-  async fetchAssigneeResumedAt(
-    @Req() req: RequestWithUser,
-    @Param('id') id: string,
-    @Param('municipalityId') municipalityId: string,
-  ): Promise<{ resumedAt: string | null }> {
-    const assignment = await this.readHistoryBackToAssignment(req, municipalityId, id);
+  async fetchAssigneeResumedAt(@Req() req: RequestWithUser, @Param('id') id: string): Promise<{ resumedAt: string | null }> {
+    const assignment = await this.readHistoryBackToAssignment(req, MUNICIPALITY_ID, id);
     if (!assignment) return { resumedAt: null };
     return { resumedAt: resolveAssigneeResumedAt(assignment.history, assignment.assignee) ?? null };
   }
@@ -119,38 +114,33 @@ export class SupportHistoryController {
    * Who gave the errand to its current handler, read from the errand's history. A LEX investigator hands the
    * errand back to the LEX manager who gave it to them, so that is the one their handover offers first.
    */
-  @Get('/supporthistory/:municipalityId/:id/assigned-by')
+  @Get('/supporthistory/:id/assigned-by')
   @OpenAPI({ summary: 'Who assigned the errand to its current handler' })
   @UseBefore(authMiddleware)
-  async fetchAssignedBy(
-    @Req() req: RequestWithUser,
-    @Param('id') id: string,
-    @Param('municipalityId') municipalityId: string,
-  ): Promise<{ assignedBy: string | null }> {
-    const assignment = await this.readHistoryBackToAssignment(req, municipalityId, id);
+  async fetchAssignedBy(@Req() req: RequestWithUser, @Param('id') id: string): Promise<{ assignedBy: string | null }> {
+    const assignment = await this.readHistoryBackToAssignment(req, MUNICIPALITY_ID, id);
     if (!assignment) return { assignedBy: null };
     return { assignedBy: resolveAssignedBy(assignment.history, assignment.assignee) ?? null };
   }
 
-  @Get('/supporthistory/:municipalityId/:id/revisions/difference/')
+  @Get('/supporthistory/:id/revisions/difference/')
   @OpenAPI({ summary: 'Get diff between revisions on an errand' })
   @UseBefore(authMiddleware)
   async fetchErrandRevisionsDiff(
     @Req() req: RequestWithUser,
     @Param('id') id: string,
-    @Param('municipalityId') municipalityId: string,
     @QueryParam('source') source: number,
     @QueryParam('target') target: number,
     @Res() response: Response<DifferenceResponse, any>,
   ): Promise<Response<DifferenceResponse, any>> {
-    const url = `${this.SERVICE}/${municipalityId}/${this.namespace}/errands/${id}/revisions/difference?source=${source}&target=${target}`;
+    const url = `${this.SERVICE}/${MUNICIPALITY_ID}/${this.namespace}/errands/${id}/revisions/difference?source=${source}&target=${target}`;
     const documents = this.investigationPolicyService.profile.documents;
     const [res, canReadInvestigationDocuments] = await Promise.all([
       this.apiService.get<DifferenceResponse>({ url, propagateClientError: true }, req.user),
       documents.length === 0
         ? Promise.resolve(true)
         : this.investigationDocumentService
-            .verifyReadableDocuments({ definitions: documents, municipalityId, errandId: id, user: req.user })
+            .verifyReadableDocuments({ definitions: documents, municipalityId: MUNICIPALITY_ID, errandId: id, user: req.user })
             .then(() => true)
             .catch(error => {
               if (isAccessDenied(error)) return false;
@@ -160,19 +150,18 @@ export class SupportHistoryController {
     return response.status(200).send(canReadInvestigationDocuments ? res.data : redactJsonParameterRevisionOperations(res.data));
   }
 
-  @Get('/supporthistory/:municipalityId/:id/notes/:noteId/revisions/difference/')
+  @Get('/supporthistory/:id/notes/:noteId/revisions/difference/')
   @OpenAPI({ summary: 'Get diff between revisions on a note' })
   @UseBefore(authMiddleware)
   async fetchNoteRevisionsDiff(
     @Req() req: RequestWithUser,
     @Param('id') id: string,
     @Param('noteId') noteId: string,
-    @Param('municipalityId') municipalityId: string,
     @QueryParam('source') source: number,
     @QueryParam('target') target: number,
     @Res() response: Response<DifferenceResponse, any>,
   ): Promise<Response<DifferenceResponse, any>> {
-    const url = `${this.SERVICE}/${municipalityId}/${this.namespace}/errands/${id}/notes/${noteId}/revisions/difference?source=${source}&target=${target}`;
+    const url = `${this.SERVICE}/${MUNICIPALITY_ID}/${this.namespace}/errands/${id}/notes/${noteId}/revisions/difference?source=${source}&target=${target}`;
     const res = await this.apiService.get<DifferenceResponse>({ url }, req.user);
     return response.status(200).send(res.data);
   }

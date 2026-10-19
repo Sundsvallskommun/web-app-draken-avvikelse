@@ -1,7 +1,7 @@
 'use client';
 
 import { FormControl, FormErrorMessage, FormLabel, Select } from '@sk-web-gui/react';
-import { useConfigStore, useSupportStore, useUserStore } from '@stores/index';
+import { useSupportStore, useUserStore } from '@stores/index';
 import { useErrandSaveParticipant } from '@supportmanagement/components/support-errand/errand-save/use-errand-save-participant';
 import { getSupportErrandById } from '@supportmanagement/services/support-errand-service';
 import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-version';
@@ -25,7 +25,6 @@ export const MasMarHandlerSelect: FC<InvestigationHandlerFieldsProps> = ({ locke
   const supportErrand = useSupportStore((state) => state.supportErrand);
   const user = useUserStore((state) => state.user);
   const administrators = useUserStore((state) => state.administrators);
-  const municipalityId = useConfigStore((state) => state.municipalityId);
   // Undefined until the handler picks somebody; the recorded handler stands until then.
   const [chosen, setChosen] = useState<string>();
   const [error, setError] = useState<string>();
@@ -43,8 +42,8 @@ export const MasMarHandlerSelect: FC<InvestigationHandlerFieldsProps> = ({ locke
       if (!errand?.id || !chosen) return true;
       setError(undefined);
       try {
-        await saveMasMarHandler(municipalityId, errand, chosen);
-        const saved = await getSupportErrandById(errand.id, municipalityId);
+        await saveMasMarHandler(errand, chosen);
+        const saved = await getSupportErrandById(errand.id);
         if (!saved.error) useSupportStore.getState().setSupportErrand(saved.errand);
         setChosen(undefined);
         return true;

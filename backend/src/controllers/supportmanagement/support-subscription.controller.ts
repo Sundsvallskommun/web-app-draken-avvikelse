@@ -3,7 +3,7 @@ import { IsArray, IsEnum, IsOptional, IsString, ValidateNested } from 'class-val
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
-import { SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
+import { MUNICIPALITY_ID, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
 import { apiServiceName } from '@/config/api-config';
 import {
   EventFilter,
@@ -135,25 +135,20 @@ export class SupportSubscriptionController {
     return subscriptionsUrl(this.subscriberApi(), municipalityId, subscriberId);
   }
 
-  @Get('/supportsubscribers/:municipalityId/me')
+  @Get('/supportsubscribers/me')
   @OpenAPI({ summary: 'Get the subscriber for the logged in user, creating it if needed' })
   @UseBefore(authMiddleware)
-  async fetchMySubscriber(@Req() req: RequestWithUser, @Param('municipalityId') municipalityId: string, @Res() response: any): Promise<Subscriber> {
-    const subscriber = await this.resolveSubscriber(municipalityId, req.user);
+  async fetchMySubscriber(@Req() req: RequestWithUser, @Res() response: any): Promise<Subscriber> {
+    const subscriber = await this.resolveSubscriber(MUNICIPALITY_ID, req.user);
     return response.status(200).send(subscriber);
   }
 
-  @Patch('/supportsubscribers/:municipalityId/me')
+  @Patch('/supportsubscribers/me')
   @OpenAPI({ summary: 'Update notification settings for the logged in user' })
   @UseBefore(authMiddleware, validationMiddleware(SubscriberUpdateDto, 'body'))
-  async updateMySubscriber(
-    @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
-    @Body() data: SubscriberUpdateDto,
-    @Res() response: any,
-  ): Promise<Subscriber> {
-    const subscriber = await this.resolveSubscriber(municipalityId, req.user);
-    const url = `${this.SERVICE}/${municipalityId}/${this.namespace}/subscribers/${subscriber.id}`;
+  async updateMySubscriber(@Req() req: RequestWithUser, @Body() data: SubscriberUpdateDto, @Res() response: any): Promise<Subscriber> {
+    const subscriber = await this.resolveSubscriber(MUNICIPALITY_ID, req.user);
+    const url = `${this.SERVICE}/${MUNICIPALITY_ID}/${this.namespace}/subscribers/${subscriber.id}`;
     const update: Partial<Subscriber> = data.channels ? { ...data, channels: withInAppChannel(data.channels) } : { ...data };
     const res = await this.apiService.patch<Subscriber, Partial<Subscriber>>({ url, data: update }, req.user).catch(e => {
       logger.error('Error when updating subscriber');
@@ -163,16 +158,12 @@ export class SupportSubscriptionController {
     return response.status(200).send(res.data);
   }
 
-  @Get('/supportsubscriptions/:municipalityId')
+  @Get('/supportsubscriptions')
   @OpenAPI({ summary: 'List the subscriptions of the logged in user' })
   @UseBefore(authMiddleware)
-  async fetchMySubscriptions(
-    @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
-    @Res() response: any,
-  ): Promise<Subscription[]> {
-    const subscriber = await this.resolveSubscriber(municipalityId, req.user);
-    const url = this.subscriptionsUrl(municipalityId, subscriber.id!);
+  async fetchMySubscriptions(@Req() req: RequestWithUser, @Res() response: any): Promise<Subscription[]> {
+    const subscriber = await this.resolveSubscriber(MUNICIPALITY_ID, req.user);
+    const url = this.subscriptionsUrl(MUNICIPALITY_ID, subscriber.id!);
     const res = await this.apiService.get<Subscription[]>({ url }, req.user);
     return response.status(200).send(res.data ?? []);
   }
@@ -185,18 +176,13 @@ export class SupportSubscriptionController {
    * must not create a second subscription. Upstream documents no conflict response for duplicates,
    * so the existing subscriptions are compared here rather than relying on a status code.
    */
-  @Post('/supportsubscriptions/:municipalityId')
+  @Post('/supportsubscriptions')
   @HttpCode(201)
   @OpenAPI({ summary: 'Subscribe the logged in user to an errand or the namespace' })
   @UseBefore(authMiddleware, validationMiddleware(SubscriptionCreateDto, 'body'))
-  async createSubscription(
-    @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
-    @Body() data: SubscriptionCreateDto,
-    @Res() response: any,
-  ): Promise<Subscription> {
-    const subscriber = await this.resolveSubscriber(municipalityId, req.user);
-    const url = this.subscriptionsUrl(municipalityId, subscriber.id!);
+  async createSubscription(@Req() req: RequestWithUser, @Body() data: SubscriptionCreateDto, @Res() response: any): Promise<Subscription> {
+    const subscriber = await this.resolveSubscriber(MUNICIPALITY_ID, req.user);
+    const url = this.subscriptionsUrl(MUNICIPALITY_ID, subscriber.id!);
 
     const existing = await this.apiService.get<Subscription[]>({ url }, req.user);
     const alreadySubscribed = (existing.data ?? []).find(subscription => sameSubscriptionTarget(subscription.target, data.target));
@@ -218,17 +204,12 @@ export class SupportSubscriptionController {
     return response.status(201).send(subscription ?? null);
   }
 
-  @Delete('/supportsubscriptions/:municipalityId/:subscriptionId')
+  @Delete('/supportsubscriptions/:subscriptionId')
   @OpenAPI({ summary: 'Remove a subscription belonging to the logged in user' })
   @UseBefore(authMiddleware)
-  async deleteSubscription(
-    @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
-    @Param('subscriptionId') subscriptionId: string,
-    @Res() response: any,
-  ): Promise<void> {
-    const subscriber = await this.resolveSubscriber(municipalityId, req.user);
-    const url = `${this.subscriptionsUrl(municipalityId, subscriber.id!)}/${subscriptionId}`;
+  async deleteSubscription(@Req() req: RequestWithUser, @Param('subscriptionId') subscriptionId: string, @Res() response: any): Promise<void> {
+    const subscriber = await this.resolveSubscriber(MUNICIPALITY_ID, req.user);
+    const url = `${this.subscriptionsUrl(MUNICIPALITY_ID, subscriber.id!)}/${subscriptionId}`;
     await this.apiService.delete({ url }, req.user).catch(e => {
       logger.error('Error when deleting subscription');
       logger.error(e);

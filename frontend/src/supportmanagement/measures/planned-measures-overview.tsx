@@ -1,6 +1,6 @@
 import { getNameFromADUsername } from '@common/services/user-service';
 import { Badge, Button, FormControl, FormLabel, Input, Label, Link, SearchField, Spinner } from '@sk-web-gui/react';
-import { useConfigStore, useUserStore } from '@stores/index';
+import { useUserStore } from '@stores/index';
 import { isAxiosError } from 'axios';
 import dayjs from 'dayjs';
 import { ExternalLink } from 'lucide-react';
@@ -44,7 +44,6 @@ const date = (value?: string) => (value ? dayjs(value).format('YYYY-MM-DD') : un
  * no writes.
  */
 export function PlannedMeasuresOverview() {
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const administrators = useUserStore((s) => s.administrators);
   const [state, setState] = useState<OverviewState>({ status: 'loading' });
   const [text, setText] = useState('');
@@ -75,16 +74,16 @@ export function PlannedMeasuresOverview() {
     setState((current) =>
       current.status === 'ready' ? { ...current, refreshing: true, refreshError: undefined } : { status: 'loading' }
     );
-    settle(++generation.current, getPlannedSupportMeasures(municipalityId));
-  }, [municipalityId, settle]);
+    settle(++generation.current, getPlannedSupportMeasures());
+  }, [settle]);
 
   const cancelRead = useCallback(() => {
     generation.current++;
   }, []);
   useEffect(() => {
-    if (municipalityId) settle(++generation.current, getPlannedSupportMeasures(municipalityId));
+    settle(++generation.current, getPlannedSupportMeasures());
     return cancelRead;
-  }, [municipalityId, settle, cancelRead]);
+  }, [settle, cancelRead]);
 
   // The list is a to-do across errands other people write to, so it refreshes when the user comes back to it
   // after following a link into an errand. No polling.

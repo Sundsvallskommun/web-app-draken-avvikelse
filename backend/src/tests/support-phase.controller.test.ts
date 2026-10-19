@@ -107,7 +107,6 @@ describe('updateSupportErrandPhase', () => {
       controller.updateSupportErrandPhase(
         mockReq(),
         mockSupportErrandId,
-        MUNICIPALITY_ID,
         { expectedActivePhaseId: 'received', transitionId: 'close-directly' },
         mockRes(),
       ),
@@ -149,7 +148,6 @@ describe('updateSupportErrandPhase', () => {
       controller.updateSupportErrandPhase(
         mockReq(),
         mockSupportErrandId,
-        MUNICIPALITY_ID,
         { expectedActivePhaseId: 'investigation', transitionId: 'to-decision' },
         mockRes(),
       ),
@@ -188,7 +186,6 @@ describe('updateSupportErrandPhase', () => {
       controller.updateSupportErrandPhase(
         mockReq(mockUser({ groups: ['MOCK_LEX_MANAGERS'] })),
         mockSupportErrandId,
-        MUNICIPALITY_ID,
         { expectedActivePhaseId: 'decision', transitionId: 'to-follow-up' },
         mockRes(),
       ),
@@ -216,7 +213,6 @@ describe('updateSupportErrandPhase', () => {
       const move = controller.updateSupportErrandPhase(
         mockReq(),
         mockSupportErrandId,
-        MUNICIPALITY_ID,
         { expectedActivePhaseId: 'decision', transitionId: 'start-follow-up' },
         mockRes(),
       );
@@ -251,7 +247,6 @@ describe('updateSupportErrandPhase', () => {
     await controller.updateSupportErrandPhase(
       mockReq(),
       mockSupportErrandId,
-      MUNICIPALITY_ID,
       { expectedActivePhaseId: 'received', transitionId: 'start-investigation' },
       mockRes(),
     );
@@ -260,30 +255,13 @@ describe('updateSupportErrandPhase', () => {
     expect(api.patch).toHaveBeenCalled();
   });
 
-  it('rejects a request without a municipality id and makes no API call', async () => {
-    const { controller, api } = makeController();
-    const res = mockRes();
-
-    await controller.updateSupportErrandPhase(mockReq(), mockSupportErrandId, '', { expectedActivePhaseId: 'received', transitionId: 'next' }, res);
-
-    expect(res.statusCode).toBe(400);
-    expect(res.body).toBe('Municipality id missing');
-    expect(api.get).not.toHaveBeenCalled();
-  });
-
   it('applies the selected transition with If-Match on the version it read and returns the fresh errand version', async () => {
     const { controller, api } = makeController();
     stubErrand(api, { phaseId: 'received', version: 7 });
     const req = mockReq();
     const res = mockRes();
 
-    await controller.updateSupportErrandPhase(
-      req,
-      mockSupportErrandId,
-      MUNICIPALITY_ID,
-      { expectedActivePhaseId: 'received', transitionId: 'close-directly' },
-      res,
-    );
+    await controller.updateSupportErrandPhase(req, mockSupportErrandId, { expectedActivePhaseId: 'received', transitionId: 'close-directly' }, res);
 
     expect(api.patch).toHaveBeenCalledTimes(1);
     expect(api.patch).toHaveBeenCalledWith(
@@ -308,7 +286,6 @@ describe('updateSupportErrandPhase', () => {
     await controller.updateSupportErrandPhase(
       mockReq(),
       mockSupportErrandId,
-      MUNICIPALITY_ID,
       { expectedActivePhaseId: 'received', transitionId: 'close-directly' },
       mockRes(),
     );
@@ -324,13 +301,7 @@ describe('updateSupportErrandPhase', () => {
     stubErrand(api, { phaseId: 'received', version: 7 });
 
     await expect(
-      controller.updateSupportErrandPhase(
-        mockReq(),
-        mockSupportErrandId,
-        MUNICIPALITY_ID,
-        { expectedActivePhaseId, transitionId: 'start-investigation' },
-        mockRes(),
-      ),
+      controller.updateSupportErrandPhase(mockReq(), mockSupportErrandId, { expectedActivePhaseId, transitionId: 'start-investigation' }, mockRes()),
     ).rejects.toMatchObject({ status: 409, message: 'Support errand phase has changed since it was loaded' });
     expect(api.patch).not.toHaveBeenCalled();
   });

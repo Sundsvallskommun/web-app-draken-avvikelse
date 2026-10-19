@@ -16,7 +16,6 @@ type ReturnStep = 'return-to-manager' | 'decline-lex';
 interface ReturnToManagerButtonProps {
   /** After the lex Sarah decision, or when LEX-ansvarig's initial assessment declines to lex-investigate. */
   step?: ReturnStep;
-  municipalityId: string;
   errandId: string;
   expectedVersion: number | undefined;
   disabled: boolean;
@@ -70,7 +69,6 @@ const returnCopy: Readonly<Record<ReturnStep, ReturnCopy>> = {
  */
 export const ReturnToManagerButton: FC<ReturnToManagerButtonProps> = ({
   step = 'return-to-manager',
-  municipalityId,
   errandId,
   expectedVersion,
   disabled,
@@ -93,7 +91,7 @@ export const ReturnToManagerButton: FC<ReturnToManagerButtonProps> = ({
     setError(undefined);
     setIsResolving(true);
     try {
-      const response = await getUnitManager(municipalityId, errandId);
+      const response = await getUnitManager(errandId);
       setLocationName(response.locationDisplayName);
       setRoles(response.roles);
       setCandidates(response.candidates);
@@ -113,7 +111,7 @@ export const ReturnToManagerButton: FC<ReturnToManagerButtonProps> = ({
     setIsSaving(true);
     setError(undefined);
     try {
-      await applyInvestigationHandover(municipalityId, errandId, step, expectedVersion, adAccount);
+      await applyInvestigationHandover(errandId, step, expectedVersion, adAccount);
       router.push('/oversikt');
     } catch (e) {
       setError(investigationHandoverErrorMessage(e, copy.failure));

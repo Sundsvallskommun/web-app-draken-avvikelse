@@ -3,7 +3,7 @@
 import SidebarLayout from '@common/components/layout/sidebar-layout.component';
 import { DeployInfoBanner } from '@common/utils/deploy-info-banner';
 import { appConfig } from '@config/appconfig';
-import { useConfigStore, useUserStore } from '@stores/index';
+import { useUserStore } from '@stores/index';
 import { OngoingSupportErrands } from '@supportmanagement/components/ongoing-support-errands/ongoing-support-errands.component';
 import {
   getInvestigationAdministration,
@@ -14,7 +14,6 @@ import { useState } from 'react';
 
 export function OversiktPageClient() {
   const user = useUserStore((s) => s.user);
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const [showPlannedMeasures, setShowPlannedMeasures] = useState<boolean>(false);
   const [showFollowUp, setShowFollowUp] = useState<boolean>(false);
   const [showAdministration, setShowAdministration] = useState<boolean>(false);
@@ -33,19 +32,16 @@ export function OversiktPageClient() {
         showAdministration={showAdministration}
       >
         {(() => {
-          if (followUp && showFollowUp && municipalityId) {
+          if (followUp && showFollowUp) {
             return followUp.render();
           }
-          if (administration && showAdministration && municipalityId) {
+          if (administration && showAdministration) {
             return administration.render();
           }
-          if (showPlannedMeasures && municipalityId) {
+          if (showPlannedMeasures) {
             return <PlannedMeasuresOverview />;
           }
-          if (municipalityId) {
-            return <OngoingSupportErrands />;
-          }
-          return null;
+          return <OngoingSupportErrands />;
         })()}
       </SidebarLayout>
       <DeployInfoBanner />

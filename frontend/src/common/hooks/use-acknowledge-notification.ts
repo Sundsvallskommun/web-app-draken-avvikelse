@@ -3,7 +3,6 @@
 import { acknowledgeNotifications } from '@common/components/notifications/notification-actions';
 import { NotificationView } from '@common/components/notifications/notification-view';
 import { useSnackbar } from '@sk-web-gui/react';
-import { useConfigStore } from '@stores/index';
 import { useCallback } from 'react';
 
 /**
@@ -17,7 +16,6 @@ export const useAcknowledgeNotification = (
   notification: NotificationView,
   refresh?: () => Promise<void>
 ): (() => Promise<void>) => {
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const toastMessage = useSnackbar();
 
   return useCallback(async () => {
@@ -31,11 +29,11 @@ export const useAcknowledgeNotification = (
 
     try {
       // Failures come back in `failed`, not as a rejection.
-      const { failed } = await acknowledgeNotifications(municipalityId, [notification]);
+      const { failed } = await acknowledgeNotifications([notification]);
       await refresh?.();
       if (failed.length) reportFailure();
     } catch (error) {
       reportFailure();
     }
-  }, [municipalityId, notification, refresh, toastMessage]);
+  }, [notification, refresh, toastMessage]);
 };

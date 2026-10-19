@@ -94,7 +94,7 @@ describe('SupportInvestigationReportController', () => {
     });
     const res = resDouble();
 
-    await controller.createReport(mockReq(), mockMunicipalityId, mockSupportErrandId, KEY, { operationId: OPERATION_ID }, res);
+    await controller.createReport(mockReq(), mockSupportErrandId, KEY, { operationId: OPERATION_ID }, res);
 
     expect(apiService.post).toHaveBeenCalledTimes(2);
     const [renderCall, attachCall] = apiService.post.mock.calls.map(([config]) => config);
@@ -154,7 +154,7 @@ describe('SupportInvestigationReportController', () => {
     const { controller, documentService, apiService } = makeController({ completed: 'yes' });
     const res = resDouble();
 
-    await controller.createReport(mockReq(), mockMunicipalityId, mockSupportErrandId, KEY, { preview: true }, res);
+    await controller.createReport(mockReq(), mockSupportErrandId, KEY, { preview: true }, res);
 
     expect(apiService.post).toHaveBeenCalledTimes(1);
     expect(documentService.writeJsonParameter).not.toHaveBeenCalled();
@@ -169,7 +169,6 @@ describe('SupportInvestigationReportController', () => {
 
     await controller.createReport(
       mockReq(),
-      mockMunicipalityId,
       mockSupportErrandId,
       KEY,
       { preview: true, schemaId: schema.id, value: { assignment: 'Draft', completed: 'no' } },
@@ -191,7 +190,6 @@ describe('SupportInvestigationReportController', () => {
 
     await controller.createReport(
       mockReq(),
-      mockMunicipalityId,
       mockSupportErrandId,
       KEY,
       { operationId: OPERATION_ID, schemaId: schema.id, value: { assignment: 'Draft', completed: 'yes' } },
@@ -205,9 +203,7 @@ describe('SupportInvestigationReportController', () => {
   it('refuses a report for a document that is not marked completed', async () => {
     const { controller, documentService, apiService } = makeController({ completed: 'no' });
 
-    await expect(
-      controller.createReport(mockReq(), mockMunicipalityId, mockSupportErrandId, KEY, { operationId: OPERATION_ID }, resDouble()),
-    ).rejects.toMatchObject({
+    await expect(controller.createReport(mockReq(), mockSupportErrandId, KEY, { operationId: OPERATION_ID }, resDouble())).rejects.toMatchObject({
       status: 409,
       message: 'Mark the investigation as completed before generating a report',
     });
@@ -220,7 +216,7 @@ describe('SupportInvestigationReportController', () => {
     apiService.post.mockRejectedValueOnce(new HttpException(403, 'API Subscription validation failed.'));
 
     await expect(
-      controller.createReport(mockReq(), mockMunicipalityId, mockSupportErrandId, KEY, { preview, operationId: OPERATION_ID }, resDouble()),
+      controller.createReport(mockReq(), mockSupportErrandId, KEY, { preview, operationId: OPERATION_ID }, resDouble()),
     ).rejects.toMatchObject({
       status: 502,
       message: 'Rapporttjänsten nekade applikationens åtkomst. Kontakta support.',
@@ -230,20 +226,11 @@ describe('SupportInvestigationReportController', () => {
   });
 
   it('refuses an unknown document key and an unavailable investigation policy', async () => {
-    await expect(
-      makeController({}).controller.createReport(mockReq(), mockMunicipalityId, mockSupportErrandId, 'unknown', {}, resDouble()),
-    ).rejects.toMatchObject({
+    await expect(makeController({}).controller.createReport(mockReq(), mockSupportErrandId, 'unknown', {}, resDouble())).rejects.toMatchObject({
       status: 400,
     });
     await expect(
-      makeController({ completed: 'yes' }, 'unavailable').controller.createReport(
-        mockReq(),
-        mockMunicipalityId,
-        mockSupportErrandId,
-        KEY,
-        {},
-        resDouble(),
-      ),
+      makeController({ completed: 'yes' }, 'unavailable').controller.createReport(mockReq(), mockSupportErrandId, KEY, {}, resDouble()),
     ).rejects.toMatchObject({
       status: 503,
     });
@@ -252,7 +239,7 @@ describe('SupportInvestigationReportController', () => {
 
 describe('durable report publication', () => {
   const call = (controller: SupportInvestigationReportController, operationId = OPERATION_ID) =>
-    controller.createReport(mockReq(), mockMunicipalityId, mockSupportErrandId, KEY, { operationId }, resDouble());
+    controller.createReport(mockReq(), mockSupportErrandId, KEY, { operationId }, resDouble());
   const uploaded = (api: ReturnType<typeof makeController>['apiService']) =>
     api.post.mock.calls.filter(([config]) => config.url.endsWith('/attachments'));
 
@@ -283,7 +270,7 @@ describe('durable report publication', () => {
     const { controller, apiService, documentService } = makeController({ completed: 'yes' });
     await call(controller);
     const retry = resDouble();
-    await controller.createReport(mockReq(), mockMunicipalityId, mockSupportErrandId, KEY, { operationId: OPERATION_ID }, retry);
+    await controller.createReport(mockReq(), mockSupportErrandId, KEY, { operationId: OPERATION_ID }, retry);
     expect(uploaded(apiService)).toHaveLength(1);
     expect(documentService.writeJsonParameter).toHaveBeenCalledTimes(2);
     // The retry wrote nothing, and says so: none of the errand's version steps are its own.
@@ -334,7 +321,7 @@ describe('durable report publication', () => {
 
   it('requires a publication identity before rendering or uploading a real report', async () => {
     const { controller, apiService } = makeController({ completed: 'yes' });
-    await expect(controller.createReport(mockReq(), mockMunicipalityId, mockSupportErrandId, KEY, {}, resDouble())).rejects.toMatchObject({
+    await expect(controller.createReport(mockReq(), mockSupportErrandId, KEY, {}, resDouble())).rejects.toMatchObject({
       status: 400,
     });
     expect(apiService.post).not.toHaveBeenCalled();

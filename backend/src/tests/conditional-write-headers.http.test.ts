@@ -41,8 +41,7 @@ vi.mock('@/services/api.service', () => ({
 describe('conditional-write headers (over HTTP)', () => {
   let server: import('express').Application;
   const errandId = 'f8f1c954-222d-469b-95a8-aa3747ce821f';
-  const municipalityId = '2281';
-  const errandUrl = `/supporterrands/${municipalityId}/${errandId}`;
+  const errandUrl = `/supporterrands/${errandId}`;
 
   beforeAll(async () => {
     const { default: express } = await import('express');

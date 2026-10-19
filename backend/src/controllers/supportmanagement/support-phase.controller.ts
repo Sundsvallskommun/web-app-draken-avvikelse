@@ -2,7 +2,7 @@ import { IsOptional, IsString, MinLength } from 'class-validator';
 import { Body, Controller, HttpCode, Param, Patch, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
-import { SUPERADMIN_GROUP, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
+import { MUNICIPALITY_ID, SUPERADMIN_GROUP, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
 import { apiServiceName } from '@/config/api-config';
 import { type HandlerGroupRole, resolveHandlerGroupRoles } from '@/config/handler-group-roles';
 import { IAF_VOF_FOLLOW_UP_PHASE_NAME } from '@/config/iaf-vof-decision-investigation';
@@ -30,7 +30,6 @@ import { SupportInvestigationPolicyService } from '@/services/support-investigat
 import { SupportJsonParameterService } from '@/services/support-json-parameter.service';
 import { assertMeasuresHandledBeforeClose, assertProposalsDecidedBeforeFollowUp } from '@/services/support-measure-closing';
 import { supportMetadataCache } from '@/services/support-metadata-cache';
-import { logger } from '@/utils/logger';
 import { apiURL } from '@/utils/util';
 
 export class UpdateSupportErrandPhaseDto {
@@ -93,24 +92,18 @@ export class SupportPhaseController {
     this.jsonParameterService = jsonParameterService;
   }
 
-  @Patch('/supporterrands/:municipalityId/:id/phase')
+  @Patch('/supporterrands/:id/phase')
   @HttpCode(200)
   @OpenAPI({ summary: 'Apply one explicit workflow transition to a support errand' })
   @UseBefore(authMiddleware, validationMiddleware(UpdateSupportErrandPhaseDto, 'body'))
   async updateSupportErrandPhase(
     @Req() req: RequestWithUser,
     @Param('id') id: string,
-    @Param('municipalityId') municipalityId: string,
     @Body() data: UpdateSupportErrandPhaseDto,
     @Res() response: any,
   ): Promise<any> {
-    if (!municipalityId) {
-      logger.error('No municipality id found, it is needed to update the errand phase.');
-      return response.status(400).send('Municipality id missing');
-    }
-
-    const url = `${municipalityId}/${this.namespace}/errands/${id}`;
-    const metadataUrl = `${municipalityId}/${this.namespace}/metadata`;
+    const url = `${MUNICIPALITY_ID}/${this.namespace}/errands/${id}`;
+    const metadataUrl = `${MUNICIPALITY_ID}/${this.namespace}/metadata`;
     const baseURL = apiURL(this.SERVICE);
     const [currentErrand, metadata] = await Promise.all([
       this.apiService.get<SupportErrand>(
@@ -143,7 +136,7 @@ export class SupportPhaseController {
       policyService: this.investigationPolicyService,
       documentService: this.jsonParameterService,
       user: req.user,
-      municipalityId,
+      municipalityId: MUNICIPALITY_ID,
       errandId: id,
       errand: currentErrand.data,
       targetPhaseName,
@@ -169,7 +162,7 @@ export class SupportPhaseController {
       policyService: this.investigationPolicyService,
       documentService: this.jsonParameterService,
       user: req.user,
-      municipalityId,
+      municipalityId: MUNICIPALITY_ID,
       errandId: id,
       errand: currentErrand.data,
       closes: transition.status === CLOSED_SUPPORT_ERRAND_STATUS,

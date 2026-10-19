@@ -72,9 +72,9 @@ test('visar rapporttyp och ärendenummer i en egen kolumn, lika i IAF och VoF', 
   await jsonRoute(page, '**/administrators', mockAdmins);
   await jsonRoute(page, '**/me', mockMe);
   await jsonRoute(page, '**/users/admins', mockAdmins);
-  await jsonRoute(page, '**/supportnotifications/2281', []);
+  await jsonRoute(page, '**/supportnotifications', []);
   await mockStatusGroupCounts(page, 1);
-  await jsonRoute(page, '**/supportmetadata/2281', {
+  await jsonRoute(page, '**/supportmetadata', {
     categories: [],
     types: [],
     statuses: [
@@ -88,7 +88,7 @@ test('visar rapporttyp och ärendenummer i en egen kolumn, lika i IAF och VoF', 
     registration: { mode: 'disabled' },
     documents: [],
   });
-  await jsonRoute(page, /\/supporterrands\/2281\?/, errandPage);
+  await jsonRoute(page, /\/supporterrands\?/, errandPage);
 
   await page.goto('oversikt/');
   await dismissCookieConsent();

@@ -1,6 +1,6 @@
 import { withRequestGroup } from '@common/services/api-service';
 import { Button, useSnackbar } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
+import { useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
 import {
   getOngoingStatus,
   getSupportErrandById,
@@ -40,7 +40,6 @@ export const SupportPhaseStartProcessButtonComponent: FC<{
   const user = useUserStore((s) => s.user);
   const supportErrand = useSupportStore((s) => s.supportErrand);
   const administrators = useUserStore((s) => s.administrators);
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const setSupportErrand = useSupportStore((s) => s.setSupportErrand);
   const supportMetadata = useMetadataStore((s) => s.supportMetadata);
   const toast = useSnackbar();
@@ -58,7 +57,7 @@ export const SupportPhaseStartProcessButtonComponent: FC<{
 
       // A save puts the errand as saved in the store, so the store holds the version this page last saw.
       const seenVersion = useSupportStore.getState().supportErrand?.version;
-      const afterSubmit = await getSupportErrandById(supportErrand!.id!, municipalityId);
+      const afterSubmit = await getSupportErrandById(supportErrand!.id!);
       if (afterSubmit.error) {
         throw new Error('Could not reload the support errand before starting it');
       }
@@ -73,7 +72,6 @@ export const SupportPhaseStartProcessButtonComponent: FC<{
           // allows nothing but Ny.
           await setSupportErrandAdmin(
             supportErrand!.id!,
-            municipalityId,
             currentAdmin.adAccount,
             afterSubmit.errand.version,
             undefined,
@@ -84,7 +82,7 @@ export const SupportPhaseStartProcessButtonComponent: FC<{
       }
 
       const afterAssignment = assigned
-        ? await getSupportErrandById(supportErrand!.id!, municipalityId)
+        ? await getSupportErrandById(supportErrand!.id!)
         : { errand: afterSubmit.errand, error: undefined as string | undefined };
       if (afterAssignment.error) {
         throw new Error('Could not reload the support errand after assigning it');
@@ -104,7 +102,6 @@ export const SupportPhaseStartProcessButtonComponent: FC<{
         if (!advance) break;
 
         started = await updateSupportErrandPhase(
-          municipalityId,
           supportErrand!.id!,
           advance.kind === 'transition' ? advance.transitionId : undefined,
           activePhaseId
@@ -122,13 +119,13 @@ export const SupportPhaseStartProcessButtonComponent: FC<{
         isStatusAllowedInPhase(getOngoingStatus(), startedPhaseId, phases)
       ) {
         try {
-          await setSupportErrandStatus(supportErrand!.id!, municipalityId, getOngoingStatus(), started);
+          await setSupportErrandStatus(supportErrand!.id!, getOngoingStatus(), started);
         } catch (statusError) {
           throw assigned ? new SupportErrandStatusAfterAssignmentError(statusError) : statusError;
         }
       }
 
-      const updated = await getSupportErrandById(supportErrand!.id!, municipalityId);
+      const updated = await getSupportErrandById(supportErrand!.id!);
       if (updated.error) throw new Error('Could not confirm the started support errand');
       setSupportErrand(updated.errand);
       reset(updated.errand);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useConfigStore, useMetadataStore, useSupportStore } from '@stores/index';
+import { useMetadataStore, useSupportStore } from '@stores/index';
 import {
   getActiveSupportPhaseId,
   getAvailablePhaseTransitions,
@@ -19,7 +19,6 @@ import { useErrandMeasureSummary } from './measure-summary';
  * move on the same rule either way.
  */
 export function useMeasuresFollowUpRefusal(): string | undefined {
-  const municipalityId = useConfigStore((state) => state.municipalityId);
   const errand = useSupportStore((state) => state.supportErrand);
   const metadataPhases = useMetadataStore((state) => state.supportMetadata?.phases);
   const leadsToFollowUp = useMemo(
@@ -30,5 +29,5 @@ export function useMeasuresFollowUpRefusal(): string | undefined {
     [errand?.phases, metadataPhases]
   );
 
-  return useErrandMeasureSummary(municipalityId, errand, leadsToFollowUp)?.followUpRefusal;
+  return useErrandMeasureSummary(errand, leadsToFollowUp)?.followUpRefusal;
 }

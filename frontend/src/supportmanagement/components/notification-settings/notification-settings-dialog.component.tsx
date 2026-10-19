@@ -3,7 +3,6 @@
 import type { NotificationChannel } from '@common/data-contracts/supportmanagement/data-contracts';
 import { useToastMessages } from '@common/hooks/use-toast-messages';
 import { Alert, Button, Checkbox, Modal, Spinner } from '@sk-web-gui/react';
-import { useConfigStore } from '@stores/index';
 import {
   getMySubscriber,
   updateMyNotificationChannels,
@@ -32,16 +31,14 @@ type LoadState = { status: 'loading' } | { status: 'failed' } | { status: 'ready
  * now rather than what an earlier opening left behind.
  */
 const NotificationSettingsForm: FC<NotificationSettingsProps> = ({ channels, onClose }) => {
-  const municipalityId = useConfigStore((state) => state.municipalityId);
   const { showSuccess, showError } = useToastMessages();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [chosen, setChosen] = useState<SelectableNotificationChannel[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (!municipalityId) return;
     let current = true;
-    getMySubscriber(municipalityId).then(
+    getMySubscriber().then(
       (subscriber) => {
         if (!current) return;
         setChosen(chosenNotificationChannels(subscriber.channels, channels));
@@ -52,12 +49,12 @@ const NotificationSettingsForm: FC<NotificationSettingsProps> = ({ channels, onC
     return () => {
       current = false;
     };
-  }, [municipalityId, channels]);
+  }, [channels]);
 
   const save = async () => {
     setIsSaving(true);
     try {
-      await updateMyNotificationChannels(municipalityId, toSubscriberChannels(chosen, channels));
+      await updateMyNotificationChannels(toSubscriberChannels(chosen, channels));
       showSuccess('Dina notisinställningar är sparade.');
       onClose();
     } catch {

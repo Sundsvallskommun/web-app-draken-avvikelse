@@ -38,8 +38,13 @@ export const {
   ADMIN_GROUP,
   SUPERADMIN_GROUP,
   DEVELOPER_GROUP,
-  MUNICIPALITY_ID,
   DOMAIN,
   SUPPORTMANAGEMENT_SENDER_EMAIL,
   SUPPORTMANAGEMENT_SENDER_SMS,
 } = process.env;
+
+/**
+ * The municipality this deployment serves. The BFF reads it from its own configuration alone, never from the client,
+ * and `validateEnv` stops the backend without it.
+ */
+export const MUNICIPALITY_ID: string = process.env.MUNICIPALITY_ID?.trim() ?? '';

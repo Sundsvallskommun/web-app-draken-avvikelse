@@ -42,10 +42,10 @@ const uiSchema = {
 };
 
 async function mockLayoutSchema(page: Page, schemaId: string, name: string, latest = false) {
-  await page.route(`**/2281/schemas/${latest ? `${name}/latest` : schemaId}`, (route) =>
+  await page.route(`**/schemas/${latest ? `${name}/latest` : schemaId}`, (route) =>
     route.fulfill({ json: { data: { id: schemaId, name, version: '1.1', value: schema }, message: 'success' } })
   );
-  await page.route(`**/2281/schemas/${schemaId}/ui-schema`, (route) =>
+  await page.route(`**/schemas/${schemaId}/ui-schema`, (route) =>
     route.fulfill({ json: { data: { id: schemaId, value: uiSchema }, message: 'success' } })
   );
 }

@@ -10,7 +10,6 @@ import { prefillInvestigationDocument } from './lex-initial-assessment';
 import { lexInvestigationBackground } from './lex-investigation-background';
 
 interface NewInvestigationDocumentSource {
-  readonly municipalityId: string;
   readonly schemaName: string;
   /** The schema the new document is written against. Only what it declares is filled in. */
   readonly schema: RJSFSchema;
@@ -24,10 +23,10 @@ const declaredOnly = (formData: InvestigationFormData, schema: RJSFSchema): Inve
   return Object.fromEntries(Object.entries(formData).filter(([field]) => Object.hasOwn(properties, field)));
 };
 
-const readResumedAt = async (municipalityId: string, errandId: string | undefined): Promise<string | undefined> => {
+const readResumedAt = async (errandId: string | undefined): Promise<string | undefined> => {
   if (!errandId) return undefined;
   try {
-    return await getSupportErrandAssigneeResumedAt(errandId, municipalityId);
+    return await getSupportErrandAssigneeResumedAt(errandId);
   } catch (error) {
     // The day is left out rather than the investigation not opening over it.
     console.warn('Could not read when the investigator took the errand up', error);
@@ -41,7 +40,6 @@ const readResumedAt = async (municipalityId: string, errandId: string | undefine
  * schema declares are filled in, so a schema version without one is never handed it.
  */
 export const prefillNewInvestigationDocument = async ({
-  municipalityId,
   schemaName,
   schema,
   errand,
@@ -54,7 +52,7 @@ export const prefillNewInvestigationDocument = async ({
           errand,
           profile,
           administrators,
-          resumedAt: await readResumedAt(municipalityId, errand?.id),
+          resumedAt: await readResumedAt(errand?.id),
         })
       : prefillInvestigationDocument(schemaName, errand, profile);
   return declaredOnly(prefilled, schema);

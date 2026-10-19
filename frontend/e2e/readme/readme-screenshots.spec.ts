@@ -398,7 +398,7 @@ const followUpSnapshot: UnitFollowUpSnapshot = {
 };
 
 const latestSchema = (page: Page, request: { name: string; version: string; value: unknown }) =>
-  jsonRoute(page, `**/2281/schemas/${request.name}/latest`, {
+  jsonRoute(page, `**/schemas/${request.name}/latest`, {
     data: {
       id: `2281_${request.name}_${request.version}`,
       name: request.name,
@@ -427,7 +427,7 @@ async function installOverview(page: Page, roleKeys: string[]) {
   await installIafApiMock(page, { roleKeys, administrators: handlers, statuses });
   await jsonRoute(page, '**/supportmanagement/investigation-profile', overviewProfile);
   await statusGroupCounts(page, [3, 6, 2, 41]);
-  await jsonRoute(page, /\/supporterrands\/2281\?/, errandPage);
+  await jsonRoute(page, /\/supporterrands\?/, errandPage);
 }
 
 test.describe('README', () => {
@@ -459,7 +459,7 @@ test.describe('README', () => {
 
   test('åtgärderna', async ({ page, dismissCookieConsent }) => {
     await installIafApiMock(page, investigatedErrand);
-    await page.route(/\/supporterrands\/[^/]+\/[^/]+\/measures$/, (route: Route) =>
+    await page.route(/\/supporterrands\/[^/]+\/measures$/, (route: Route) =>
       route.request().method() === 'GET'
         ? route.fulfill({
             json: {
@@ -494,7 +494,7 @@ test.describe('README', () => {
     for (const request of [managerRequest, lexRequest, lexDecisionRequest]) {
       await latestSchema(page, { name: request.name, version: request.version, value: request.value });
     }
-    await jsonRoute(page, '**/supportfollowup/2281/units?**', followUpSnapshot);
+    await jsonRoute(page, '**/supportfollowup/units?**', followUpSnapshot);
 
     await page.goto('oversikt/');
     await dismissCookieConsent();

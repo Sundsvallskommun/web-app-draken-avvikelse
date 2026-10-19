@@ -3,7 +3,7 @@ import { Response } from 'express';
 import { Controller, Param, Post, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
-import { SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
+import { MUNICIPALITY_ID, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
 import { apiServiceName } from '@/config/api-config';
 import { trimSupportManagementPath } from '@/config/supportmanagement-path';
 import type { Errand, ErrandAttachment, Measure, MetadataResponse } from '@/data-contracts/supportmanagement/data-contracts';
@@ -64,16 +64,11 @@ export class SupportMeasureActionPlanController {
     this.clock = dependencies.clock ?? (() => new Date());
   }
 
-  @Post('/supporterrands/:municipalityId/:errandId/measures/action-plan')
+  @Post('/supporterrands/:errandId/measures/action-plan')
   @OpenAPI({ summary: 'Render every measure of an errand as an action plan PDF and attach it to the errand' })
   @UseBefore(authMiddleware, hasPermissions(['canEditSupportManagement']))
-  async createActionPlan(
-    @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
-    @Param('errandId') errandId: string,
-    @Res() response: Response,
-  ): Promise<Response> {
-    const base = `${this.supportManagementService}/${encodeURIComponent(municipalityId)}/${encodeURIComponent(this.namespace)}`;
+  async createActionPlan(@Req() req: RequestWithUser, @Param('errandId') errandId: string, @Res() response: Response): Promise<Response> {
+    const base = `${this.supportManagementService}/${encodeURIComponent(MUNICIPALITY_ID)}/${encodeURIComponent(this.namespace)}`;
     const errandUrl = `${base}/errands/${encodeURIComponent(errandId)}`;
 
     const errand = (await this.apiService.get<Errand>({ url: errandUrl, propagateClientError: true }, req.user)).data;
@@ -111,7 +106,7 @@ export class SupportMeasureActionPlanController {
     const pdfBase64 = await renderPdfWithTemplating({
       apiService: this.apiService,
       templatingService: this.templatingService,
-      municipalityId,
+      municipalityId: MUNICIPALITY_ID,
       template: MEASURE_ACTION_PLAN_TEMPLATE,
       parameters: { plan },
       subject: 'the action plan',
@@ -121,7 +116,7 @@ export class SupportMeasureActionPlanController {
       apiService: this.apiService,
       supportManagementService: this.supportManagementService,
       namespace: this.namespace,
-      municipalityId,
+      municipalityId: MUNICIPALITY_ID,
       errandId,
       fileName,
       pdfBase64,

@@ -10,7 +10,7 @@ import { errandNumberPrefix } from './fixtures/investigation-flow.mock';
  * While an errand carries `ACCESS/LEX` the LEX roles hold it, whichever of them it is assigned to - and the
  * unit sees that much of it even where its read is limited. The overview says LEX is responsible.
  */
-const LIST_URL = /\/supporterrands\/2281\?/;
+const LIST_URL = /\/supporterrands\?/;
 
 const accessLex = { id: 'access-lex-id', classification: 'access', resourceName: 'LEX', resourcePath: 'ACCESS/LEX' };
 const labelStructure = [
@@ -65,9 +65,9 @@ test('namnger LEX som ansvarig för ärenden som bär ACCESS/LEX', async ({ page
   await jsonRoute(page, '**/me', mockMe);
   // The overview names a handler from the assignable handlers.
   await jsonRoute(page, '**/users/admins', mockAdmins);
-  await jsonRoute(page, '**/supportnotifications/2281', []);
+  await jsonRoute(page, '**/supportnotifications', []);
   await mockStatusGroupCounts(page, 2);
-  await jsonRoute(page, '**/supportmetadata/2281', {
+  await jsonRoute(page, '**/supportmetadata', {
     categories: [],
     types: [],
     statuses: [

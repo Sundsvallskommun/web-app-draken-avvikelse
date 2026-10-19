@@ -12,7 +12,6 @@ import { describePlace, resolveErrandPlace, selectablePlaceNodes } from './erran
 import { MoveLocationModal } from './move-location-modal.component';
 
 interface MoveLocationButtonProps {
-  municipalityId: string;
   errandId: string;
   expectedVersion: number | undefined;
   disabled: boolean;
@@ -29,12 +28,7 @@ interface MoveLocationButtonProps {
  * Moving the errand writes the mover out of it, so the page navigates to the overview afterwards
  * instead of re-rendering an errand they can no longer see.
  */
-export const MoveLocationButton: FC<MoveLocationButtonProps> = ({
-  municipalityId,
-  errandId,
-  expectedVersion,
-  disabled,
-}) => {
+export const MoveLocationButton: FC<MoveLocationButtonProps> = ({ errandId, expectedVersion, disabled }) => {
   const router = useRouter();
   const labels = useSupportStore((s) => s.supportErrand?.labels);
   const labelStructure = useMetadataStore((s) => s.supportMetadata?.labels?.labelStructure);
@@ -47,8 +41,8 @@ export const MoveLocationButton: FC<MoveLocationButtonProps> = ({
   const currentPlaceText = currentPlace ? describePlace(currentPlace.presentation) : undefined;
 
   const loadManagers = useCallback(
-    (locationLabelId: string) => getLocationManagers(municipalityId, errandId, locationLabelId),
-    [errandId, municipalityId]
+    (locationLabelId: string) => getLocationManagers(errandId, locationLabelId),
+    [errandId]
   );
 
   // A deployment whose metadata has no place structure has nothing to move an errand to, so the
@@ -64,7 +58,7 @@ export const MoveLocationButton: FC<MoveLocationButtonProps> = ({
     setIsSaving(true);
     setError(undefined);
     try {
-      await applyInvestigationHandover(municipalityId, errandId, 'move-location', expectedVersion, adAccount, {
+      await applyInvestigationHandover(errandId, 'move-location', expectedVersion, adAccount, {
         locationLabelId,
       });
       router.push('/oversikt');

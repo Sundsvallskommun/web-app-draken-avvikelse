@@ -2,7 +2,7 @@ import { matchEventToNotification } from '@common/components/notifications/notif
 import { useRefreshNotifications } from '@common/hooks/useNotificationPoller';
 import { sanitized } from '@common/services/sanitizer-service';
 import { Avatar, Button, cx, Modal, Spinner } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
+import { useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
 import { Priority } from '@supportmanagement/interfaces/priority';
 import { ParsedSupportEvent } from '@supportmanagement/interfaces/supportEvent';
 import { ParsedSupportRevisionDifference } from '@supportmanagement/interfaces/supportRevisionDiff';
@@ -15,7 +15,6 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 export const SidebarHistory: React.FC<{}> = () => {
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const supportErrand = useSupportStore((s) => s.supportErrand);
   const supportMetadata = useMetadataStore((s) => s.supportMetadata);
   const notifications = useSupportStore((s) => s.notifications);
@@ -37,14 +36,13 @@ export const SidebarHistory: React.FC<{}> = () => {
     if (supportErrand && keyMapper && Object.keys(keyMapper).length > 1) {
       setError(false);
       setIsLoading(true);
-      getSupportErrandEvents(supportErrand?.id!, municipalityId, keyMapper)
+      getSupportErrandEvents(supportErrand?.id!, keyMapper)
         .then((res) => {
           setEvents(res);
           setIsLoading(false);
         })
         .catch((e) => setError(true));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supportErrand, keyMapper]);
 
   useEffect(() => {
@@ -74,7 +72,7 @@ export const SidebarHistory: React.FC<{}> = () => {
       // setSelectedChangeDetails(selectedChange.parsed.diffList);
       // setIsOpen(true);
       // TODO Fetch revison diff on modal opening or when fetching events (slow)?
-      fetchRevisionDiff(supportErrand!.id!, selectedChange, municipalityId, keyMapper!, administrators)
+      fetchRevisionDiff(supportErrand!.id!, selectedChange, keyMapper!, administrators)
         .then((res) => {
           setSelectedChangeDetails(res);
           setIsOpen(true);
@@ -96,10 +94,10 @@ export const SidebarHistory: React.FC<{}> = () => {
 
   /** Errands open in a new tab, so the store starts empty whether or not a notification link was used. */
   useEffect(() => {
-    if (!municipalityId || hasLoadedNotifications.current) return;
+    if (hasLoadedNotifications.current) return;
     hasLoadedNotifications.current = true;
     void refreshNotifications();
-  }, [municipalityId, refreshNotifications]);
+  }, [refreshNotifications]);
 
   /** Matching is a timestamp heuristic, so it has to be scoped to this errand. */
   const errandNotifications = useMemo(

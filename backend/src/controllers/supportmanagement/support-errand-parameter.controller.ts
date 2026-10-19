@@ -3,7 +3,7 @@ import { Response } from 'express';
 import { Body, Controller, HeaderParam, Param, Put, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
-import { SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
+import { MUNICIPALITY_ID, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
 import { apiServiceName } from '@/config/api-config';
 import { IAF_VOF_CLASSIFICATION_OWNER_PARAMETER_KEY } from '@/config/iaf-vof-investigation-classification';
 import { Errand, Parameter } from '@/data-contracts/supportmanagement/data-contracts';
@@ -62,12 +62,11 @@ export class SupportErrandParameterController {
   private namespace = SUPPORTMANAGEMENT_NAMESPACE;
   SERVICE = apiServiceName('supportmanagement');
 
-  @Put('/supporterrands/:municipalityId/:id/parameters/:key')
+  @Put('/supporterrands/:id/parameters/:key')
   @OpenAPI({ summary: 'Create or update one parameter on a support errand' })
   @UseBefore(authMiddleware, validationMiddleware(UpdateSupportErrandParameterDto, 'body'))
   async writeParameter(
     @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
     @Param('id') id: string,
     @Param('key') key: string,
     @HeaderParam('If-Match') ifMatch: string,
@@ -75,12 +74,12 @@ export class SupportErrandParameterController {
     @Body() data: UpdateSupportErrandParameterDto,
     @Res() response: Response,
   ): Promise<Response> {
-    if (!municipalityId || !id) throw new HttpException(400, 'Bad Request');
+    if (!MUNICIPALITY_ID || !id) throw new HttpException(400, 'Bad Request');
     this.assertWritableParameterKey(key);
     assertExactlyOnePrecondition(ifMatch, ifNoneMatch);
 
     const baseURL = apiURL(this.SERVICE);
-    const errandUrl = `${municipalityId}/${this.namespace}/errands/${id}`;
+    const errandUrl = `${MUNICIPALITY_ID}/${this.namespace}/errands/${id}`;
     const currentErrandResponse = await this.apiService.get<Errand>(
       { url: errandUrl, baseURL, includeResponseHeaders: true, propagateClientError: true },
       req.user,

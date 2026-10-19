@@ -79,9 +79,9 @@ async function installOverview(page: Page) {
   await jsonRoute(page, '**/administrators', mockAdmins);
   await jsonRoute(page, '**/me', mockMe);
   await jsonRoute(page, '**/users/admins', mockNoAdmins);
-  await jsonRoute(page, '**/supportnotifications/2281', []);
+  await jsonRoute(page, '**/supportnotifications', []);
   await mockStatusGroupCounts(page, 0);
-  await jsonRoute(page, '**/supportmetadata/2281', {
+  await jsonRoute(page, '**/supportmetadata', {
     categories: [],
     types: [],
     statuses: [
@@ -90,7 +90,7 @@ async function installOverview(page: Page) {
     ],
     labels: { labelStructure: [] },
   });
-  await jsonRoute(page, /\/supporterrands\/2281\?/, emptyErrandPage);
+  await jsonRoute(page, /\/supporterrands\?/, emptyErrandPage);
 }
 
 test.describe('Planerade åtgärder i översikten', () => {
@@ -104,7 +104,7 @@ test.describe('Planerade åtgärder i översikten', () => {
   }) => {
     await installOverview(page);
     const reads: string[] = [];
-    await page.route('**/supportmeasures/2281/planned', async (route) => {
+    await page.route('**/supportmeasures/planned', async (route) => {
       reads.push(route.request().url());
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(planned) });
     });
@@ -122,7 +122,7 @@ test.describe('Planerade åtgärder i översikten', () => {
     await expect(page.locator('[data-cy="main-table"]')).toHaveCount(0);
     // Dev mode mounts twice under StrictMode, so the count is not asserted; the URL is.
     expect(reads.length).toBeGreaterThanOrEqual(1);
-    expect(reads.every((url) => url.endsWith('/supportmeasures/2281/planned'))).toBe(true);
+    expect(reads.every((url) => url.endsWith('/supportmeasures/planned'))).toBe(true);
 
     const rows = overview.locator('[data-cy="planned-measure-row"]');
     await expect(rows).toHaveCount(2);
@@ -179,7 +179,7 @@ test.describe('Planerade åtgärder i översikten', () => {
     await installOverview(page);
     // Denied until the retry, whatever number of reads the first mount makes.
     let denied = true;
-    await page.route('**/supportmeasures/2281/planned', async (route) => {
+    await page.route('**/supportmeasures/planned', async (route) => {
       if (denied) {
         await route.fulfill({
           status: 403,

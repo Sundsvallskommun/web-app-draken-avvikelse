@@ -8,7 +8,6 @@ import { HandlerAssignmentModal } from './handler-assignment-modal.component';
 
 interface LexAssignmentPromptProps {
   show: boolean;
-  municipalityId: string;
   errandId: string;
   /** The errand version the handover is conditioned on; the backend rejects a stale one. */
   expectedVersion: number | undefined;
@@ -31,7 +30,6 @@ interface LexAssignmentPromptProps {
  */
 export const LexAssignmentPrompt: FC<LexAssignmentPromptProps> = ({
   show,
-  municipalityId,
   errandId,
   expectedVersion,
   description = 'Ärendet är nu klassificerat som ett misstänkt missförhållande och ska tilldelas en LEX-ansvarig, som sedan skickar det till beslut. Rapporttypen ändras från Avvikelse till Missförhållande, och när ärendet är tilldelat lämnar det din ärendelista.',
@@ -68,7 +66,7 @@ export const LexAssignmentPrompt: FC<LexAssignmentPromptProps> = ({
     setIsSaving(true);
     setError(undefined);
     try {
-      await applyInvestigationHandover(municipalityId, errandId, 'assign-lex', expectedVersion, adAccount);
+      await applyInvestigationHandover(errandId, 'assign-lex', expectedVersion, adAccount);
       router.push('/oversikt');
     } catch (e) {
       setError(investigationHandoverErrorMessage(e, 'Ärendet kunde inte tilldelas en LEX-ansvarig. Försök igen.'));

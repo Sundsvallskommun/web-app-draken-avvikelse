@@ -28,7 +28,7 @@ beforeEach(() => {
 
 // One request per file, and one notification for all of them: the upload is one action.
 test('uploads several files in one request group', async () => {
-  const results = await saveSupportAttachments('errand-1', '2281', [chosenFile('forsta.txt'), chosenFile('andra.txt')]);
+  const results = await saveSupportAttachments('errand-1', [chosenFile('forsta.txt'), chosenFile('andra.txt')]);
 
   assert.deepEqual(
     results.map(({ status }) => status),
@@ -40,8 +40,8 @@ test('uploads several files in one request group', async () => {
 });
 
 test('gives the next upload a request group of its own', async () => {
-  await saveSupportAttachments('errand-1', '2281', [chosenFile('forsta.txt')]);
-  await saveSupportAttachments('errand-1', '2281', [chosenFile('andra.txt')]);
+  await saveSupportAttachments('errand-1', [chosenFile('forsta.txt')]);
+  await saveSupportAttachments('errand-1', [chosenFile('andra.txt')]);
 
   const [first, second] = sentGroupIds;
   assert.ok(first && second);

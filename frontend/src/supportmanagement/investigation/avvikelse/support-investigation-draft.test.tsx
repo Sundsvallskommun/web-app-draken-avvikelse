@@ -5,7 +5,6 @@ import { act, createElement, type ReactNode, useCallback, useState } from 'react
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import WarnIfUnsavedChanges from '../../../common/utils/warnIfUnsavedChanges';
-import { useConfigStore } from '../../../stores/config-store';
 import { useSupportStore } from '../../../stores/support-store';
 import { useUserStore } from '../../../stores/user-store';
 import {
@@ -152,7 +151,6 @@ const grants = (
 ): InvestigationAccessState => ({
   status: 'ready',
   access: {
-    municipalityId: '2281',
     errandId: 'one',
     documents: new Map([
       ['first', first],
@@ -187,13 +185,12 @@ beforeEach(() => {
   mocks.attachments.mockReset().mockResolvedValue([]);
   mocks.save.mockReset();
   sessionStorage.clear();
-  mocks.read.mockReset().mockImplementation(async (_municipality: string, _errand: string, key: string) => ({
+  mocks.read.mockReset().mockImplementation(async (_errand: string, key: string) => ({
     document: { key, schemaId: 'schema', value: { answer: `Saved ${key}` } },
     etag: '"1"',
   }));
   mocks.refresh.mockClear();
   mocks.revealTab.mockClear();
-  useConfigStore.setState({ municipalityId: '2281' });
   useSupportStore.setState({
     supportErrand: { id: 'one', version: 1, category: '', type: '', subType: '', customer: [], contacts: [] },
   });
@@ -218,7 +215,7 @@ afterEach(cleanup);
 
 test.each(['Skapa rapport', 'Förhandsgranska rapport'])('shows the report service error for %s', async (button) => {
   mocks.completion.mockReturnValue({ field: 'completed', reportsField: 'reports' });
-  mocks.read.mockImplementation(async (_municipality: string, _errand: string, key: string) => ({
+  mocks.read.mockImplementation(async (_errand: string, key: string) => ({
     document: { key, schemaId: 'schema', value: { answer: `Saved ${key}`, completed: 'yes' } },
     etag: '"1"',
   }));
@@ -323,12 +320,12 @@ test('a report retry retains its publication identity after a lost response', as
   const view = render(createElement(Harness, { access: grants('edit', 'hidden') }));
   fireEvent.click(await screen.findByRole('button', { name: 'Skapa rapport' }));
   await screen.findByText('Lost response');
-  const operationId = mocks.generate.mock.calls[0][3];
+  const operationId = mocks.generate.mock.calls[0][2];
   view.unmount();
   render(createElement(Harness, { access: grants('edit', 'hidden') }));
   fireEvent.click(await screen.findByRole('button', { name: 'Skapa rapport' }));
   await waitFor(() => expect(mocks.generate).toHaveBeenCalledTimes(2));
-  expect(mocks.generate.mock.calls[1][3]).toBe(operationId);
+  expect(mocks.generate.mock.calls[1][2]).toBe(operationId);
   expect(operationId).toMatch(/^[a-f0-9-]{36}$/);
 });
 
@@ -391,7 +388,6 @@ test('Spara ärende saves a document draft through its form', async () => {
 
   expect(await saveParticipantsInTurn(dirtyParticipants())).toEqual([]);
   expect(mocks.save).toHaveBeenCalledWith(
-    '2281',
     'one',
     'first',
     { schemaId: 'schema', value: { answer: 'Sidebar answer' } },

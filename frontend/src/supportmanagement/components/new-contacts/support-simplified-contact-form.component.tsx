@@ -13,7 +13,7 @@ import {
 } from '@common/services/helper-service';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { Button, FormControl, Input } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore } from '@stores/index';
+import { useMetadataStore } from '@stores/index';
 import {
   emptyContact,
   ExternalIdType,
@@ -133,8 +133,6 @@ export const SupportSimplifiedContactForm: FC<{
       ['lastName', 'organizationName'],
     ]
   );
-
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const setSupportMetadata = useMetadataStore((s) => s.setSupportMetadata);
   const [searchMode, setSearchMode] = useState('person');
   // Without organisations the search starts on employees, unless the stakeholder's role is never one.
@@ -236,9 +234,9 @@ export const SupportSimplifiedContactForm: FC<{
   }, [organizationNumber, personNumber]);
 
   useEffect(() => {
-    municipalityId && getSupportMetadata(municipalityId).then((res) => setSupportMetadata(res.metadata));
+    getSupportMetadata().then((res) => setSupportMetadata(res.metadata));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [municipalityId]);
+  }, []);
 
   const onSubmit = async (e: SupportStakeholderFormModel) => {
     if (!editing) {

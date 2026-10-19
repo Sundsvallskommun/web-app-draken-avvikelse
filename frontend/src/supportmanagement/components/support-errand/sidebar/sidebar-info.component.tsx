@@ -4,7 +4,7 @@ import { withRequestGroup } from '@common/services/api-service';
 import { hasDirtyFields, prettyTime } from '@common/services/helper-service';
 import { type Admin, getAssignableHandlers, type HandlerDirectory } from '@common/services/user-service';
 import { Button, Divider, FormControl, FormLabel, Label, Select, useSnackbar } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
+import { useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
 import { SupportStatusLabelComponent } from '@supportmanagement/components/ongoing-support-errands/components/support-status-label.component';
 import { RegisterSupportErrandFormModel } from '@supportmanagement/interfaces/errand';
 import { Priority } from '@supportmanagement/interfaces/priority';
@@ -65,7 +65,6 @@ export const SidebarInfo: FC<{
   const setSupportErrand = useSupportStore((s) => s.setSupportErrand);
   const administrators = useUserStore((s) => s.administrators);
   const handlerRoles = useUserStore((s) => s.handlerRoles);
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const router = useRouter();
   const handlerFields = getInvestigationHandlerFields();
   const nextStep = useInvestigationNextStep();
@@ -166,13 +165,13 @@ export const SidebarInfo: FC<{
   // makes LEX-ansvarig one - so the directory is read again whenever the saved errand moves on.
   const errandVersion = supportErrand?.version;
   useEffect(() => {
-    if (!errandId || !municipalityId) {
+    if (!errandId) {
       setAssignable(undefined);
       return;
     }
 
     let cancelled = false;
-    getAssignableHandlers(municipalityId, errandId)
+    getAssignableHandlers(errandId)
       .then((directory) => {
         if (!cancelled) setAssignable(directory);
       })
@@ -184,7 +183,7 @@ export const SidebarInfo: FC<{
     return () => {
       cancelled = true;
     };
-  }, [errandId, errandVersion, municipalityId]);
+  }, [errandId, errandVersion]);
 
   // Resolved from the list the selector actually offered: a manager reached through AccessMapper
   // need not be in any configured handler group, so looking only in the full directory would
@@ -218,10 +217,9 @@ export const SidebarInfo: FC<{
    */
   const handOver = async (recipient: Admin): Promise<boolean> => {
     try {
-      const current = await readSupportErrandWriteSnapshot(supportErrand!.id!, municipalityId);
+      const current = await readSupportErrandWriteSnapshot(supportErrand!.id!);
       if (typeof current.version !== 'number') throw new Error('The support errand version is missing');
       await applyInvestigationHandover(
-        municipalityId,
         supportErrand!.id!,
         recipient.handoverStep as InvestigationHandoverStep,
         current.version,
@@ -247,7 +245,7 @@ export const SidebarInfo: FC<{
     try {
       // An errand taken over while it waits accepts nothing but its new handler, so nothing else of it is written.
       if (!takesOverWaitingErrand) {
-        await updateSupportErrand(municipalityId, getValues(), supportErrand?.version, supportErrand?.parameters);
+        await updateSupportErrand(getValues(), supportErrand?.version, supportErrand?.parameters);
       }
 
       // Handle admin change. The update above is ours and moved the version on, so the version
@@ -264,10 +262,9 @@ export const SidebarInfo: FC<{
               : Status.ASSIGNED;
           const expectedVersion = takesOverWaitingErrand
             ? supportErrand?.version
-            : (await readSupportErrandWriteSnapshot(supportErrand!.id!, municipalityId)).version;
+            : (await readSupportErrandWriteSnapshot(supportErrand!.id!)).version;
           await setSupportErrandAdmin(
             supportErrand!.id!,
-            municipalityId,
             newAdminAccount,
             expectedVersion,
             newStatus,
@@ -277,7 +274,7 @@ export const SidebarInfo: FC<{
       }
 
       // Single fetch + reset after all operations complete
-      const e = await getSupportErrandById(getValues().id!, municipalityId);
+      const e = await getSupportErrandById(getValues().id!);
       if (e.error) throw new Error('Could not confirm the saved support errand');
       setSupportErrand(e.errand);
       reset(e.errand);

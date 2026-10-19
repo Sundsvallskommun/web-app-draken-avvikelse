@@ -9,7 +9,6 @@ import {
   extendTheme,
   GuiProvider,
 } from '@sk-web-gui/react';
-import { useConfigStore } from '@stores/config-store';
 import { useMetadataStore } from '@stores/metadata-store';
 import { useUiSettingsStore } from '@stores/ui-settings-store';
 import { useUserStore } from '@stores/user-store';
@@ -69,9 +68,6 @@ function AppInitializer({ children }: Readonly<{ children: ReactNode }>) {
 
   useEffect(() => {
     if (schemaLabRoute) return;
-
-    const municipalityId = process.env.NEXT_PUBLIC_MUNICIPALITY_ID || '';
-    useConfigStore.getState().setMunicipalityId(municipalityId);
     useInvestigationProfileStore.getState().reset();
 
     getMe()
@@ -94,11 +90,9 @@ function AppInitializer({ children }: Readonly<{ children: ReactNode }>) {
         });
     }
 
-    if (municipalityId) {
-      getSupportMetadata(municipalityId).then((res) => {
-        useMetadataStore.getState().setSupportMetadata(res.metadata);
-      });
-    }
+    getSupportMetadata().then((res) => {
+      useMetadataStore.getState().setSupportMetadata(res.metadata);
+    });
 
     getHandlerDirectory()
       .then(({ administrators, roles }) => {

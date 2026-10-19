@@ -160,7 +160,7 @@ const jsonRoute = (page: Page, pattern: string | RegExp, body: unknown) =>
   );
 
 const latestSchema = (page: Page, request: { name: string; version: string; value: unknown }) =>
-  jsonRoute(page, `**/2281/schemas/${request.name}/latest`, {
+  jsonRoute(page, `**/schemas/${request.name}/latest`, {
     data: {
       id: `2281_${request.name}_${request.version}`,
       name: request.name,
@@ -179,10 +179,10 @@ async function installFollowUp(page: Page, me: unknown = mockMe) {
   await jsonRoute(page, '**/administrators', mockAdmins);
   await jsonRoute(page, '**/me', me);
   await jsonRoute(page, '**/users/admins', mockNoAdmins);
-  await jsonRoute(page, '**/supportnotifications/2281', []);
+  await jsonRoute(page, '**/supportnotifications', []);
   await jsonRoute(page, '**/supportmanagement/investigation-profile', defaultInvestigationProfile());
   await mockStatusGroupCounts(page, 0);
-  await jsonRoute(page, '**/supportmetadata/2281', {
+  await jsonRoute(page, '**/supportmetadata', {
     categories: [],
     types: [],
     statuses: [
@@ -192,7 +192,7 @@ async function installFollowUp(page: Page, me: unknown = mockMe) {
     ],
     labels: { labelStructure: [] },
   });
-  await jsonRoute(page, /\/supporterrands\/2281\?/, emptyErrandPage);
+  await jsonRoute(page, /\/supporterrands\?/, emptyErrandPage);
   await latestSchema(page, { name: managerRequest.name, version: managerRequest.version, value: managerRequest.value });
   await latestSchema(page, { name: lexRequest.name, version: lexRequest.version, value: lexRequest.value });
   await latestSchema(page, {
@@ -200,7 +200,7 @@ async function installFollowUp(page: Page, me: unknown = mockMe) {
     version: lexDecisionRequest.version,
     value: lexDecisionRequest.value,
   });
-  await page.route('**/supportfollowup/2281/units?**', async (route) => {
+  await page.route('**/supportfollowup/units?**', async (route) => {
     reads.push(new URL(route.request().url()));
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(snapshot) });
   });

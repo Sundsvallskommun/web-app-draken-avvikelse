@@ -170,6 +170,8 @@ Dessa APIer används i projektet, applikationsanvändaren i WSO2 måste prenumer
    - `SAML_PRIVATE_KEY` och `SAML_PUBLIC_KEY` behöver bara fyllas i korrekt om man kör mot en riktig IDP
    - `HEALTHCAREDEVIATION_HANDLER_ROLES` är obligatorisk, se [AD-grupper och
      handläggarroller](#ad-grupper-och-handläggarroller)
+   - `MUNICIPALITY_ID` är obligatorisk och anger kommunen som alla anrop till API:erna gäller. Den finns bara i
+     backendens env: frontend skickar ingen kommunkod, och BFF:en tar aldrig emot någon från klienten
 
 5. Starta utvecklingsservrarna.
 
@@ -373,7 +375,7 @@ in i README:n. Projektet ingår inte i CI.
 
 Utrednings- och beslutsdokumentens rättigheter hämtas per användare och ärende från
 Support Management Sprint 16.0, `GET /{municipalityId}/{namespace}/errands/{errandId}/access`.
-Backend erbjuder projektionen som `GET /supporterrands/{municipalityId}/{errandId}/investigation-access`.
+Backend erbjuder projektionen som `GET /supporterrands/{errandId}/investigation-access`.
 Den globala utredningsprofilen beskriver dokument och scheman; den innehåller inga behörigheter.
 
 Draken tolkar endast den nycklade samlingen `jsonParameters` och resursen `errand/json-parameter`
@@ -423,10 +425,10 @@ Notiserna kommer från Support Managements prenumerationsmodell.
   ärendet tilldelas, lämnas över eller registreras prenumererar BFF:en den nya handläggaren och tar bort
   den förras prenumerationer på ärendet. Därför finns ingen Följ ärendet i sidopanelen.
 - **En notis per ärende.** Support Management samlar allt som hänt sedan användaren senast kvitterade
-  i en notis per ärende och användare (`GET /supportnotifications/:municipalityId`). Klockan hämtar
+  i en notis per ärende och användare (`GET /supportnotifications`). Klockan hämtar
   listan en gång i minuten, pausar i en dold flik och hämtar direkt när användaren byter vy.
 - **Kvittens.** Ett ärendes notiser kvitteras när ärendet öppnas, hur användaren än kommer dit
-  (`PUT /supportnotifications/:municipalityId/:errandId/acknowledge-all`). I panelen går det också att
+  (`PUT /supportnotifications/:errandId/acknowledge-all`). I panelen går det också att
   markera notiser som lästa. En kvitterad notis ligger kvar tills Support Management låter den gå ut.
   **Senaste aktivitet** i översikten visar den senaste händelse användaren inte har kvitterat, och
   annars när ärendet senast ändrades.
@@ -443,7 +445,7 @@ Notiserna kommer från Support Managements prenumerationsmodell.
   17.0 (`SUPPORTMANAGEMENT_API_TARGET=sprint`); äldre versioner ignorerar den. Ändringar användaren själv gör ska aldrig vara tysta.
 - **E-post och SMS väljer användaren själv.** Användarmenyn har valet **Notiser**, där
   användaren kryssar i om notiserna också ska komma med e-post eller SMS. Valet lagras som kanaler på
-  användarens prenumerant i Support Management (`GET`/`PATCH /supportsubscribers/:municipalityId/me`),
+  användarens prenumerant i Support Management (`GET`/`PATCH /supportsubscribers/me`),
   och dialogen visar det som ligger där; Draken har inget eget förval.
   - Notiserna i Draken går inte att välja bort: BFF:en lägger alltid till kanalen `INTERNAL`.
   - BFF:en tar bara emot kanalens typ. En egen adress eller ett eget nummer (`destination`) avvisas, så

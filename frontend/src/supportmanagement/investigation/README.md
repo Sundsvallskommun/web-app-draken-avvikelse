@@ -61,7 +61,7 @@ En variant fyller de slots delad kod erbjuder:
   avvikelse: e-post och SMS. Utan slot, ingen rad i användarmenyn.
 - `limitedAccessNotice` — valfri text för ett ärende där Support Management bara ger användaren begränsad
   läsning (`LR` i `/access`): hen får veta att ärendet finns, inte arbeta i det. Med sloten frågar ärendesidan
-  efter nivån (`GET /supporterrands/:m/:id/errand-access`), låser vid `LR` hela ärendet (`limitedAccess` i
+  efter nivån (`GET /supporterrands/:id/errand-access`), låser vid `LR` hela ärendet (`limitedAccess` i
   `isSupportErrandLocked` och `validateAction`) och visar texten som en varning. Utan slot frågar sidan ingenting.
 - `overviewAssignee` — valfri: vem översikten anger som Ansvarig när ärendets labels säger mer än den
   tilldelade handläggaren. Utan slot, eller när den svarar `undefined`, visas handläggaren som i dag.

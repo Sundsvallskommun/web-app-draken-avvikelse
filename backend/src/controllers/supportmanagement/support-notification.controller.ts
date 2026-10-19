@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 import { Body, Controller, Get, Param, Patch, Put, QueryParam, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
-import { SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
+import { MUNICIPALITY_ID, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
 import { apiServiceName } from '@/config/api-config';
 import {
   IdentifierTypeEnum,
@@ -172,12 +172,11 @@ export class SupportNotificationController {
     return { acknowledged, failed };
   }
 
-  @Get('/supportnotifications/:municipalityId')
+  @Get('/supportnotifications')
   @OpenAPI({ summary: 'Get notifications for the logged in user' })
   @UseBefore(authMiddleware)
   async getSupportNotifications(
     @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
     @QueryParam('page') page: number,
     @QueryParam('size') size: number,
     @Res() response: any,
@@ -185,21 +184,20 @@ export class SupportNotificationController {
     // The panel asks for no page and gets them all; a caller that names a page or size gets that page.
     const notifications =
       page === undefined && size === undefined
-        ? await this.fetchAllNotifications(municipalityId, req.user)
-        : ((await this.fetchNotificationPage(municipalityId, req.user, page ?? 0, size ?? NOTIFICATION_PAGE_SIZE)).content ?? []);
+        ? await this.fetchAllNotifications(MUNICIPALITY_ID, req.user)
+        : ((await this.fetchNotificationPage(MUNICIPALITY_ID, req.user, page ?? 0, size ?? NOTIFICATION_PAGE_SIZE)).content ?? []);
     return response.status(200).send(notifications.map(toNotificationDto));
   }
 
-  @Patch('/supportnotifications/:municipalityId/acknowledge')
+  @Patch('/supportnotifications/acknowledge')
   @OpenAPI({ summary: 'Acknowledge one or more notifications for the logged in user' })
   @UseBefore(authMiddleware, validationMiddleware(AcknowledgeNotificationsDto, 'body'))
   async acknowledgeSupportNotifications(
     @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
     @Body() data: AcknowledgeNotificationsDto,
     @Res() response: any,
   ): Promise<AcknowledgeResultDto> {
-    const result = await this.acknowledgeMany(municipalityId, req.user, data.ids);
+    const result = await this.acknowledgeMany(MUNICIPALITY_ID, req.user, data.ids);
     return response.status(200).send(result);
   }
 
@@ -208,21 +206,20 @@ export class SupportNotificationController {
    * opened from the overview. Upstream cannot filter notifications by errand, so the user's whole list is
    * read and filtered here, every page of it, before anything is acknowledged.
    */
-  @Put('/supportnotifications/:municipalityId/:errandId/acknowledge-all')
+  @Put('/supportnotifications/:errandId/acknowledge-all')
   @OpenAPI({ summary: 'Acknowledge all notifications the logged in user has for an errand' })
   @UseBefore(authMiddleware)
   async acknowledgeAllForErrand(
     @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
     @Param('errandId') errandId: string,
     @Res() response: any,
   ): Promise<AcknowledgeResultDto> {
-    const notifications = await this.fetchAllNotifications(municipalityId, req.user);
+    const notifications = await this.fetchAllNotifications(MUNICIPALITY_ID, req.user);
     const ids = notifications.filter(n => n.errandId === errandId && !n.acknowledged).map(n => n.id!);
     if (!ids.length) {
       return response.status(200).send({ acknowledged: [], failed: [] });
     }
-    const result = await this.acknowledgeMany(municipalityId, req.user, ids);
+    const result = await this.acknowledgeMany(MUNICIPALITY_ID, req.user, ids);
     return response.status(200).send(result);
   }
 }

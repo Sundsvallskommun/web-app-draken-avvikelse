@@ -1,7 +1,7 @@
 import { hasDirtyFields } from '@common/services/helper-service';
 import WarnIfUnsavedChanges from '@common/utils/warnIfUnsavedChanges';
 import { cx, Tabs } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
+import { useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
 import { concealInvestigationDocuments } from '@supportmanagement/investigation/investigation-access';
 import { useInvestigationProfileStore } from '@supportmanagement/investigation/investigation-profile-store';
 import {
@@ -54,7 +54,6 @@ export const SupportTabsWrapper: FC<{
   const [messageTree, setMessageTree] = useState<MessageNode[]>([]);
   const [conversationMessageTree, setConversationMessageTree] = useState<MessageNode[]>([]);
   const [conversationReadByCounts, setConversationReadByCounts] = useState<ConversationReadByCount[]>([]);
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const investigationVariant = getInvestigationVariant();
   const investigationProfile = useInvestigationProfileStore((state) => state.profile);
   const supportMetadata = useMetadataStore((s) => s.supportMetadata);
@@ -117,19 +116,19 @@ export const SupportTabsWrapper: FC<{
   }, []);
 
   const getMessagesAndConversations = () => {
-    getSupportAttachments(supportErrand!.id!, municipalityId).then(setSupportAttachments);
-    fetchSupportMessages(supportErrand!.id!, municipalityId).then((res) => {
+    getSupportAttachments(supportErrand!.id!).then(setSupportAttachments);
+    fetchSupportMessages(supportErrand!.id!).then((res) => {
       const tree = buildTree(res);
       setMessageTree(tree);
       setMessages(res);
     });
-    getSupportConversationReadByCounts(municipalityId, supportErrand!.id!)
+    getSupportConversationReadByCounts(supportErrand!.id!)
       .then(setConversationReadByCounts)
       .catch(() => setConversationReadByCounts([]));
-    getSupportConversations(municipalityId, supportErrand!.id!).then((res) => {
+    getSupportConversations(supportErrand!.id!).then((res) => {
       Promise.all(
         res.data.map((conversation: any) =>
-          getSupportConversationMessages(municipalityId, supportErrand!.id!, conversation.id).then((messages) => {
+          getSupportConversationMessages(supportErrand!.id!, conversation.id).then((messages) => {
             return messages.data.map((msgRes) => (Array.isArray(msgRes) ? msgRes : msgRes ? [msgRes] : [])).flat();
           })
         )
@@ -145,7 +144,7 @@ export const SupportTabsWrapper: FC<{
 
   const update = () => {
     if (supportErrand?.id) {
-      getSupportErrandById(supportErrand.id, municipalityId).then((res) => setSupportErrand(res.errand));
+      getSupportErrandById(supportErrand.id).then((res) => setSupportErrand(res.errand));
       getMessagesAndConversations();
     }
   };
@@ -213,7 +212,6 @@ export const SupportTabsWrapper: FC<{
             conversationMessageTree={conversationMessageTree}
             setUnsaved={setTabUnsavedChanges}
             update={update}
-            municipalityId={municipalityId}
           />
         ),
         disabled: false,
@@ -248,7 +246,6 @@ export const SupportTabsWrapper: FC<{
           <SupportMeasuresTab
             key={supportErrand.id}
             errand={supportErrand}
-            municipalityId={municipalityId}
             onDirtyChange={setMeasuresDirty}
             isActive={activeTabKey === 'measures'}
           />
@@ -290,7 +287,6 @@ export const SupportTabsWrapper: FC<{
           <SupportMeasuresTab
             key={supportErrand.id}
             errand={supportErrand}
-            municipalityId={municipalityId}
             onDirtyChange={setFollowUpDirty}
             isActive={activeTabKey === 'follow-up'}
             followUp
@@ -308,7 +304,6 @@ export const SupportTabsWrapper: FC<{
       messageTabLabel,
       messageTree,
       messages,
-      municipalityId,
       investigationVariant,
       investigationProfile,
       investigationAccess,

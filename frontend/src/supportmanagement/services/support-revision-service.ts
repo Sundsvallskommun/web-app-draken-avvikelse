@@ -226,10 +226,9 @@ const parseDiff: (
 export const fetchRevisionDiff: (
   errandId: string,
   event: ParsedSupportEvent,
-  municipalityId: string,
   keyMapper: { [key: string]: string },
   admins: Admin[]
-) => Promise<ParsedSupportRevisionDifference[]> = (errandId, event, municipalityId, keyMapper, admins) => {
+) => Promise<ParsedSupportRevisionDifference[]> = (errandId, event, keyMapper, admins) => {
   const currentVersion = event.metadata.find((item) => item.key === 'CurrentVersion')?.value;
   const previousVersion = event.metadata.find((item) => item.key === 'PreviousVersion')?.value;
   if (!currentVersion || !previousVersion) {
@@ -238,10 +237,10 @@ export const fetchRevisionDiff: (
   const noteId = event.sourceType === 'Note' ? event.metadata.find((item) => item.key === 'NoteId')?.value : '';
   const url =
     event.sourceType === 'Errand'
-      ? `supporthistory/${municipalityId}/${errandId}/revisions/difference?source=${previousVersion}&target=${currentVersion}`
+      ? `supporthistory/${errandId}/revisions/difference?source=${previousVersion}&target=${currentVersion}`
       : event.sourceType === 'Note'
-      ? `supporthistory/${municipalityId}/${errandId}/notes/${noteId}/revisions/difference?source=${previousVersion}&target=${currentVersion}`
-      : `supporthistory/${municipalityId}/${errandId}/revisions/difference?source=${previousVersion}&target=${currentVersion}`;
+      ? `supporthistory/${errandId}/notes/${noteId}/revisions/difference?source=${previousVersion}&target=${currentVersion}`
+      : `supporthistory/${errandId}/revisions/difference?source=${previousVersion}&target=${currentVersion}`;
   return apiService
     .get<RevisionDifferenceData>(url)
     .then((res) => res.data.operations.map((diff) => parseDiff(diff, keyMapper, admins)))

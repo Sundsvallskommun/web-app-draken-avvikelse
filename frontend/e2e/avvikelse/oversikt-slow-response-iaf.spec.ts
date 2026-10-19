@@ -15,7 +15,7 @@ import { errandNumberPrefix } from './fixtures/investigation-flow.mock';
  * whose status the sidebar has selected, an answer fetched for another status renders as an empty
  * table beside a correct count.
  */
-const LIST_URL = /\/supporterrands\/2281\?/;
+const LIST_URL = /\/supporterrands\?/;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const statusOf = (url: string) => new URL(url).searchParams.get('status');
 
@@ -108,9 +108,9 @@ test.describe('Avvikelsens översikt, långsamma svar', () => {
     await jsonRoute(page, '**/administrators', mockAdmins);
     await jsonRoute(page, '**/me', mockMe);
     await jsonRoute(page, '**/users/admins', mockNoAdmins);
-    await jsonRoute(page, '**/supportnotifications/2281', []);
+    await jsonRoute(page, '**/supportnotifications', []);
     await mockStatusGroupCounts(page, 10);
-    await jsonRoute(page, '**/supportmetadata/2281', {
+    await jsonRoute(page, '**/supportmetadata', {
       categories: [],
       types: [],
       statuses: [
@@ -170,7 +170,7 @@ test.describe('Avvikelsens översikt, långsamma svar', () => {
       { key: storageKey, labelFilter: storedSelection }
     );
     // Well past the 200 ms in which the overview stores its filter.
-    await page.route('**/supportmetadata/2281', async (route) => {
+    await page.route('**/supportmetadata', async (route) => {
       await delay(1500);
       await route.fallback();
     });

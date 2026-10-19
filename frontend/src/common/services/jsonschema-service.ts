@@ -17,8 +17,8 @@ export type UiSchemaResponse = {
   created?: string;
 };
 
-export const getSchema = (municipalityId: string, schemaId: string): Promise<ApiResponse<JsonSchemaResponse>> => {
-  const url = `${municipalityId}/schemas/${schemaId}`;
+export const getSchema = (schemaId: string): Promise<ApiResponse<JsonSchemaResponse>> => {
+  const url = `schemas/${schemaId}`;
   return apiService
     .get<ApiResponse<JsonSchemaResponse>>(url)
     .then((res) => res.data)
@@ -28,11 +28,8 @@ export const getSchema = (municipalityId: string, schemaId: string): Promise<Api
     });
 };
 
-export const getLatestSchema = (
-  municipalityId: string,
-  schemaName: string
-): Promise<ApiResponse<JsonSchemaResponse>> => {
-  const url = `${municipalityId}/schemas/${schemaName}/latest`;
+export const getLatestSchema = (schemaName: string): Promise<ApiResponse<JsonSchemaResponse>> => {
+  const url = `schemas/${schemaName}/latest`;
 
   return apiService
     .get<ApiResponse<JsonSchemaResponse>>(url)
@@ -43,8 +40,8 @@ export const getLatestSchema = (
     });
 };
 
-export const getUiSchema = (municipalityId: string, schemaId: string): Promise<ApiResponse<UiSchemaResponse>> => {
-  const url = `${municipalityId}/schemas/${schemaId}/ui-schema`;
+export const getUiSchema = (schemaId: string): Promise<ApiResponse<UiSchemaResponse>> => {
+  const url = `schemas/${schemaId}/ui-schema`;
 
   return apiService
     .get<ApiResponse<UiSchemaResponse>>(url)

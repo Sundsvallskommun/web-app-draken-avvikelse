@@ -52,7 +52,7 @@ describe('errand-scoped investigation access', () => {
     const response = mockRes();
     const req = mockReq();
     await expect(
-      new SupportInvestigationProfileController(policy, access).getInvestigationAccess(req, '2281', 'errand-1', response as unknown as Response),
+      new SupportInvestigationProfileController(policy, access).getInvestigationAccess(req, 'errand-1', response as unknown as Response),
     ).resolves.toEqual(grants);
     expect(get).toHaveBeenCalledWith(req.user, '2281', 'errand-1', ['one']);
     expect(response.headers['Cache-Control']).toBe('no-store');
@@ -63,7 +63,7 @@ describe('errand-scoped investigation access', () => {
     const access = new SupportInvestigationAccessService();
     const get = vi.spyOn(access, 'getDocumentAccess');
     await expect(
-      new SupportInvestigationProfileController(policy, access).getInvestigationAccess(mockReq(), '2281', 'one', mockRes() as unknown as Response),
+      new SupportInvestigationProfileController(policy, access).getInvestigationAccess(mockReq(), 'one', mockRes() as unknown as Response),
     ).resolves.toEqual({ municipalityId: '2281', errandId: 'one', documents: [] });
     expect(get).not.toHaveBeenCalled();
   });
@@ -79,7 +79,7 @@ describe('errand access level', () => {
     const req = mockReq();
 
     await expect(
-      new SupportInvestigationProfileController(undefined, access).getErrandAccess(req, '2281', 'errand-1', response as unknown as Response),
+      new SupportInvestigationProfileController(undefined, access).getErrandAccess(req, 'errand-1', response as unknown as Response),
     ).resolves.toEqual({ level: 'LR' });
     expect(get).toHaveBeenCalledWith(req.user, '2281', 'errand-1');
     expect(response.headers['Cache-Control']).toBe('no-store');
@@ -94,7 +94,7 @@ describe('errand access level', () => {
       candidate => candidate.target === SupportInvestigationProfileController && candidate.method === 'getErrandAccess',
     );
 
-    expect(action).toMatchObject({ route: '/supporterrands/:municipalityId/:errandId/errand-access', type: 'get' });
+    expect(action).toMatchObject({ route: '/supporterrands/:errandId/errand-access', type: 'get' });
     expect(uses.some(use => use.middleware === authMiddleware && use.afterAction === false)).toBe(true);
   });
 });

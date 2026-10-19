@@ -47,11 +47,9 @@ const access = (
   status: 'ready',
   access: parseInvestigationAccess(
     {
-      municipalityId: '2281',
       errandId: 'one',
       documents: Object.entries(grants).map(([key, access]) => ({ key, access })),
     },
-    '2281',
     'one'
   ),
 });

@@ -39,77 +39,72 @@ export type MeasureChanges = Pick<
 
 export type NewMeasure = MeasureChanges & Required<Pick<Measure, 'type' | 'addedByRole' | 'goal' | 'description'>>;
 
-const measuresUrl = (municipalityId: string, errandId: string) =>
-  `supporterrands/${encodeURIComponent(municipalityId)}/${encodeURIComponent(errandId)}/measures`;
+const measuresUrl = (errandId: string) => `supporterrands/${encodeURIComponent(errandId)}/measures`;
 
-export async function getSupportMeasures(municipalityId: string, errandId: string): Promise<MeasuresSnapshot> {
-  const response = await apiService.get<MeasuresSnapshot>(measuresUrl(municipalityId, errandId));
+export async function getSupportMeasures(errandId: string): Promise<MeasuresSnapshot> {
+  const response = await apiService.get<MeasuresSnapshot>(measuresUrl(errandId));
   return response.data;
 }
 
 /** Open planned measures on every errand the user reaches, for the overview outside the errand. */
-export async function getPlannedSupportMeasures(municipalityId: string): Promise<PlannedMeasuresSnapshot> {
-  const response = await apiService.get<PlannedMeasuresSnapshot>(
-    `supportmeasures/${encodeURIComponent(municipalityId)}/planned`
-  );
+export async function getPlannedSupportMeasures(): Promise<PlannedMeasuresSnapshot> {
+  const response = await apiService.get<PlannedMeasuresSnapshot>(`supportmeasures/planned`);
   return response.data;
 }
 
-export async function createSupportMeasure(municipalityId: string, errandId: string, data: NewMeasure): Promise<void> {
-  await apiService.post<void, NewMeasure>(measuresUrl(municipalityId, errandId), data);
+export async function createSupportMeasure(errandId: string, data: NewMeasure): Promise<void> {
+  await apiService.post<void, NewMeasure>(measuresUrl(errandId), data);
 }
 
 export async function updateSupportMeasure(
-  municipalityId: string,
   errandId: string,
   measureId: string,
   version: Measure['version'],
   data: MeasureChanges
 ): Promise<void> {
-  await apiService.patch<void, MeasureChanges>(
-    `${measuresUrl(municipalityId, errandId)}/${encodeURIComponent(measureId)}`,
-    data,
-    { headers: { 'If-Match': measureETag(version) } }
-  );
+  await apiService.patch<void, MeasureChanges>(`${measuresUrl(errandId)}/${encodeURIComponent(measureId)}`, data, {
+    headers: { 'If-Match': measureETag(version) },
+  });
 }
 
 /** Removes a measure, on its own version so a measure somebody changed meanwhile is not removed unseen. */
 export async function deleteSupportMeasure(
-  municipalityId: string,
   errandId: string,
   measureId: string,
   version: Measure['version']
 ): Promise<void> {
-  await apiService.deleteRequest<void>(`${measuresUrl(municipalityId, errandId)}/${encodeURIComponent(measureId)}`, {
+  await apiService.deleteRequest<void>(`${measuresUrl(errandId)}/${encodeURIComponent(measureId)}`, {
     headers: { 'If-Match': measureETag(version) },
   });
 }
 
 export async function decideSupportMeasure(
-  municipalityId: string,
   errandId: string,
   measureId: string,
   version: Measure['version'],
   decision: MeasureDecisionInput
 ): Promise<void> {
   await apiService.patch<void, MeasureDecisionInput>(
-    `${measuresUrl(municipalityId, errandId)}/${encodeURIComponent(measureId)}/decision`,
+    `${measuresUrl(errandId)}/${encodeURIComponent(measureId)}/decision`,
     decision,
-    { headers: { 'If-Match': measureETag(version) } }
+    {
+      headers: { 'If-Match': measureETag(version) },
+    }
   );
 }
 
 export async function followUpSupportMeasure(
-  municipalityId: string,
   errandId: string,
   measureId: string,
   version: Measure['version'],
   followUp: MeasureFollowUpInput
 ): Promise<void> {
   await apiService.patch<void, MeasureFollowUpInput>(
-    `${measuresUrl(municipalityId, errandId)}/${encodeURIComponent(measureId)}/follow-up`,
+    `${measuresUrl(errandId)}/${encodeURIComponent(measureId)}/follow-up`,
     followUp,
-    { headers: { 'If-Match': measureETag(version) } }
+    {
+      headers: { 'If-Match': measureETag(version) },
+    }
   );
 }
 
@@ -118,7 +113,6 @@ export async function followUpSupportMeasure(
  * sent only when it was rewritten in the same step, to say why the date moves.
  */
 export async function changeSupportMeasurePlannedComplete(
-  municipalityId: string,
   errandId: string,
   measureId: string,
   version: Measure['version'],
@@ -126,7 +120,7 @@ export async function changeSupportMeasurePlannedComplete(
   description?: string
 ): Promise<void> {
   await apiService.patch<void, Pick<Measure, 'plannedComplete' | 'description'>>(
-    `${measuresUrl(municipalityId, errandId)}/${encodeURIComponent(measureId)}/planned-complete`,
+    `${measuresUrl(errandId)}/${encodeURIComponent(measureId)}/planned-complete`,
     { plannedComplete, ...(description !== undefined ? { description } : {}) },
     { headers: { 'If-Match': measureETag(version) } }
   );

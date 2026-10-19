@@ -1,4 +1,4 @@
-import { useConfigStore, useMetadataStore, useSupportStore } from '@stores/index';
+import { useMetadataStore, useSupportStore } from '@stores/index';
 import { isSupportErrandLocked } from '@supportmanagement/services/support-errand-service';
 import { FC } from 'react';
 
@@ -17,7 +17,6 @@ import { MoveLocationButton } from './move-location-button.component';
  * the manager the move would assign could not act on it until it was handed back.
  */
 export const ErrandLocationCard: FC<InvestigationDetailsHeaderProps> = ({ access, disabled }) => {
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const supportErrand = useSupportStore((s) => s.supportErrand);
   const labelStructure = useMetadataStore((s) => s.supportMetadata?.labels?.labelStructure);
   const profile = useInvestigationProfileStore((state) => state.profile);
@@ -35,11 +34,6 @@ export const ErrandLocationCard: FC<InvestigationDetailsHeaderProps> = ({ access
   if (!canMoveLocation) return null;
 
   return (
-    <MoveLocationButton
-      municipalityId={municipalityId}
-      errandId={supportErrand!.id!}
-      expectedVersion={supportErrand?.version}
-      disabled={disabled}
-    />
+    <MoveLocationButton errandId={supportErrand!.id!} expectedVersion={supportErrand?.version} disabled={disabled} />
   );
 };

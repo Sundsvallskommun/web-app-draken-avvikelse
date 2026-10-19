@@ -1,6 +1,6 @@
 'use client';
 
-import { useConfigStore, useSupportStore, useUserStore } from '@stores/index';
+import { useSupportStore, useUserStore } from '@stores/index';
 import { setSupportErrandAdmin, Status } from '@supportmanagement/services/support-errand-service';
 import { getSupportErrandAssignedBy } from '@supportmanagement/services/support-history-service';
 import { useRouter } from 'next/navigation';
@@ -20,7 +20,6 @@ import { HandlerAssignmentModal } from './handler-assignment-modal.component';
  * waits for the errand's history to say who that was; without the history the first manager stands, as before.
  */
 export const LexManagerHandoverRequirement: FC<InvestigationPhaseEntryRequirementProps> = ({ onClose }) => {
-  const municipalityId = useConfigStore((state) => state.municipalityId);
   const errandId = useSupportStore((state) => state.supportErrand?.id);
   const version = useSupportStore((state) => state.supportErrand?.version);
   const administrators = useUserStore((state) => state.administrators);
@@ -33,7 +32,7 @@ export const LexManagerHandoverRequirement: FC<InvestigationPhaseEntryRequiremen
   useEffect(() => {
     if (!errandId) return;
     let cancelled = false;
-    getSupportErrandAssignedBy(errandId, municipalityId).then(
+    getSupportErrandAssignedBy(errandId).then(
       (account) => {
         if (!cancelled) setAssignedBy({ readFor: errandId, account });
       },
@@ -44,7 +43,7 @@ export const LexManagerHandoverRequirement: FC<InvestigationPhaseEntryRequiremen
     return () => {
       cancelled = true;
     };
-  }, [errandId, municipalityId]);
+  }, [errandId]);
   const assignedByRead = assignedBy !== undefined && assignedBy.readFor === errandId;
 
   const candidates = useMemo(
@@ -69,7 +68,7 @@ export const LexManagerHandoverRequirement: FC<InvestigationPhaseEntryRequiremen
     setError(undefined);
     try {
       // The first write of this flow, so it is conditioned on the errand as the page shows it.
-      await setSupportErrandAdmin(errandId, municipalityId, adAccount, version, Status.ASSIGNED);
+      await setSupportErrandAdmin(errandId, adAccount, version, Status.ASSIGNED);
       router.push('/oversikt');
     } catch (cause) {
       setError(investigationHandoverErrorMessage(cause, 'Ärendet kunde inte tilldelas en LEX-ansvarig. Försök igen.'));

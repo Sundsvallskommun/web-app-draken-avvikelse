@@ -19,7 +19,6 @@ const errand = {
   jsonParameters: [{ key: 'report', value: { eventDescription: 'Kvällsbesöket uteblev.' } }],
 } as unknown as SupportErrand;
 const source = (schema: RJSFSchema, schemaName = 'utredning-sol-lss') => ({
-  municipalityId: '2281',
   schemaName,
   schema,
   errand,
@@ -40,7 +39,7 @@ test('starts a new lex Sarah investigation from the errand background', async ()
     reportedEventDescription: '<p>Kvällsbesöket uteblev.</p>',
     reportReceivedDate: '2026-10-08',
   });
-  assert.deepEqual(mocks.resumedAt.mock.calls, [['one', '2281']]);
+  assert.deepEqual(mocks.resumedAt.mock.calls, [['one']]);
 });
 
 test('fills in only what the schema version declares', async () => {

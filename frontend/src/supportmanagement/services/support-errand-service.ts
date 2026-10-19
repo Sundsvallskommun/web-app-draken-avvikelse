@@ -325,7 +325,6 @@ export const defaultSupportErrandInformation: SupportErrand | any = {
   assignedGroupId: undefined,
   resolution: 'INFORMED',
   channel: 'PHONE',
-  municipalityId: process.env.NEXT_PUBLIC_MUNICIPALITY_ID,
   description: '',
   messageContact: 'false',
   contactMeans: 'useEmail',
@@ -364,7 +363,6 @@ export const isSupportErrandOpenToHandover = (errand: SupportErrand): boolean =>
   errand.limitedAccess !== true && (errand.status === Status.ASSIGNED || !isSupportErrandLocked(errand));
 
 export const useSupportErrands = (
-  municipalityId: string,
   page?: number,
   size?: number,
   filter?: SupportErrandFilterQuery,
@@ -408,7 +406,7 @@ export const useSupportErrands = (
       setSolvedSupportErrands(null);
       setSupportErrands({ ...supportErrands, isLoading: true });
 
-      const errandPromise = getSupportErrands(municipalityId, page, size, filter, sort)
+      const errandPromise = getSupportErrands(page, size, filter, sort)
         .then((res) => {
           if (!isLatestRequest()) return;
           setSupportErrands({ ...res, isLoading: false });
@@ -430,7 +428,6 @@ export const useSupportErrands = (
         { statuses: [Status.SOLVED], setCount: setSolvedSupportErrands },
       ];
       const sidebarUpdatePromise = getSupportErrandStatusGroupCounts(
-        municipalityId,
         filter,
         sidebarCounters.map((counter) => counter.statuses)
       )
@@ -486,11 +483,8 @@ export const useSupportErrands = (
   return supportErrands;
 };
 
-export const getSupportErrandById: (
-  id: string,
-  municipalityId: string
-) => Promise<{ errand: SupportErrand; error?: string }> = (id, municipalityId) => {
-  let url = `supporterrands/${municipalityId}/${id}`;
+export const getSupportErrandById: (id: string) => Promise<{ errand: SupportErrand; error?: string }> = (id) => {
+  let url = `supporterrands/${id}`;
   return apiService
     .get<ApiSupportErrand>(url)
     .then((res: any) => {
@@ -609,17 +603,13 @@ const handleErrandResponse: (res: ApiSupportErrand[]) => SupportErrand[] = (res)
 };
 
 const getSupportErrands: (
-  municipalityId: string,
   page?: number,
   size?: number,
   filter?: SupportErrandFilterQuery,
   sort?: SupportErrandSortQuery
-) => Promise<SupportErrandsData> = (municipalityId, page = 0, size = 10, filter = {}, sort = { modified: 'desc' }) => {
-  if (!municipalityId) {
-    return Promise.reject('Municipality id missing');
-  }
+) => Promise<SupportErrandsData> = (page = 0, size = 10, filter = {}, sort = { modified: 'desc' }) => {
   const query = buildSupportErrandsSearchParameters(page, size, filter, sort);
-  const url = `supporterrands/${municipalityId}?${query}`;
+  const url = `supporterrands?${query}`;
   return apiService
     .get<PagedApiSupportErrands>(url)
     .then((res) => {
@@ -641,23 +631,17 @@ const getSupportErrands: (
 
 /** How many errands match the filter in each group of statuses, in the order of the groups. */
 const getSupportErrandStatusGroupCounts = (
-  municipalityId: string,
   filter: SupportErrandFilterQuery,
   statusGroups: readonly (readonly string[])[]
 ): Promise<number[]> => {
-  if (!municipalityId) {
-    return Promise.reject('Municipality id missing');
-  }
   const query = buildSupportErrandStatusGroupCountParameters(filter, statusGroups);
-  return apiService
-    .get<{ counts: number[] }>(`countsupporterrands/${municipalityId}/statusgroups?${query}`)
-    .then((res) => {
-      const counts = res.data?.counts;
-      if (!Array.isArray(counts) || counts.length !== statusGroups.length) {
-        throw new Error('Unexpected status group counts');
-      }
-      return counts;
-    });
+  return apiService.get<{ counts: number[] }>(`countsupporterrands/statusgroups?${query}`).then((res) => {
+    const counts = res.data?.counts;
+    if (!Array.isArray(counts) || counts.length !== statusGroups.length) {
+      throw new Error('Unexpected status group counts');
+    }
+    return counts;
+  });
 };
 
 /** One choice the registration form offers, identified the way a label always is: by its id. */
@@ -691,16 +675,14 @@ export interface SupportRegistrationChoice {
   priority?: string;
 }
 
-export const getSupportRegistrationOptions: (municipalityId: string) => Promise<SupportRegistrationOptions> = (
-  municipalityId
-) => apiService.get<SupportRegistrationOptions>(`newerrand/${municipalityId}/options`).then((res) => res.data);
+export const getSupportRegistrationOptions: () => Promise<SupportRegistrationOptions> = () =>
+  apiService.get<SupportRegistrationOptions>(`newerrand/options`).then((res) => res.data);
 
-export const initiateSupportErrand: (
-  municipalityId: string,
-  choice: SupportRegistrationChoice
-) => Promise<any | Partial<SupportErrandDto>> = (municipalityId, choice) => {
+export const initiateSupportErrand: (choice: SupportRegistrationChoice) => Promise<any | Partial<SupportErrandDto>> = (
+  choice
+) => {
   return apiService
-    .post<ApiSupportErrand, SupportRegistrationChoice>(`newerrand/${municipalityId}`, choice)
+    .post<ApiSupportErrand, SupportRegistrationChoice>(`newerrand`, choice)
     .then((res) => {
       return mapApiSupportErrandToSupportErrand(res.data);
     })
@@ -724,11 +706,10 @@ interface UpdateResponse {
  * has written to the errand. Pass the version of the errand currently in the store.
  */
 export const updateSupportErrand: (
-  municipalityId: string,
   formdata: Partial<RegisterSupportErrandFormModel>,
   expectedVersion: number | undefined,
   currentParameters?: CParameter[]
-) => Promise<UpdateResponse> = async (municipalityId, formdata, expectedVersion, currentParameters) => {
+) => Promise<UpdateResponse> = async (formdata, expectedVersion, currentParameters) => {
   if (!formdata.id) {
     throw new Error('A support errand id is required before writing');
   }
@@ -743,11 +724,9 @@ export const updateSupportErrand: (
   };
 
   try {
-    await apiService.patch<ApiSupportErrand, Partial<SupportErrandDto>>(
-      `supporterrands/${municipalityId}/${errandId}`,
-      data,
-      { headers: { 'If-Match': ifMatch } }
-    );
+    await apiService.patch<ApiSupportErrand, Partial<SupportErrandDto>>(`supporterrands/${errandId}`, data, {
+      headers: { 'If-Match': ifMatch },
+    });
     responseObj.errand = true;
   } catch (e) {
     console.error('Something went wrong when patching errand');
@@ -756,11 +735,11 @@ export const updateSupportErrand: (
 
   // Parameters live outside the errand body: each is versioned separately and only the ones whose
   // values changed are written, so this save leaves everybody else's parameter edits alone.
-  await saveChangedErrandParameters(municipalityId, errandId, currentParameters, formdata.parameters);
+  await saveChangedErrandParameters(errandId, currentParameters, formdata.parameters);
 
   if (formdata.notes) {
     try {
-      const noteRes = await saveSupportNote(errandId, municipalityId, formdata.notes);
+      const noteRes = await saveSupportNote(errandId, formdata.notes);
       responseObj.notes = noteRes;
     } catch (e) {
       responseObj.notes = false;
@@ -771,11 +750,7 @@ export const updateSupportErrand: (
 
   if (formdata.attachments && formdata.attachments.length > 0) {
     try {
-      const attachmentRes = await saveSupportAttachments(
-        errandId,
-        municipalityId,
-        formdata.attachments as { file: File }[]
-      );
+      const attachmentRes = await saveSupportAttachments(errandId, formdata.attachments as { file: File }[]);
       responseObj.attachments = attachmentRes.every((r) => r.status === 'fulfilled');
     } catch (e) {
       responseObj.attachments = false;
@@ -803,14 +778,13 @@ export const updateSupportErrand: (
  * documents and labels move the version without touching the phase.
  */
 export const updateSupportErrandPhase = (
-  municipalityId: string,
   id: string,
   transitionId: string | undefined,
   expectedActivePhaseId: string | undefined
 ): Promise<SupportErrand> =>
   apiService
     .patch<ApiSupportErrand, { transitionId?: string; expectedActivePhaseId: string | null }>(
-      `supporterrands/${municipalityId}/${id}/phase`,
+      `supporterrands/${id}/phase`,
       { ...(transitionId ? { transitionId } : {}), expectedActivePhaseId: expectedActivePhaseId ?? null }
     )
     .then((response) => mapApiSupportErrandToSupportErrand(response.data))
@@ -838,11 +812,8 @@ export const validateAction: (errand: SupportErrand, user: User) => boolean = (e
  * pass the snapshot the view was loaded with - reading immediately before writing satisfies the
  * precondition without ever checking it, which is optimistic locking in name only.
  */
-export const readSupportErrandWriteSnapshot = async (
-  errandId: string,
-  municipalityId: string
-): Promise<SupportErrandStatusSnapshot> => {
-  const current = await apiService.get<ApiSupportErrand>(`supporterrands/${municipalityId}/${errandId}`);
+export const readSupportErrandWriteSnapshot = async (errandId: string): Promise<SupportErrandStatusSnapshot> => {
+  const current = await apiService.get<ApiSupportErrand>(`supporterrands/${errandId}`);
 
   return { status: current.data.status, version: current.data.version };
 };
@@ -854,25 +825,20 @@ export const readSupportErrandWriteSnapshot = async (
  */
 export const setSupportErrandAdmin: (
   errandId: string,
-  municipalityId: string,
   assignedUserId: string,
   expectedVersion: number | undefined,
   status?: Status,
   assigner?: string
-) => Promise<boolean> = (errandId, municipalityId, assignedUserId, expectedVersion, status?, assigner?) =>
+) => Promise<boolean> = (errandId, assignedUserId, expectedVersion, status?, assigner?) =>
   // The assignment and the status it moves the errand to are one action, so one notification.
   withRequestGroup(async () => {
     const data = { assignedUserId };
 
     try {
       const ifMatch = toStrongSupportErrandETag(expectedVersion);
-      await apiService.patch<ApiSupportErrand, typeof data>(
-        `supporterrands/${municipalityId}/${errandId}/admin`,
-        data,
-        {
-          headers: { 'If-Match': ifMatch },
-        }
-      );
+      await apiService.patch<ApiSupportErrand, typeof data>(`supporterrands/${errandId}/admin`, data, {
+        headers: { 'If-Match': ifMatch },
+      });
     } catch (e) {
       console.error('Something went wrong when patching errand');
       throw e;
@@ -882,8 +848,8 @@ export const setSupportErrandAdmin: (
 
     try {
       // The assignment above is ours and succeeded, so it is the write that moved the version on.
-      const afterAssignment = await readSupportErrandWriteSnapshot(errandId, municipalityId);
-      return await transitionSupportErrandStatus(errandId, municipalityId, status, afterAssignment);
+      const afterAssignment = await readSupportErrandWriteSnapshot(errandId);
+      return await transitionSupportErrandStatus(errandId, status, afterAssignment);
     } catch (e) {
       // Reported apart from the assignment: that one landed, and an errand left in Ny needs a
       // different answer from the user than one that was never assigned at all.
@@ -894,14 +860,13 @@ export const setSupportErrandAdmin: (
 
 const transitionSupportErrandStatus = async (
   errandId: string,
-  municipalityId: string,
   status: Status,
   expected: SupportErrandStatusSnapshot,
   changes: SupportErrandStatusTransitionChanges = {}
 ): Promise<boolean> => {
   const command = buildSupportErrandStatusTransitionRequest(expected, status, changes);
   await apiService.patch<ApiSupportErrand, SupportErrandStatusTransitionRequest>(
-    `supporterrands/${municipalityId}/${errandId}/status`,
+    `supporterrands/${errandId}/status`,
     command
   );
   return true;
@@ -909,12 +874,11 @@ const transitionSupportErrandStatus = async (
 
 export const setSupportErrandStatus: (
   errandId: string,
-  municipalityId: string,
   status: Status,
   expected: SupportErrandStatusSnapshot,
   closingMotivation?: string
-) => Promise<boolean> = async (errandId, municipalityId, status, expected, closingMotivation) => {
-  return transitionSupportErrandStatus(errandId, municipalityId, status, expected, {
+) => Promise<boolean> = async (errandId, status, expected, closingMotivation) => {
+  return transitionSupportErrandStatus(errandId, status, expected, {
     suspension: { suspendedFrom: undefined, suspendedTo: undefined },
     ...(closingMotivation ? { closingMotivation } : {}),
   }).catch((e) => {

@@ -8,7 +8,7 @@ import { withRequestGroup } from '@common/services/api-service';
 import { getToastOptions } from '@common/utils/toast-message-settings';
 import type { RJSFSchema, RJSFValidationError, UiSchema } from '@rjsf/utils';
 import { Alert, Button, Label, Spinner, useSnackbar } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
+import { useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
 import { useErrandSaveParticipant } from '@supportmanagement/components/support-errand/errand-save/use-errand-save-participant';
 import { AvvikelseGroupedLabelCategorization } from '@supportmanagement/investigation/avvikelse/avvikelse-grouped-label-categorization.component';
 import {
@@ -210,7 +210,6 @@ export function SupportInvestigationDocument({
   onSaved,
   onReveal,
 }: Readonly<SupportInvestigationDocumentProps>) {
-  const municipalityId = useConfigStore((state) => state.municipalityId);
   const supportErrand = useSupportStore((state) => state.supportErrand);
   const setActiveTabKey = useSupportStore((state) => state.setActiveTabKey);
   const supportMetadata = useMetadataStore((state) => state.supportMetadata);
@@ -311,7 +310,7 @@ export function SupportInvestigationDocument({
     let cancelled = false;
 
     const loadDocument = async () => {
-      if (!municipalityId || !errandId) return;
+      if (!errandId) return;
 
       setLoadState('loading');
       setNotice(undefined);
@@ -321,14 +320,14 @@ export function SupportInvestigationDocument({
       setDocumentSavedPendingClassification(false);
 
       try {
-        const storedDocument = await getSupportInvestigationDocument(municipalityId, errandId, definition.key);
+        const storedDocument = await getSupportInvestigationDocument(errandId, definition.key);
         const loadedSchema = storedDocument
           ? {
-              schema: await getRjsfSchema(municipalityId, storedDocument.document.schemaId),
+              schema: await getRjsfSchema(storedDocument.document.schemaId),
               schemaId: storedDocument.document.schemaId,
             }
-          : await getLatestRjsfSchema(municipalityId, definition.schemaName);
-        const uiSchema = await getUiSchemaForSchema(municipalityId, loadedSchema.schemaId);
+          : await getLatestRjsfSchema(definition.schemaName);
+        const uiSchema = await getUiSchemaForSchema(loadedSchema.schemaId);
 
         if (cancelled) return;
         // A document not yet saved starts where the errand leaves it: the decision from the assessment, the lex
@@ -337,7 +336,6 @@ export function SupportInvestigationDocument({
         const startingData =
           storedDocument?.document.value ??
           (await prefillNewInvestigationDocument({
-            municipalityId,
             schemaName: definition.schemaName,
             schema: loadedSchema.schema,
             errand: useSupportStore.getState().supportErrand,
@@ -407,7 +405,6 @@ export function SupportInvestigationDocument({
     definition.key,
     definition.schemaName,
     errandId,
-    municipalityId,
     reportedMisconduct,
     setDocumentDirty,
     wording,
@@ -478,7 +475,6 @@ export function SupportInvestigationDocument({
   // The unit manager's investigation is where the unit's measures are decided on, so finishing it without any is
   // worth saying - once, as information: nothing requires a measure.
   const measureCount = useErrandMeasureSummary(
-    municipalityId,
     supportErrand,
     definition.schemaName === UNIT_MANAGER_INVESTIGATION_SCHEMA_NAME && markedComplete,
     'any'
@@ -711,8 +707,8 @@ export function SupportInvestigationDocument({
    * The version is not read here: the save has already advanced it by its own steps.
    */
   const refreshErrandLabels = async () => {
-    if (!municipalityId || !errandId) return;
-    const { errand: reread } = await getSupportErrandById(errandId, municipalityId);
+    if (!errandId) return;
+    const { errand: reread } = await getSupportErrandById(errandId);
     // The document is saved either way. Labels that could not be read show when the errand is next loaded.
     if (!reread?.labels) return;
     useSupportStore.setState((state) =>
@@ -747,7 +743,7 @@ export function SupportInvestigationDocument({
     // by then someone else's edit could have come between. A failed read leaves the version unset,
     // and the dialog asks for a reload instead of sending a precondition it cannot vouch for.
     try {
-      setLexAssignmentVersion((await readSupportErrandWriteSnapshot(errandId!, municipalityId)).version);
+      setLexAssignmentVersion((await readSupportErrandWriteSnapshot(errandId!)).version);
     } catch {
       setLexAssignmentVersion(undefined);
     }
@@ -763,9 +759,9 @@ export function SupportInvestigationDocument({
    */
   const rememberOwnWriteVersion = async () => {
     // Asked of the document rather than of the saved answer, which this very save may just have given it.
-    if (!handsBackToManager || !municipalityId || !errandId) return;
+    if (!handsBackToManager || !errandId) return;
     try {
-      setOwnWriteVersion((await readSupportErrandWriteSnapshot(errandId, municipalityId)).version);
+      setOwnWriteVersion((await readSupportErrandWriteSnapshot(errandId)).version);
     } catch {
       // The store's version stands.
     }
@@ -788,7 +784,7 @@ export function SupportInvestigationDocument({
   };
 
   const unlockDocument = async () => {
-    if (!municipalityId || !errandId || !completion || !documentState.persisted || isReporting || isSaving) return;
+    if (!errandId || !completion || !documentState.persisted || isReporting || isSaving) return;
     if (typeof supportErrand?.version !== 'number') {
       setNotice({ type: 'error', message: 'Ärendets version saknas. Ladda om ärendet innan utredningen låses upp.' });
       return;
@@ -797,7 +793,6 @@ export function SupportInvestigationDocument({
     setNotice(undefined);
     try {
       const saved = await saveSupportInvestigationDocument(
-        municipalityId,
         errandId,
         definition.key,
         { schemaId: documentState.schemaId, value: { ...documentState.persistedFormData, [completion.field]: 'no' } },
@@ -815,15 +810,15 @@ export function SupportInvestigationDocument({
   };
 
   const generateReportNow = async () => {
-    if (!municipalityId || !errandId || isReporting) return;
+    if (!errandId || isReporting) return;
     setIsReporting(true);
     setNotice(undefined);
     try {
       // Survives a reload after a lost response. Clear only after the BFF confirms publication.
-      const publicationKey = `investigation-report:${municipalityId}:${errandId}:${definition.key}`;
+      const publicationKey = `investigation-report:${errandId}:${definition.key}`;
       const operationId = sessionStorage.getItem(publicationKey) ?? crypto.randomUUID();
       sessionStorage.setItem(publicationKey, operationId);
-      const created = await createSupportInvestigationReport(municipalityId, errandId, definition.key, operationId);
+      const created = await createSupportInvestigationReport(errandId, definition.key, operationId);
       sessionStorage.removeItem(publicationKey);
       // The publication is several writes on the errand; the BFF says how many, and the page's version follows them
       // so that the next errand write - handing the errand on, say - is not refused as somebody else's change.
@@ -831,7 +826,7 @@ export function SupportInvestigationDocument({
       await rememberOwnWriteVersion();
       toastSuccess(`Rapporten ${created.report.fileName} har skapats och lagts som en bilaga på ärendet.`);
       try {
-        const attachments = await getSupportAttachments(errandId, municipalityId);
+        const attachments = await getSupportAttachments(errandId);
         useSupportStore.getState().setSupportAttachments(attachments);
       } catch {
         // Publication is already confirmed. A failed list refresh must not invite another upload.
@@ -862,11 +857,11 @@ export function SupportInvestigationDocument({
   };
 
   const previewReport = async () => {
-    if (!municipalityId || !errandId || isReporting) return;
+    if (!errandId || isReporting) return;
     setIsReporting(true);
     setNotice(undefined);
     try {
-      const preview = await previewSupportInvestigationReport(municipalityId, errandId, definition.key, {
+      const preview = await previewSupportInvestigationReport(errandId, definition.key, {
         schemaId: documentState.schemaId,
         value: normalizeContextualInvestigationFormData(
           definition.key,
@@ -888,7 +883,7 @@ export function SupportInvestigationDocument({
   const save = async (formData: InvestigationFormData, schemaErrors: RJSFValidationError[] = []): Promise<boolean> => {
     const reportRequested = reportAfterSave.current;
     reportAfterSave.current = false;
-    if (!municipalityId || !errandId || !readable || (formReadonly && !retriesClassificationOnly) || isSaving) {
+    if (!errandId || !readable || (formReadonly && !retriesClassificationOnly) || isSaving) {
       return false;
     }
 
@@ -936,7 +931,6 @@ export function SupportInvestigationDocument({
 
       const errandVersion = useSupportStore.getState().supportErrand?.version;
       const savedDocument = await saveInvestigationDocumentStep({
-        municipalityId,
         errandId,
         documentKey: definition.key,
         schemaId: documentState.schemaId,
@@ -956,7 +950,6 @@ export function SupportInvestigationDocument({
       }
 
       const savedClassification = await saveInvestigationClassificationStep({
-        municipalityId,
         errandId,
         documentKey: definition.key,
         prepared: preparedClassification,
@@ -1254,7 +1247,6 @@ export function SupportInvestigationDocument({
           canReturnToManager ? (
             <ReturnToManagerButton
               step={returnStep}
-              municipalityId={municipalityId}
               errandId={errandId!}
               expectedVersion={latestKnownSupportErrandVersion(supportErrand?.version, ownWriteVersion)}
               disabled={isSaving || isDirty || classificationDirty}
@@ -1272,7 +1264,6 @@ export function SupportInvestigationDocument({
       {showLexAssignmentPrompt && (
         <LexAssignmentPrompt
           show
-          municipalityId={municipalityId}
           errandId={errandId!}
           expectedVersion={lexAssignmentVersion}
           onClose={() => setShowLexAssignmentPrompt(false)}

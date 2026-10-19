@@ -41,7 +41,7 @@ async function installSubscriber(
   const trace: SubscriberTrace = { reads: 0, updates: [] };
   let stored = channels.map((type) => ({ type }));
 
-  await page.route('**/supportsubscribers/2281/me', async (route) => {
+  await page.route('**/supportsubscribers/me', async (route) => {
     if (route.request().method() === 'PATCH') {
       const body = route.request().postDataJSON() as { channels: { type: string }[] };
       trace.updates.push(body);
@@ -67,16 +67,16 @@ async function installOverview(page: Page) {
   await jsonRoute(page, '**/administrators', mockAdmins);
   await jsonRoute(page, '**/me', mockMe);
   await jsonRoute(page, '**/users/admins', mockNoAdmins);
-  await jsonRoute(page, '**/supportnotifications/2281', []);
+  await jsonRoute(page, '**/supportnotifications', []);
   await jsonRoute(page, '**/supportmanagement/investigation-profile', defaultInvestigationProfile());
   await mockStatusGroupCounts(page, 0);
-  await jsonRoute(page, '**/supportmetadata/2281', {
+  await jsonRoute(page, '**/supportmetadata', {
     categories: [],
     types: [],
     statuses: [{ name: 'NEW', displayName: 'Ny' }],
     labels: { labelStructure: [] },
   });
-  await jsonRoute(page, /\/supporterrands\/2281\?/, emptyErrandPage);
+  await jsonRoute(page, /\/supporterrands\?/, emptyErrandPage);
 }
 
 const modal = (page: Page) => page.locator('[data-cy="notification-settings-modal"]');

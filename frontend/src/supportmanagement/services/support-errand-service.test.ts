@@ -60,7 +60,7 @@ describe('classification', () => {
 
   // The classification is the investigation's to write; Grundinformation never sends it back.
   test('never sends the classification or the labels with the errand', async () => {
-    await updateSupportErrand('2281', { id: 'errand-1', category: 'BOU', type: 'OTHER' }, loadedErrandVersion);
+    await updateSupportErrand({ id: 'errand-1', category: 'BOU', type: 'OTHER' }, loadedErrandVersion);
 
     expect(patchedBody().classification).toBeUndefined();
     expect(patchedBody().labels).toBeUndefined();

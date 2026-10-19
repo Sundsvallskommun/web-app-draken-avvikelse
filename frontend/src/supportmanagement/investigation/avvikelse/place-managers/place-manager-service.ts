@@ -31,19 +31,16 @@ export interface PlaceManagerPerson {
 /** How many accounts the BFF answers for in one lookup. */
 const LOOKUP_CHUNK_SIZE = 100;
 
-export const getPlaceManagerAssignments = (municipalityId: string): Promise<PlaceManagerAssignments> =>
-  apiService.get<PlaceManagerAssignments>(`supportplacemanagers/${municipalityId}`).then((response) => response.data);
+export const getPlaceManagerAssignments = (): Promise<PlaceManagerAssignments> =>
+  apiService.get<PlaceManagerAssignments>(`supportplacemanagers`).then((response) => response.data);
 
 /** Names and manager roles for accounts, asked for as they are shown rather than for everybody up front. */
-export const lookupPlaceManagerPeople = async (
-  municipalityId: string,
-  adAccounts: readonly string[]
-): Promise<PlaceManagerPerson[]> => {
+export const lookupPlaceManagerPeople = async (adAccounts: readonly string[]): Promise<PlaceManagerPerson[]> => {
   const people: PlaceManagerPerson[] = [];
   for (let start = 0; start < adAccounts.length; start += LOOKUP_CHUNK_SIZE) {
     const body = { adAccounts: adAccounts.slice(start, start + LOOKUP_CHUNK_SIZE) };
     const response = await apiService.post<{ people: PlaceManagerPerson[] }, typeof body>(
-      `supportplacemanagers/${municipalityId}/people`,
+      `supportplacemanagers/people`,
       body
     );
     people.push(...response.data.people);
@@ -60,14 +57,13 @@ export interface PlaceManagerPlaceChange {
 
 /** Gives a person places or takes them away, and answers with the places the person holds afterwards. */
 export const changePlaceManagerPlaces = (
-  municipalityId: string,
   adAccount: string,
   change: PlaceManagerPlaceChange
 ): Promise<PlaceManagerAssignment> => {
   const body = { add: [...(change.add ?? [])], remove: [...(change.remove ?? [])] };
   return apiService
     .put<PlaceManagerAssignment, typeof body>(
-      `supportplacemanagers/${municipalityId}/people/${encodeURIComponent(adAccount)}/places`,
+      `supportplacemanagers/people/${encodeURIComponent(adAccount)}/places`,
       body
     )
     .then((response) => response.data);

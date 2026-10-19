@@ -63,7 +63,7 @@ describe('SupportSubscriptionController', () => {
       const { controller, api } = makeController();
       const res = mockRes<Subscriber>();
 
-      await controller.fetchMySubscriber(mockReq(), MUNICIPALITY_ID, res);
+      await controller.fetchMySubscriber(mockReq(), res);
 
       expect(api.get).toHaveBeenCalledTimes(1);
       expect(getUrls(api)[0]).toBe(`${SUBSCRIBERS_URL}?identifierType=adAccount&identifierValue=${mockAdUsername}`);
@@ -77,7 +77,7 @@ describe('SupportSubscriptionController', () => {
       api.post.mockResolvedValueOnce({ data: existingSubscriber, message: 'success' });
       const res = mockRes<Subscriber>();
 
-      await controller.fetchMySubscriber(mockReq(), MUNICIPALITY_ID, res);
+      await controller.fetchMySubscriber(mockReq(), res);
 
       expect(api.post).toHaveBeenCalledTimes(1);
       const [config] = api.post.mock.calls[0];
@@ -96,10 +96,10 @@ describe('SupportSubscriptionController', () => {
       const second = mockRes<Subscriber>();
 
       api.get.mockResolvedValue({ data: [existingSubscriber, duplicate], message: 'success' });
-      await controller.fetchMySubscriber(mockReq(), MUNICIPALITY_ID, first);
+      await controller.fetchMySubscriber(mockReq(), first);
       // Same subscribers, other order.
       api.get.mockResolvedValue({ data: [duplicate, existingSubscriber], message: 'success' });
-      await controller.fetchMySubscriber(mockReq(), MUNICIPALITY_ID, second);
+      await controller.fetchMySubscriber(mockReq(), second);
 
       expect(first.body).toEqual(duplicate);
       expect(second.body).toEqual(duplicate);
@@ -112,10 +112,7 @@ describe('SupportSubscriptionController', () => {
       const first = mockRes<Subscriber>();
       const second = mockRes<Subscriber>();
 
-      await Promise.all([
-        controller.fetchMySubscriber(mockReq(), MUNICIPALITY_ID, first),
-        controller.fetchMySubscriber(mockReq(), MUNICIPALITY_ID, second),
-      ]);
+      await Promise.all([controller.fetchMySubscriber(mockReq(), first), controller.fetchMySubscriber(mockReq(), second)]);
 
       expect(api.post).toHaveBeenCalledTimes(1);
       expect(first.body).toEqual(existingSubscriber);
@@ -128,7 +125,7 @@ describe('SupportSubscriptionController', () => {
       api.post.mockResolvedValueOnce({ data: '', message: 'success' });
       const res = mockRes<Subscriber>();
 
-      await controller.fetchMySubscriber(mockReq(), MUNICIPALITY_ID, res);
+      await controller.fetchMySubscriber(mockReq(), res);
 
       expect(api.get).toHaveBeenCalledTimes(2);
       expect(res.body).toEqual(existingSubscriber);
@@ -138,7 +135,7 @@ describe('SupportSubscriptionController', () => {
       const { controller, api } = makeController();
       const res = mockRes<Subscriber>();
 
-      await controller.fetchMySubscriber(mockReq(mockUser({ username: 'xyz99xyz' })), MUNICIPALITY_ID, res);
+      await controller.fetchMySubscriber(mockReq(mockUser({ username: 'xyz99xyz' })), res);
 
       expect(getUrls(api)[0]).toContain('identifierValue=xyz99xyz');
     });
@@ -153,7 +150,7 @@ describe('SupportSubscriptionController', () => {
       api.post.mockResolvedValueOnce({ data: { id: 'subscription-1', target: errandTarget }, message: 'success' });
       const res = mockRes<Subscription>();
 
-      await controller.createSubscription(mockReq(), MUNICIPALITY_ID, { target: errandTarget }, res);
+      await controller.createSubscription(mockReq(), { target: errandTarget }, res);
 
       expect(api.post).toHaveBeenCalledTimes(1);
       expect(api.post.mock.calls[0][0].url).toBe(SUBSCRIPTIONS_URL);
@@ -168,7 +165,7 @@ describe('SupportSubscriptionController', () => {
         .mockResolvedValueOnce({ data: [existing], message: 'success' });
       const res = mockRes<Subscription>();
 
-      await controller.createSubscription(mockReq(), MUNICIPALITY_ID, { target: errandTarget }, res);
+      await controller.createSubscription(mockReq(), { target: errandTarget }, res);
 
       expect(api.post).not.toHaveBeenCalled();
       expect(res.statusCode).toBe(200);
@@ -184,7 +181,7 @@ describe('SupportSubscriptionController', () => {
       api.post.mockResolvedValueOnce({ data: { id: 'subscription-3', target: errandTarget }, message: 'success' });
       const res = mockRes<Subscription>();
 
-      await controller.createSubscription(mockReq(), MUNICIPALITY_ID, { target: errandTarget }, res);
+      await controller.createSubscription(mockReq(), { target: errandTarget }, res);
 
       expect(api.post).toHaveBeenCalledTimes(1);
     });
@@ -198,7 +195,7 @@ describe('SupportSubscriptionController', () => {
       api.post.mockResolvedValueOnce({ data: { id: 'subscription-5', target: errandTarget }, message: 'success' });
       const res = mockRes<Subscription>();
 
-      await controller.createSubscription(mockReq(), MUNICIPALITY_ID, { target: errandTarget }, res);
+      await controller.createSubscription(mockReq(), { target: errandTarget }, res);
 
       expect(api.post).toHaveBeenCalledTimes(1);
     });
@@ -209,7 +206,7 @@ describe('SupportSubscriptionController', () => {
       const { controller, api } = makeController();
       const res = mockRes();
 
-      await controller.deleteSubscription(mockReq(), MUNICIPALITY_ID, 'subscription-1', res);
+      await controller.deleteSubscription(mockReq(), 'subscription-1', res);
 
       expect(api.delete).toHaveBeenCalledWith({ url: `${SUBSCRIPTIONS_URL}/subscription-1` }, expect.anything());
       expect(res.statusCode).toBe(204);
@@ -221,7 +218,7 @@ describe('SupportSubscriptionController', () => {
       const { controller, api } = makeController();
       const res = mockRes<Subscriber>();
 
-      await controller.updateMySubscriber(mockReq(), MUNICIPALITY_ID, { pausedFrom: '2026-01-01T00:00:00Z' }, res);
+      await controller.updateMySubscriber(mockReq(), { pausedFrom: '2026-01-01T00:00:00Z' }, res);
 
       expect(api.patch).toHaveBeenCalledTimes(1);
       const [config] = api.patch.mock.calls[0];
@@ -233,8 +230,8 @@ describe('SupportSubscriptionController', () => {
       const { controller, api } = makeController();
       const { EMAIL, INTERNAL, SMS } = NotificationChannelTypeEnum;
 
-      await controller.updateMySubscriber(mockReq(), MUNICIPALITY_ID, { channels: [{ type: SMS }, { type: EMAIL }, { type: SMS }] }, mockRes());
-      await controller.updateMySubscriber(mockReq(), MUNICIPALITY_ID, { channels: [] }, mockRes());
+      await controller.updateMySubscriber(mockReq(), { channels: [{ type: SMS }, { type: EMAIL }, { type: SMS }] }, mockRes());
+      await controller.updateMySubscriber(mockReq(), { channels: [] }, mockRes());
 
       expect(api.patch.mock.calls[0][0].data).toEqual({ channels: [{ type: INTERNAL }, { type: SMS }, { type: EMAIL }] });
       // Unticking everything leaves the notifications in Draken, which are not the user's to turn off here.

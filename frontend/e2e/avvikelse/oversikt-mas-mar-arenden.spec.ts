@@ -10,7 +10,7 @@ import { mockStatusGroupCounts } from '../utils/status-group-counts';
  * MAS/MAR alone are offered it, checked until they uncheck it, and their choice is kept. It asks the BFF through the
  * profile's `risk` label filter, which no other filter offers.
  */
-const LIST_URL = /\/supporterrands\/2281\?/;
+const LIST_URL = /\/supporterrands\?/;
 const highHslRisk = { groupKey: 'risk', fieldKey: 'risk', resourcePath: 'RISK/HIGH_HSL' };
 
 const labelStructure = [
@@ -90,9 +90,9 @@ async function installOverview(page: Page, roleKeys: string[]) {
   await jsonRoute(page, '**/administrators', mockAdmins);
   await jsonRoute(page, '**/me', { ...mockMe, data: { ...mockMe.data, roleKeys, superadmin: false } });
   await jsonRoute(page, '**/users/admins', mockAdmins);
-  await jsonRoute(page, '**/supportnotifications/2281', []);
+  await jsonRoute(page, '**/supportnotifications', []);
   await mockStatusGroupCounts(page, 0);
-  await jsonRoute(page, '**/supportmetadata/2281', {
+  await jsonRoute(page, '**/supportmetadata', {
     categories: [],
     types: [],
     statuses: [{ name: 'NEW', displayName: 'Ny' }],

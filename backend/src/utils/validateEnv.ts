@@ -97,6 +97,12 @@ function validateSecretStrength(): void {
 }
 
 const validateEnv = () => {
+  // Every request to the APIs is for this municipality; the client never names one.
+  if (!MUNICIPALITY_ID) {
+    console.error('\nMUNICIPALITY_ID must be set\n');
+    process.exit(1);
+  }
+
   let handlerRoles: readonly HandlerGroupRole[];
   try {
     handlerRoles = resolveHandlerGroupRoles();
@@ -143,7 +149,6 @@ const validateEnv = () => {
     ADMIN_GROUP: s(ADMIN_GROUP),
     DEVELOPER_GROUP: s(DEVELOPER_GROUP),
     SUPERADMIN_GROUP: s(SUPERADMIN_GROUP),
-    MUNICIPALITY_ID: s(MUNICIPALITY_ID),
     DOMAIN: s(DOMAIN),
     SUPPORTMANAGEMENT_NAMESPACE: s(SUPPORTMANAGEMENT_NAMESPACE),
     SUPPORTMANAGEMENT_SENDER_EMAIL: s(SUPPORTMANAGEMENT_SENDER_EMAIL),

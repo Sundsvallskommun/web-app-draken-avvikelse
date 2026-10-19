@@ -25,7 +25,7 @@ describe('SupportFollowUpController', () => {
     const { controller, followUp } = makeController();
     const req = mockReq();
 
-    await controller.readUnits(req, mockMunicipalityId, { from: '2025-10-05', to: '2026-10-05' });
+    await controller.readUnits(req, { from: '2025-10-05', to: '2026-10-05' });
 
     expect(followUp.read).toHaveBeenCalledWith(mockMunicipalityId, { from: '2025-10-05', to: '2026-10-05' }, req.user);
   });
@@ -33,7 +33,7 @@ describe('SupportFollowUpController', () => {
   it('refuses a period that ends before it starts', async () => {
     const { controller, followUp } = makeController();
 
-    await expect(controller.readUnits(mockReq(), mockMunicipalityId, { from: '2026-10-05', to: '2025-10-05' })).rejects.toMatchObject({
+    await expect(controller.readUnits(mockReq(), { from: '2026-10-05', to: '2025-10-05' })).rejects.toMatchObject({
       status: 400,
     });
     expect(followUp.read).not.toHaveBeenCalled();

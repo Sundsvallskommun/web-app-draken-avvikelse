@@ -29,13 +29,11 @@ const readErrorMessage = (cause: unknown): string =>
 
 export function SupportMeasuresTab({
   errand,
-  municipalityId,
   onDirtyChange,
   isActive,
   followUp = false,
 }: {
   errand: SupportErrand;
-  municipalityId: string;
   onDirtyChange: (dirty: boolean) => void;
   isActive: boolean;
   followUp?: boolean;
@@ -58,7 +56,7 @@ export function SupportMeasuresTab({
       );
       try {
         if (!errand.id) throw new Error('Missing errand ID');
-        const snapshot = await getSupportMeasures(municipalityId, errand.id);
+        const snapshot = await getSupportMeasures(errand.id);
         // Our own write moved the errand's version too; anything more is somebody else's to find out about. Told
         // before the reload is weighed against a newer one: a refresh that overtook this read shows its own list,
         // but only this read knows which version the write started from.
@@ -80,7 +78,7 @@ export function SupportMeasuresTab({
         return undefined;
       }
     },
-    [errand.id, municipalityId, advanceErrandVersion]
+    [errand.id, advanceErrandVersion]
   );
 
   const cancelLoad = useCallback(() => {
@@ -140,7 +138,6 @@ export function SupportMeasuresTab({
           <AvvikelseMeasures
             snapshot={state.snapshot}
             errand={errand}
-            municipalityId={municipalityId}
             onDirtyChange={onDirtyChange}
             // The baseline is what the page knows now, not what the list read when it was loaded: the errand may
             // have been saved since, with this tab open, and the list's version is then already behind.

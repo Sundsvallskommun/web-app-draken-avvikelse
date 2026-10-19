@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { Body, Controller, Param, Post, QueryParam, Req, UseBefore } from 'routing-controllers';
+import { Body, Controller, Post, QueryParam, Req, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
 import { MUNICIPALITY_ID } from '@/config';
@@ -51,13 +51,12 @@ export class SupportExportController {
   private apiService = new ApiService();
   TEMPLATING_SERVICE = apiServiceName('templating');
 
-  @Post('/:municipalityId/exportsinglesupport')
+  @Post('/exportsinglesupport')
   @OpenAPI({ summary: 'Export single support errand' })
   @UseBefore(authMiddleware)
   async exportSingleSupportErrand(
     @Req() req: RequestWithUser,
     @Body() data: SupportExportBody,
-    @Param('municipalityId') _municipalityId: string,
     @QueryParam('include') include: string,
   ): Promise<any> {
     const templateStakeholder = (s: SupportExportStakeholder) => ({

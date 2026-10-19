@@ -11,9 +11,9 @@ export interface AcknowledgeResult {
   failed: string[];
 }
 
-export const getSupportNotifications: (municipalityId: string) => Promise<NotificationView[]> = (municipalityId) => {
+export const getSupportNotifications: () => Promise<NotificationView[]> = () => {
   return apiService
-    .get<SupportNotificationResponse[]>(`supportnotifications/${municipalityId}`)
+    .get<SupportNotificationResponse[]>(`supportnotifications`)
     .then((res) => {
       return res.data.map(toNotificationView);
     })
@@ -28,15 +28,12 @@ export const getSupportNotifications: (municipalityId: string) => Promise<Notifi
  * notification per call, but that fan-out lives in the backend so the browser makes one call
  * regardless of how many notifications the user ticked.
  */
-export const acknowledgeSupportNotifications: (municipalityId: string, ids: string[]) => Promise<AcknowledgeResult> = (
-  municipalityId,
-  ids
-) => {
+export const acknowledgeSupportNotifications: (ids: string[]) => Promise<AcknowledgeResult> = (ids) => {
   if (!ids.length) {
     return Promise.resolve({ acknowledged: [], failed: [] });
   }
   return apiService
-    .patch<AcknowledgeResult, { ids: string[] }>(`supportnotifications/${municipalityId}/acknowledge`, { ids })
+    .patch<AcknowledgeResult, { ids: string[] }>(`supportnotifications/acknowledge`, { ids })
     .then((res) => {
       return res.data;
     })
@@ -47,18 +44,12 @@ export const acknowledgeSupportNotifications: (municipalityId: string, ids: stri
 };
 
 /** Acknowledge every notification the logged in user has for one errand, e.g. when opening it. */
-export const acknowledgeAllForErrand: (municipalityId: string, errandId: string) => Promise<AcknowledgeResult> = (
-  municipalityId,
-  errandId
-) => {
+export const acknowledgeAllForErrand: (errandId: string) => Promise<AcknowledgeResult> = (errandId) => {
   if (!errandId) {
     return Promise.reject('Missing id on errand');
   }
   return apiService
-    .put<AcknowledgeResult, Record<string, never>>(
-      `supportnotifications/${municipalityId}/${errandId}/acknowledge-all`,
-      {}
-    )
+    .put<AcknowledgeResult, Record<string, never>>(`supportnotifications/${errandId}/acknowledge-all`, {})
     .then((res) => {
       return res.data;
     })

@@ -1,7 +1,7 @@
 'use client';
 
 import { fetchNotifications } from '@common/components/notifications/notification-actions';
-import { useConfigStore, useSupportStore } from '@stores/index';
+import { useSupportStore } from '@stores/index';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect } from 'react';
 
@@ -15,19 +15,17 @@ const POLL_INTERVAL_MS = 60_000;
  * component: it neither starts nor owns a timer.
  */
 export const useRefreshNotifications = (): (() => Promise<void>) => {
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const setNotifications = useSupportStore((s) => s.setNotifications);
 
   return useCallback(async () => {
-    if (!municipalityId) return;
     try {
-      setNotifications(await fetchNotifications(municipalityId));
+      setNotifications(await fetchNotifications());
     } catch {
       // Fetch failures here are transient by nature; the next poll tick retries. Surfacing a toast on
       // every hiccup would be noisier than the problem.
       console.error('Something went wrong when fetching notifications');
     }
-  }, [municipalityId, setNotifications]);
+  }, [setNotifications]);
 };
 
 /**
@@ -42,13 +40,10 @@ export const useRefreshNotifications = (): (() => Promise<void>) => {
  * Mount this once per app; everything else should use `useRefreshNotifications`.
  */
 export const useNotificationPoller = (): { refresh: () => Promise<void> } => {
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const refresh = useRefreshNotifications();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!municipalityId) return;
-
     let timer: ReturnType<typeof setInterval> | undefined;
 
     const start = () => {
@@ -80,7 +75,7 @@ export const useNotificationPoller = (): { refresh: () => Promise<void> } => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
     // The view is a dependency on purpose: a new view starts a fresh poll that refreshes at once.
-  }, [municipalityId, refresh, pathname]);
+  }, [refresh, pathname]);
 
   return { refresh };
 };

@@ -14,11 +14,10 @@ interface DisplayJsonParameter {
 
 interface JsonParameterItemProps {
   param: DisplayJsonParameter;
-  municipalityId: string;
 }
 
-const JsonParameterItem: FC<JsonParameterItemProps> = ({ param, municipalityId }) => {
-  const { schema, uiSchema, loading, error } = useJsonSchema(municipalityId, param.schemaId);
+const JsonParameterItem: FC<JsonParameterItemProps> = ({ param }) => {
+  const { schema, uiSchema, loading, error } = useJsonSchema(param.schemaId);
 
   if (loading) {
     return (
@@ -59,10 +58,9 @@ const JsonParameterItem: FC<JsonParameterItemProps> = ({ param, municipalityId }
 
 interface JsonParametersDisplayProps {
   jsonParameters: DisplayJsonParameter[];
-  municipalityId: string;
 }
 
-export const JsonParametersDisplay: FC<JsonParametersDisplayProps> = ({ jsonParameters, municipalityId }) => {
+export const JsonParametersDisplay: FC<JsonParametersDisplayProps> = ({ jsonParameters }) => {
   if (!jsonParameters || jsonParameters.length === 0) {
     return null;
   }
@@ -70,11 +68,7 @@ export const JsonParametersDisplay: FC<JsonParametersDisplayProps> = ({ jsonPara
   return (
     <div className="mt-16">
       {jsonParameters.map((param, idx) => (
-        <JsonParameterItem
-          key={`${param.key}-${param.schemaId}-${idx}`}
-          param={param}
-          municipalityId={municipalityId}
-        />
+        <JsonParameterItem key={`${param.key}-${param.schemaId}-${idx}`} param={param} />
       ))}
     </div>
   );

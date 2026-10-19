@@ -1,7 +1,7 @@
 import { downloadPdf, exportSingleSupportErrand } from '@common/services/export-service';
 import { appConfig } from '@config/appconfig';
 import { Button, Checkbox, FormControl, useConfirm, useSnackbar } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore, useSupportStore } from '@stores/index';
+import { useMetadataStore, useSupportStore } from '@stores/index';
 import { Priority } from '@supportmanagement/interfaces/priority';
 import { showsLegacyClassification } from '@supportmanagement/services/legacy-classification-service';
 import { getCategorizationLabels, getChannelLabel, Status } from '@supportmanagement/services/support-errand-service';
@@ -15,7 +15,6 @@ interface SupportExportParameters {
 }
 
 export const SidebarSupportExport: React.FC = () => {
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const supportErrand = useSupportStore((s) => s.supportErrand);
   const supportAttachments = useSupportStore((s) => s.supportAttachments);
   const supportMetadata = useMetadataStore((s) => s.supportMetadata);
@@ -68,7 +67,7 @@ export const SidebarSupportExport: React.FC = () => {
       priorityLabel: errand.priority ? Priority[errand.priority as keyof typeof Priority] : undefined,
     };
 
-    exportSingleSupportErrand(municipalityId, errand, options, includeParameters)
+    exportSingleSupportErrand(errand, options, includeParameters)
       .then((pdf) => {
         downloadPdf(
           pdf,

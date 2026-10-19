@@ -17,7 +17,6 @@ vi.mock('@stores/index', async () => ({
 
 const response = (errandId = 'one', grant = 'edit') => ({
   data: {
-    municipalityId: '2281',
     errandId,
     documents: [{ key: 'document', access: grant }],
   },
@@ -36,7 +35,7 @@ const selectErrand = (id: string, version = 1) =>
 
 beforeEach(() => {
   get.mockReset().mockResolvedValue(response());
-  useConfigStore.setState({ municipalityId: '2281' });
+  useConfigStore.setState({});
   useUserStore.setState({ user: { ...useUserStore.getState().user, username: 'handler' } });
   selectErrand('one');
 });

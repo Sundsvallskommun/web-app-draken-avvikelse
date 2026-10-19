@@ -4,7 +4,6 @@ import type { InvestigationProfile } from './investigation-profile';
 export type InvestigationDocumentAccess = 'edit' | 'read' | 'hidden';
 
 export interface InvestigationAccess {
-  readonly municipalityId: string;
   readonly errandId: string;
   readonly documents: ReadonlyMap<string, InvestigationDocumentAccess>;
 }
@@ -20,18 +19,8 @@ const invalidAccess = (): never => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-export function parseInvestigationAccess(
-  value: unknown,
-  municipalityId: string,
-  errandId: string
-): InvestigationAccess {
-  if (
-    !isRecord(value) ||
-    value.municipalityId !== municipalityId ||
-    value.errandId !== errandId ||
-    !Array.isArray(value.documents)
-  )
-    return invalidAccess();
+export function parseInvestigationAccess(value: unknown, errandId: string): InvestigationAccess {
+  if (!isRecord(value) || value.errandId !== errandId || !Array.isArray(value.documents)) return invalidAccess();
 
   const documents = new Map<string, InvestigationDocumentAccess>();
   for (const entry of value.documents) {
@@ -45,7 +34,7 @@ export function parseInvestigationAccess(
       return invalidAccess();
     documents.set(entry.key, entry.access);
   }
-  return { municipalityId, errandId, documents };
+  return { errandId, documents };
 }
 
 export const investigationDocumentAccess = (

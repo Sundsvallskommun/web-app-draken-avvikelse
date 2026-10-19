@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { useConfigStore } from '@stores/config-store';
 import { useUserStore } from '@stores/user-store';
 import { cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { AxiosError, type AxiosResponse } from 'axios';
@@ -10,7 +9,7 @@ import { PlannedMeasuresOverview } from './planned-measures-overview';
 import type { PlannedMeasuresSnapshot } from './support-measure-service';
 
 const mocks = vi.hoisted(() => ({
-  read: vi.fn<(municipalityId: string) => Promise<PlannedMeasuresSnapshot>>(),
+  read: vi.fn<() => Promise<PlannedMeasuresSnapshot>>(),
 }));
 vi.mock('@common/services/api-service', () => ({ apiService: {} }));
 vi.mock('./support-measure-service', () => ({ getPlannedSupportMeasures: mocks.read }));
@@ -57,7 +56,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv('NEXT_PUBLIC_BASEPATH', '/vof');
   mocks.read.mockResolvedValue(snapshot);
-  useConfigStore.setState({ municipalityId: '2281' });
   useUserStore.setState({
     administrators: [
       {
@@ -78,7 +76,7 @@ afterEach(() => {
 
 test('sorts the measures into time buckets and links every row to its errand', async () => {
   render(<PlannedMeasuresOverview />);
-  expect(mocks.read).toHaveBeenCalledWith('2281');
+  expect(mocks.read).toHaveBeenCalledWith();
   const rows = await screen.findAllByTestId('planned-measure-row');
   expect(rows).toHaveLength(2);
   expect(screen.getByText('2 åtgärder · 1 försenade.')).toBeTruthy();

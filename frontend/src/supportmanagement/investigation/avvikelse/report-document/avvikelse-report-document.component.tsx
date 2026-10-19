@@ -5,7 +5,7 @@ import { getLatestRjsfSchema, getRjsfSchema, getUiSchemaForSchema } from '@commo
 import { getToastOptions } from '@common/utils/toast-message-settings';
 import type { RJSFSchema, UiSchema } from '@rjsf/utils';
 import { Alert, Spinner, useSnackbar } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore, useSupportStore } from '@stores/index';
+import { useMetadataStore, useSupportStore } from '@stores/index';
 import { isSupportErrandLocked } from '@supportmanagement/services/support-errand-service';
 import { useAdvanceErrandVersion } from '@supportmanagement/services/use-advance-errand-version';
 import { isAxiosError } from 'axios';
@@ -41,16 +41,15 @@ interface LoadedReport {
 
 /** The stored report with its bound schema, or the latest schema and the registered place for a new one. */
 const loadReport = async (
-  municipalityId: string,
   errandId: string,
   reportDocument: InvestigationReportDocument,
   placeName: string | undefined
 ): Promise<LoadedReport> => {
-  const stored = await getSupportInvestigationDocument(municipalityId, errandId, reportDocument.key);
+  const stored = await getSupportInvestigationDocument(errandId, reportDocument.key);
   const { schema, schemaId } = stored
-    ? { schema: await getRjsfSchema(municipalityId, stored.document.schemaId), schemaId: stored.document.schemaId }
-    : await getLatestRjsfSchema(municipalityId, reportDocument.schemaName);
-  const uiSchema = await getUiSchemaForSchema(municipalityId, schemaId);
+    ? { schema: await getRjsfSchema(stored.document.schemaId), schemaId: stored.document.schemaId }
+    : await getLatestRjsfSchema(reportDocument.schemaName);
+  const uiSchema = await getUiSchemaForSchema(schemaId);
   const placeProperty = findReportPlaceProperty(uiSchema);
 
   return {
@@ -71,7 +70,6 @@ const loadReport = async (
  * any other report.
  */
 export const AvvikelseReportDocument: FC<InvestigationDetailsHeaderProps> = () => {
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const supportErrand = useSupportStore((s) => s.supportErrand);
   const phases = useMetadataStore((s) => s.supportMetadata?.phases);
   const reportDocument = useInvestigationProfileStore((state) => state.profile?.reportDocument);
@@ -100,11 +98,11 @@ export const AvvikelseReportDocument: FC<InvestigationDetailsHeaderProps> = () =
   }, [editableKey, setJsonParameterHandled]);
 
   useEffect(() => {
-    if (!editableKey || !reportDocument || !municipalityId || !errandId) return;
+    if (!editableKey || !reportDocument || !errandId) return;
     let current = true;
     setReport(undefined);
     setLoadFailed(false);
-    loadReport(municipalityId, errandId, reportDocument, registeredPlaceName(supportErrand?.labels))
+    loadReport(errandId, reportDocument, registeredPlaceName(supportErrand?.labels))
       .then((loaded) => current && setReport(loaded))
       .catch(() => current && setLoadFailed(true));
     return () => {
@@ -112,7 +110,7 @@ export const AvvikelseReportDocument: FC<InvestigationDetailsHeaderProps> = () =
     };
     // The report is loaded once per errand; the errand's own changes do not reload what is being written.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editableKey, municipalityId, errandId]);
+  }, [editableKey, errandId]);
 
   if (!editableKey || !reportDocument || !errandId) return null;
 
@@ -138,7 +136,6 @@ export const AvvikelseReportDocument: FC<InvestigationDetailsHeaderProps> = () =
     try {
       const expectedVersion = supportErrand?.version;
       const saved = await saveSupportInvestigationDocument(
-        municipalityId,
         errandId,
         reportDocument.key,
         { schemaId: report.schemaId, value: formData },

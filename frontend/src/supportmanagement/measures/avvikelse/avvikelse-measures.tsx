@@ -43,14 +43,12 @@ import { type MeasureForm, measureFormChanges, measureFormCreate } from './measu
 export function AvvikelseMeasures({
   snapshot,
   errand,
-  municipalityId,
   onDirtyChange,
   onSaved,
   followUp = false,
 }: {
   snapshot: MeasuresSnapshot;
   errand: SupportErrand;
-  municipalityId: string;
   onDirtyChange: (dirty: boolean) => void;
   /** Reloads the tab and hands back what it read, so a conflict can rebase on the current measure. */
   onSaved: () => Promise<MeasuresSnapshot | undefined>;
@@ -129,7 +127,6 @@ export function AvvikelseMeasures({
       const measureId = editing.id;
       try {
         await updateSupportMeasure(
-          municipalityId,
           errand.id,
           measureId,
           editing.version,
@@ -140,7 +137,7 @@ export function AvvikelseMeasures({
         throw cause;
       }
     } else {
-      await createSupportMeasure(municipalityId, errand.id, measureFormCreate(values));
+      await createSupportMeasure(errand.id, measureFormCreate(values));
     }
     // Retire the saved draft before reloading so a failed read does not cause a duplicate write.
     if (editing) closeEditing();
@@ -161,7 +158,7 @@ export function AvvikelseMeasures({
     );
     if (!confirmed) return;
     try {
-      await deleteSupportMeasure(municipalityId, errand.id, measure.id, measure.version);
+      await deleteSupportMeasure(errand.id, measure.id, measure.version);
       snackbar({ message: 'Åtgärden har tagits bort.', status: 'success' });
     } catch (cause) {
       snackbar({ message: supportErrandWriteErrorMessage(cause, 'Åtgärden kunde inte tas bort.'), status: 'error' });
@@ -176,7 +173,7 @@ export function AvvikelseMeasures({
       throw new Error('SupportMeasure is not decidable');
     const measureId = measure.id;
     try {
-      await decideSupportMeasure(municipalityId, errand.id, measureId, measure.version, decision);
+      await decideSupportMeasure(errand.id, measureId, measure.version, decision);
     } catch (cause) {
       // The dialog stays open on its own error, and the refreshed measure tells it whether a decision is still
       // open to make. Closing here would throw away a comment the user may want to keep.
@@ -197,7 +194,7 @@ export function AvvikelseMeasures({
     }
     let recovered = false;
     try {
-      await followUpSupportMeasure(municipalityId, errand.id, measure.id, measure.version, values);
+      await followUpSupportMeasure(errand.id, measure.id, measure.version, values);
     } catch (cause) {
       // A failed save can still have been accepted, with only its response lost: the reloaded measure then holds
       // exactly these answers, and the follow-up is done rather than failed.
@@ -219,14 +216,7 @@ export function AvvikelseMeasures({
     }
     const measureId = measure.id;
     try {
-      await changeSupportMeasurePlannedComplete(
-        municipalityId,
-        errand.id,
-        measureId,
-        measure.version,
-        plannedComplete,
-        description
-      );
+      await changeSupportMeasurePlannedComplete(errand.id, measureId, measure.version, plannedComplete, description);
     } catch (cause) {
       // The date stays in the dialog, now over the current measure, so a retry is made on its fresh version.
       if (isSupportErrandWriteConflict(cause)) await rebaseOnCurrent(measureId, 'end-date');
@@ -335,12 +325,7 @@ export function AvvikelseMeasures({
           </h3>
           {/* The plan is made from the stored measures by the BFF; follow-up shows the same list but offers no plan. */}
           {!followUp && canWrite && (
-            <MeasureActionPlanButton
-              errand={errand}
-              municipalityId={municipalityId}
-              measureCount={measures.length}
-              onCreated={onSaved}
-            />
+            <MeasureActionPlanButton errand={errand} measureCount={measures.length} onCreated={onSaved} />
           )}
         </div>
         {measures.length > 0 && (

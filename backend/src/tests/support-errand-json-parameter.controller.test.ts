@@ -73,7 +73,7 @@ describe('SupportErrandJsonParameterController', () => {
     const req = mockReq();
     const res = resDouble();
 
-    await controller.getJsonParameter(req, mockMunicipalityId, mockSupportErrandId, parameter.key, res);
+    await controller.getJsonParameter(req, mockSupportErrandId, parameter.key, res);
 
     expect(documentService.readJsonParameter).toHaveBeenCalledWith({
       definition: expect.objectContaining({ key: parameter.key, schemaName: 'utredning-enhetschef' }),
@@ -89,9 +89,10 @@ describe('SupportErrandJsonParameterController', () => {
   it('fails closed before document reads when the runtime policy is unavailable', async () => {
     const { controller, documentService } = makeController('unavailable');
 
-    await expect(
-      controller.getJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, 'utredning-enhetschef', resDouble()),
-    ).rejects.toMatchObject({ status: 503, message: 'Investigation read policy is temporarily unavailable' });
+    await expect(controller.getJsonParameter(mockReq(), mockSupportErrandId, 'utredning-enhetschef', resDouble())).rejects.toMatchObject({
+      status: 503,
+      message: 'Investigation read policy is temporarily unavailable',
+    });
 
     expect(documentService.readJsonParameter).not.toHaveBeenCalled();
   });
@@ -112,7 +113,7 @@ describe('SupportErrandJsonParameterController', () => {
     const req = mockReq();
     const res = resDouble();
 
-    await controller.updateJsonParameter(req, mockMunicipalityId, mockSupportErrandId, updated.key, '"7"', ABSENT_HEADER, '12', update, res);
+    await controller.updateJsonParameter(req, mockSupportErrandId, updated.key, '"7"', ABSENT_HEADER, '12', update, res);
 
     expect(policyService.getState).toHaveBeenCalled();
     expect(documentService.writeJsonParameter).toHaveBeenCalledWith({
@@ -141,7 +142,7 @@ describe('SupportErrandJsonParameterController', () => {
     });
     const res = resDouble();
 
-    await controller.updateJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, document.key, ABSENT_HEADER, '*', '3', update, res);
+    await controller.updateJsonParameter(mockReq(), mockSupportErrandId, document.key, ABSENT_HEADER, '*', '3', update, res);
 
     expect(documentService.writeJsonParameter.mock.calls[0][0].preconditions).toEqual({
       ifMatch: undefined,
@@ -165,17 +166,7 @@ describe('SupportErrandJsonParameterController', () => {
       parentErrandVersion: 13,
     });
 
-    await controller.updateJsonParameter(
-      mockReq(),
-      mockMunicipalityId,
-      mockSupportErrandId,
-      'utredning-enhetschef',
-      '"7"',
-      ABSENT_HEADER,
-      '12',
-      update,
-      resDouble(),
-    );
+    await controller.updateJsonParameter(mockReq(), mockSupportErrandId, 'utredning-enhetschef', '"7"', ABSENT_HEADER, '12', update, resDouble());
 
     // The errand answers, whatever the browser sent: the document service writes server-owned values from here.
     expect(documentService.writeJsonParameter.mock.calls[0][0].internal).toEqual({ serverOwnedOverrides: { reportedMisconduct } });
@@ -190,7 +181,6 @@ describe('SupportErrandJsonParameterController', () => {
     await expect(
       controller.updateJsonParameter(
         mockReq(),
-        mockMunicipalityId,
         mockSupportErrandId,
         'utredning-enhetschef',
         ABSENT_HEADER,
@@ -211,7 +201,6 @@ describe('SupportErrandJsonParameterController', () => {
     await expect(
       controller.updateJsonParameter(
         unitManager,
-        mockMunicipalityId,
         mockSupportErrandId,
         'utredning-hsl',
         ABSENT_HEADER,
@@ -224,9 +213,10 @@ describe('SupportErrandJsonParameterController', () => {
 
     expect(documentService.writeJsonParameter).not.toHaveBeenCalled();
 
-    await expect(
-      controller.getJsonParameter(unitManager, mockMunicipalityId, mockSupportErrandId, 'utredning-hsl', resDouble()),
-    ).rejects.toMatchObject({ status: 403, message: 'Missing permissions for this investigation document' });
+    await expect(controller.getJsonParameter(unitManager, mockSupportErrandId, 'utredning-hsl', resDouble())).rejects.toMatchObject({
+      status: 403,
+      message: 'Missing permissions for this investigation document',
+    });
 
     expect(documentService.readJsonParameter).not.toHaveBeenCalled();
   });
@@ -242,14 +232,13 @@ describe('SupportErrandJsonParameterController', () => {
     documentService.readJsonParameter.mockResolvedValue({ document: parameter, etag: '"3"', status: 200 });
     const unitManager = mockReq(mockUser({ groups: [MOCK_UNIT_MANAGER_GROUP] }));
 
-    await controller.getJsonParameter(unitManager, mockMunicipalityId, mockSupportErrandId, 'utredning-hsl', resDouble());
+    await controller.getJsonParameter(unitManager, mockSupportErrandId, 'utredning-hsl', resDouble());
 
     expect(documentService.readJsonParameter).toHaveBeenCalledTimes(1);
 
     await expect(
       controller.updateJsonParameter(
         unitManager,
-        mockMunicipalityId,
         mockSupportErrandId,
         'utredning-hsl',
         '"3"',
@@ -274,7 +263,6 @@ describe('SupportErrandJsonParameterController', () => {
 
     await controller.updateJsonParameter(
       mockReq(mockUser({ groups: [MOCK_HSL_INVESTIGATOR_GROUP] })),
-      mockMunicipalityId,
       mockSupportErrandId,
       'utredning-hsl',
       ABSENT_HEADER,
@@ -311,8 +299,8 @@ describe('SupportErrandJsonParameterController', () => {
       });
       const req = mockReq();
 
-      await controller.getJsonParameter(req, mockMunicipalityId, mockSupportErrandId, decisionKey, resDouble());
-      await controller.updateJsonParameter(req, mockMunicipalityId, mockSupportErrandId, decisionKey, '"1"', ABSENT_HEADER, '4', update, resDouble());
+      await controller.getJsonParameter(req, mockSupportErrandId, decisionKey, resDouble());
+      await controller.updateJsonParameter(req, mockSupportErrandId, decisionKey, '"1"', ABSENT_HEADER, '4', update, resDouble());
 
       // One parent read per call: the prerequisite check reuses the applicability snapshot.
       expect(documentService.readParentErrandSnapshot).toHaveBeenCalledTimes(2);
@@ -330,11 +318,9 @@ describe('SupportErrandJsonParameterController', () => {
       const { controller, documentService } = makeController();
       documentService.readParentErrandSnapshot.mockResolvedValue(deviationErrand);
 
-      await expect(controller.getJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, decisionKey, resDouble())).rejects.toMatchObject(
-        NOT_APPLICABLE_ERROR,
-      );
+      await expect(controller.getJsonParameter(mockReq(), mockSupportErrandId, decisionKey, resDouble())).rejects.toMatchObject(NOT_APPLICABLE_ERROR);
       await expect(
-        controller.updateJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, decisionKey, ABSENT_HEADER, '*', '4', update, resDouble()),
+        controller.updateJsonParameter(mockReq(), mockSupportErrandId, decisionKey, ABSENT_HEADER, '*', '4', update, resDouble()),
       ).rejects.toMatchObject(NOT_APPLICABLE_ERROR);
 
       expect(documentService.readJsonParameter).not.toHaveBeenCalled();
@@ -346,9 +332,9 @@ describe('SupportErrandJsonParameterController', () => {
       documentService.readParentErrandSnapshot.mockResolvedValue({ ...misconductErrand, jsonParameters: [] });
       documentService.readJsonParameter.mockResolvedValue({ document: { key: decisionKey, ...update, version: 1 }, etag: '"1"', status: 200 });
 
-      await controller.getJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, decisionKey, resDouble());
+      await controller.getJsonParameter(mockReq(), mockSupportErrandId, decisionKey, resDouble());
       await expect(
-        controller.updateJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, decisionKey, ABSENT_HEADER, '*', '4', update, resDouble()),
+        controller.updateJsonParameter(mockReq(), mockSupportErrandId, decisionKey, ABSENT_HEADER, '*', '4', update, resDouble()),
       ).rejects.toMatchObject({ status: 409, message: 'This investigation document requires utredning-sol-lss to be saved on the errand first' });
 
       expect(documentService.writeJsonParameter).not.toHaveBeenCalled();
@@ -358,13 +344,7 @@ describe('SupportErrandJsonParameterController', () => {
       const { controller, documentService } = makeController('active', 'hidden');
 
       await expect(
-        controller.getJsonParameter(
-          mockReq(mockUser({ groups: [MOCK_UNIT_MANAGER_GROUP] })),
-          mockMunicipalityId,
-          mockSupportErrandId,
-          decisionKey,
-          resDouble(),
-        ),
+        controller.getJsonParameter(mockReq(mockUser({ groups: [MOCK_UNIT_MANAGER_GROUP] })), mockSupportErrandId, decisionKey, resDouble()),
       ).rejects.toMatchObject({ status: 403 });
 
       expect(documentService.readParentErrandSnapshot).not.toHaveBeenCalled();
@@ -378,7 +358,7 @@ describe('SupportErrandJsonParameterController', () => {
         status: 200,
       });
 
-      await controller.getJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, 'utredning-enhetschef', resDouble());
+      await controller.getJsonParameter(mockReq(), mockSupportErrandId, 'utredning-enhetschef', resDouble());
 
       expect(documentService.readParentErrandSnapshot).not.toHaveBeenCalled();
     });
@@ -398,7 +378,7 @@ describe('SupportErrandJsonParameterController', () => {
         new SupportInvestigationAccessService({ apiService: accessApi }),
       );
 
-      await expect(controller.getJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, decisionKey, resDouble())).rejects.toMatchObject({
+      await expect(controller.getJsonParameter(mockReq(), mockSupportErrandId, decisionKey, resDouble())).rejects.toMatchObject({
         status: 409,
         message: 'Restricted investigation documents require an investigation classification policy',
       });
@@ -436,8 +416,8 @@ describe('SupportErrandJsonParameterController', () => {
       });
       const req = mockReq();
 
-      await controller.getJsonParameter(req, mockMunicipalityId, mockSupportErrandId, decisionKey, resDouble());
-      await controller.updateJsonParameter(req, mockMunicipalityId, mockSupportErrandId, decisionKey, '"1"', ABSENT_HEADER, '4', update, resDouble());
+      await controller.getJsonParameter(req, mockSupportErrandId, decisionKey, resDouble());
+      await controller.updateJsonParameter(req, mockSupportErrandId, decisionKey, '"1"', ABSENT_HEADER, '4', update, resDouble());
 
       expect(documentService.readParentErrandSnapshot).toHaveBeenCalledWith(
         expect.objectContaining({ definition: expect.objectContaining({ key: decisionKey, appliesTo: 'hsl-deviation', placement: 'decision' }) }),
@@ -454,11 +434,9 @@ describe('SupportErrandJsonParameterController', () => {
       const { controller, documentService } = makeController();
       documentService.readParentErrandSnapshot.mockResolvedValue(errand);
 
-      await expect(controller.getJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, decisionKey, resDouble())).rejects.toMatchObject(
-        NOT_APPLICABLE_ERROR,
-      );
+      await expect(controller.getJsonParameter(mockReq(), mockSupportErrandId, decisionKey, resDouble())).rejects.toMatchObject(NOT_APPLICABLE_ERROR);
       await expect(
-        controller.updateJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, decisionKey, ABSENT_HEADER, '*', '4', update, resDouble()),
+        controller.updateJsonParameter(mockReq(), mockSupportErrandId, decisionKey, ABSENT_HEADER, '*', '4', update, resDouble()),
       ).rejects.toMatchObject(NOT_APPLICABLE_ERROR);
 
       expect(documentService.readJsonParameter).not.toHaveBeenCalled();
@@ -469,9 +447,7 @@ describe('SupportErrandJsonParameterController', () => {
       const { controller, documentService } = makeController();
       documentService.readParentErrandSnapshot.mockResolvedValue(hslDeviation);
 
-      await expect(
-        controller.getJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, 'beslut-sol-lss', resDouble()),
-      ).rejects.toMatchObject({
+      await expect(controller.getJsonParameter(mockReq(), mockSupportErrandId, 'beslut-sol-lss', resDouble())).rejects.toMatchObject({
         status: 409,
         message: 'This investigation document applies to reported misconduct errands only',
       });
@@ -506,7 +482,7 @@ describe('SupportErrandJsonParameterController', () => {
           status: 200,
         });
 
-        await controller.getJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, key, resDouble());
+        await controller.getJsonParameter(mockReq(), mockSupportErrandId, key, resDouble());
 
         expect(documentService.readJsonParameter).toHaveBeenCalledTimes(1);
       },
@@ -519,11 +495,9 @@ describe('SupportErrandJsonParameterController', () => {
         documentService.readParentErrandSnapshot.mockResolvedValue(errand);
         const update = { schemaId: `2281_${key}_1.0`, value: {} };
 
-        await expect(controller.getJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, key, resDouble())).rejects.toMatchObject(
-          NOT_APPLICABLE_ERROR,
-        );
+        await expect(controller.getJsonParameter(mockReq(), mockSupportErrandId, key, resDouble())).rejects.toMatchObject(NOT_APPLICABLE_ERROR);
         await expect(
-          controller.updateJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, key, ABSENT_HEADER, '*', '4', update, resDouble()),
+          controller.updateJsonParameter(mockReq(), mockSupportErrandId, key, ABSENT_HEADER, '*', '4', update, resDouble()),
         ).rejects.toMatchObject(NOT_APPLICABLE_ERROR);
         expect(documentService.readJsonParameter).not.toHaveBeenCalled();
         expect(documentService.writeJsonParameter).not.toHaveBeenCalled();
@@ -534,13 +508,12 @@ describe('SupportErrandJsonParameterController', () => {
   it('rejects keys outside the configured profile before any upstream or policy call', async () => {
     const { controller, documentService, policyService } = makeController();
 
-    await expect(
-      controller.getJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, 'other-document', resDouble()),
-    ).rejects.toMatchObject(UNSUPPORTED_KEY_ERROR);
+    await expect(controller.getJsonParameter(mockReq(), mockSupportErrandId, 'other-document', resDouble())).rejects.toMatchObject(
+      UNSUPPORTED_KEY_ERROR,
+    );
     await expect(
       controller.updateJsonParameter(
         mockReq(),
-        mockMunicipalityId,
         mockSupportErrandId,
         'other-document',
         ABSENT_HEADER,
@@ -577,7 +550,7 @@ describe('SupportErrandJsonParameterController', () => {
       new SupportInvestigationAccessService({ apiService: accessApi }),
     );
 
-    await controller.getJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, 'custom-document', resDouble());
+    await controller.getJsonParameter(mockReq(), mockSupportErrandId, 'custom-document', resDouble());
 
     expect(documentService.readJsonParameter).toHaveBeenCalledWith(expect.objectContaining({ definition: profile.documents[0] }));
   });
@@ -627,7 +600,7 @@ describe('SupportErrandJsonParameterController report', () => {
     documentService.readJsonParameter.mockResolvedValue({ document: { key: REPORT_KEY, ...report, version: 4 }, etag: '"4"', status: 200 });
     const res = resDouble();
 
-    await controller.getJsonParameter(mockReq(), mockMunicipalityId, mockSupportErrandId, REPORT_KEY, res);
+    await controller.getJsonParameter(mockReq(), mockSupportErrandId, REPORT_KEY, res);
 
     expect(documentService.readJsonParameter).toHaveBeenCalledWith(
       expect.objectContaining({ definition: expect.objectContaining({ key: REPORT_KEY, schemaName: 'avvikelse-plats-handelse' }) }),
@@ -641,7 +614,7 @@ describe('SupportErrandJsonParameterController report', () => {
     const req = mockReq();
     const res = resDouble();
 
-    await controller.updateJsonParameter(req, mockMunicipalityId, mockSupportErrandId, REPORT_KEY, ABSENT_HEADER, '*', ABSENT_HEADER, report, res);
+    await controller.updateJsonParameter(req, mockSupportErrandId, REPORT_KEY, ABSENT_HEADER, '*', ABSENT_HEADER, report, res);
 
     expect(documentService.writeJsonParameter).toHaveBeenCalledWith({
       definition: expect.objectContaining({ key: REPORT_KEY, schemaName: 'avvikelse-plats-handelse' }),
@@ -660,17 +633,7 @@ describe('SupportErrandJsonParameterController report', () => {
     const { controller, documentService } = makeReportController(errandIn('ESERVICE', 'phase-received'));
 
     await expect(
-      controller.updateJsonParameter(
-        mockReq(),
-        mockMunicipalityId,
-        mockSupportErrandId,
-        REPORT_KEY,
-        '"1"',
-        ABSENT_HEADER,
-        ABSENT_HEADER,
-        report,
-        resDouble(),
-      ),
+      controller.updateJsonParameter(mockReq(), mockSupportErrandId, REPORT_KEY, '"1"', ABSENT_HEADER, ABSENT_HEADER, report, resDouble()),
     ).rejects.toMatchObject({ status: 409, message: expect.stringContaining('record of what was reported') });
     expect(documentService.writeJsonParameter).not.toHaveBeenCalled();
   });
@@ -679,17 +642,7 @@ describe('SupportErrandJsonParameterController report', () => {
     const { controller, documentService } = makeReportController(errandIn('WEB_UI', 'phase-investigation'));
 
     await expect(
-      controller.updateJsonParameter(
-        mockReq(),
-        mockMunicipalityId,
-        mockSupportErrandId,
-        REPORT_KEY,
-        '"1"',
-        ABSENT_HEADER,
-        ABSENT_HEADER,
-        report,
-        resDouble(),
-      ),
+      controller.updateJsonParameter(mockReq(), mockSupportErrandId, REPORT_KEY, '"1"', ABSENT_HEADER, ABSENT_HEADER, report, resDouble()),
     ).rejects.toMatchObject({ status: 409, message: 'The report can no longer be changed once the investigation has started' });
     expect(documentService.writeJsonParameter).not.toHaveBeenCalled();
   });
@@ -698,17 +651,7 @@ describe('SupportErrandJsonParameterController report', () => {
     const { controller, documentService } = makeReportController(errandIn('WEB_UI', 'phase-received'), 'unavailable');
 
     await expect(
-      controller.updateJsonParameter(
-        mockReq(),
-        mockMunicipalityId,
-        mockSupportErrandId,
-        REPORT_KEY,
-        '"1"',
-        ABSENT_HEADER,
-        ABSENT_HEADER,
-        report,
-        resDouble(),
-      ),
+      controller.updateJsonParameter(mockReq(), mockSupportErrandId, REPORT_KEY, '"1"', ABSENT_HEADER, ABSENT_HEADER, report, resDouble()),
     ).rejects.toMatchObject({ status: 503 });
     expect(documentService.readParentErrandSnapshot).not.toHaveBeenCalled();
     expect(documentService.writeJsonParameter).not.toHaveBeenCalled();
@@ -759,7 +702,7 @@ describe('the labels a saved investigation document decides', () => {
     });
     const req = mockReq();
     const res = resDouble();
-    await controller.updateJsonParameter(req, mockMunicipalityId, mockSupportErrandId, key, '"7"', ABSENT_HEADER, '12', update, res);
+    await controller.updateJsonParameter(req, mockSupportErrandId, key, '"7"', ABSENT_HEADER, '12', update, res);
     return { req, res };
   };
 

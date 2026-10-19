@@ -68,7 +68,7 @@ describe('SupportNotificationController', () => {
       const { controller, api } = makeController();
       const res = mockRes<SupportNotificationDto[]>();
 
-      await controller.getSupportNotifications(mockReq(), MUNICIPALITY_ID, undefined as any, undefined as any, res);
+      await controller.getSupportNotifications(mockReq(), undefined as any, undefined as any, res);
 
       expect(api.get.mock.calls[0][0].url).toBe(`${LIST_URL}?page=0&size=100&sort=created%2Cdesc`);
     });
@@ -81,7 +81,7 @@ describe('SupportNotificationController', () => {
       ]);
       const res = mockRes<SupportNotificationDto[]>();
 
-      await controller.getSupportNotifications(mockReq(), MUNICIPALITY_ID, undefined as any, undefined as any, res);
+      await controller.getSupportNotifications(mockReq(), undefined as any, undefined as any, res);
 
       expect(api.get.mock.calls.map(([config]) => new URL(config.url, 'http://upstream').searchParams.get('page'))).toEqual(['0', '1']);
       expect(res.body?.map(item => item.id)).toEqual(['newest', 'older']);
@@ -91,7 +91,7 @@ describe('SupportNotificationController', () => {
       const { controller } = makePagedController([[notification({ id: 'a' }), notification({ id: 'b' })], [notification({ id: 'b' })]]);
       const res = mockRes<SupportNotificationDto[]>();
 
-      await controller.getSupportNotifications(mockReq(), MUNICIPALITY_ID, undefined as any, undefined as any, res);
+      await controller.getSupportNotifications(mockReq(), undefined as any, undefined as any, res);
 
       expect(res.body?.map(item => item.id)).toEqual(['a', 'b']);
     });
@@ -100,7 +100,7 @@ describe('SupportNotificationController', () => {
       const { controller, api } = makeController();
       const res = mockRes<SupportNotificationDto[]>();
 
-      await controller.getSupportNotifications(mockReq(), MUNICIPALITY_ID, 2, 25, res);
+      await controller.getSupportNotifications(mockReq(), 2, 25, res);
 
       expect(api.get.mock.calls[0][0].url).toContain('page=2&size=25');
     });
@@ -109,7 +109,7 @@ describe('SupportNotificationController', () => {
       const { controller } = makeController();
       const res = mockRes<SupportNotificationDto[]>();
 
-      await controller.getSupportNotifications(mockReq(), MUNICIPALITY_ID, undefined as any, undefined as any, res);
+      await controller.getSupportNotifications(mockReq(), undefined as any, undefined as any, res);
 
       expect(res.body).toEqual([
         {
@@ -142,7 +142,7 @@ describe('SupportNotificationController', () => {
       ]);
       const res = mockRes<SupportNotificationDto[]>();
 
-      await controller.getSupportNotifications(mockReq(), MUNICIPALITY_ID, undefined as any, undefined as any, res);
+      await controller.getSupportNotifications(mockReq(), undefined as any, undefined as any, res);
 
       expect(res.body?.[0].events.map(e => e.description)).toEqual(['nyast', 'mitten', 'äldst']);
     });
@@ -151,7 +151,7 @@ describe('SupportNotificationController', () => {
       const { controller } = makeController([notification({ events: undefined })]);
       const res = mockRes<SupportNotificationDto[]>();
 
-      await controller.getSupportNotifications(mockReq(), MUNICIPALITY_ID, undefined as any, undefined as any, res);
+      await controller.getSupportNotifications(mockReq(), undefined as any, undefined as any, res);
 
       expect(res.body?.[0].events).toEqual([]);
     });
@@ -161,7 +161,7 @@ describe('SupportNotificationController', () => {
       api.get.mockResolvedValueOnce({ data: {}, message: 'success' });
       const res = mockRes<SupportNotificationDto[]>();
 
-      await controller.getSupportNotifications(mockReq(), MUNICIPALITY_ID, undefined as any, undefined as any, res);
+      await controller.getSupportNotifications(mockReq(), undefined as any, undefined as any, res);
 
       expect(res.body).toEqual([]);
     });
@@ -172,7 +172,7 @@ describe('SupportNotificationController', () => {
       const { controller, api } = makeController();
       const res = mockRes<AcknowledgeResultDto>();
 
-      await controller.acknowledgeSupportNotifications(mockReq(), MUNICIPALITY_ID, { ids: ['a', 'b'] }, res);
+      await controller.acknowledgeSupportNotifications(mockReq(), { ids: ['a', 'b'] }, res);
 
       expect(api.put).toHaveBeenCalledTimes(2);
       const urls = api.put.mock.calls.map(call => call[0].url);
@@ -189,7 +189,7 @@ describe('SupportNotificationController', () => {
       api.put.mockResolvedValueOnce({ data: {}, message: 'success' }).mockRejectedValueOnce(new Error('upstream exploded'));
       const res = mockRes<AcknowledgeResultDto>();
 
-      await controller.acknowledgeSupportNotifications(mockReq(), MUNICIPALITY_ID, { ids: ['a', 'b'] }, res);
+      await controller.acknowledgeSupportNotifications(mockReq(), { ids: ['a', 'b'] }, res);
 
       expect(res.body).toEqual({ acknowledged: ['a'], failed: ['b'] });
     });
@@ -204,7 +204,7 @@ describe('SupportNotificationController', () => {
       ]);
       const res = mockRes<AcknowledgeResultDto>();
 
-      await controller.acknowledgeAllForErrand(mockReq(), MUNICIPALITY_ID, mockSupportErrandId, res);
+      await controller.acknowledgeAllForErrand(mockReq(), mockSupportErrandId, res);
 
       expect(api.put).toHaveBeenCalledTimes(1);
       expect(api.put.mock.calls[0][0].url).toBe(`${NOTIFICATIONS_URL}/a/acknowledge`);
@@ -218,7 +218,7 @@ describe('SupportNotificationController', () => {
       ]);
       const res = mockRes<AcknowledgeResultDto>();
 
-      await controller.acknowledgeAllForErrand(mockReq(), MUNICIPALITY_ID, mockSupportErrandId, res);
+      await controller.acknowledgeAllForErrand(mockReq(), mockSupportErrandId, res);
 
       expect(api.put.mock.calls.map(([config]) => config.url)).toEqual([`${NOTIFICATIONS_URL}/target/acknowledge`]);
       expect(res.body).toEqual({ acknowledged: ['target'], failed: [] });
@@ -230,7 +230,7 @@ describe('SupportNotificationController', () => {
       const { controller, api } = makeController([notification({ id: 'a', errandId: 'another-errand' })]);
       const res = mockRes<AcknowledgeResultDto>();
 
-      await controller.acknowledgeAllForErrand(mockReq(), MUNICIPALITY_ID, mockSupportErrandId, res);
+      await controller.acknowledgeAllForErrand(mockReq(), mockSupportErrandId, res);
 
       expect(api.put).not.toHaveBeenCalled();
       expect(res.body).toEqual({ acknowledged: [], failed: [] });

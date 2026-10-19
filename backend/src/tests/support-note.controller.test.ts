@@ -7,7 +7,7 @@ import { HttpException } from '@/exceptions/HttpException';
 import ApiService from '@/services/api.service';
 
 import { mockReq, mockRes, mockUser } from './helpers/http';
-import { mockAdUsername, mockMunicipalityId, mockSupportErrandId } from './helpers/mock-data';
+import { mockAdUsername, mockSupportErrandId } from './helpers/mock-data';
 
 const handler = mockUser({ username: mockAdUsername });
 const serviceNote = { id: 'note-1', context: 'SERVICE_NOTE', role: 'ERRAND_HANDLER', subject: 'Tjänsteanteckning', body: 'Samtal med anhörig.' };
@@ -37,7 +37,7 @@ function setup({ errand = { status: 'ONGOING', assignedUserId: mockAdUsername },
 describe('service notes', () => {
   it('lists only the service notes of the errand', async () => {
     const { controller, api } = setup();
-    await controller.fetchSupportServiceNotes(mockReq(handler), mockSupportErrandId, mockMunicipalityId, mockRes());
+    await controller.fetchSupportServiceNotes(mockReq(handler), mockSupportErrandId, mockRes());
     const query = new URL(`https://api${api.get.mock.calls[0][0].url?.split('/notes')[1]}`).searchParams;
     expect(query.get('context')).toBe('SERVICE_NOTE');
     expect(query.has('role')).toBe(false);
@@ -45,7 +45,7 @@ describe('service notes', () => {
 
   it('keeps listing comments by the context and role they have always been written with', async () => {
     const { controller, api } = setup();
-    await controller.fetchSupportNotes(mockReq(handler), mockSupportErrandId, mockMunicipalityId, mockRes());
+    await controller.fetchSupportNotes(mockReq(handler), mockSupportErrandId, mockRes());
     const query = new URL(`https://api${api.get.mock.calls[0][0].url?.split('/notes')[1]}`).searchParams;
     expect(query.get('context')).toBe('SUPPORT');
     expect(query.get('role')).toBe('FIRST_LINE_SUPPORT');
@@ -57,7 +57,6 @@ describe('service notes', () => {
     await controller.createSupportServiceNote(
       mockReq(handler),
       mockSupportErrandId,
-      mockMunicipalityId,
       { body: '  Samtal med anhörig.  ', partyId: 'party-1' },
       response,
     );
@@ -82,27 +81,27 @@ describe('service notes', () => {
     ['a solved errand', { status: 'SOLVED', assignedUserId: mockAdUsername }, 409],
   ])('refuses a service note on an errand with %s, without writing', async (_case, errand, status) => {
     const { controller, api } = setup({ errand });
-    await expect(
-      controller.createSupportServiceNote(mockReq(handler), mockSupportErrandId, mockMunicipalityId, { body: 'Anteckning' }, mockRes()),
-    ).rejects.toMatchObject({ status });
+    await expect(controller.createSupportServiceNote(mockReq(handler), mockSupportErrandId, { body: 'Anteckning' }, mockRes())).rejects.toMatchObject(
+      { status },
+    );
     expect(api.post).not.toHaveBeenCalled();
   });
 
   it('passes a refused errand read on unchanged', async () => {
     const { controller, api } = setup();
     api.get.mockRejectedValueOnce(new HttpException(403, 'Forbidden'));
-    await expect(
-      controller.createSupportServiceNote(mockReq(handler), mockSupportErrandId, mockMunicipalityId, { body: 'Anteckning' }, mockRes()),
-    ).rejects.toMatchObject({ status: 403 });
+    await expect(controller.createSupportServiceNote(mockReq(handler), mockSupportErrandId, { body: 'Anteckning' }, mockRes())).rejects.toMatchObject(
+      { status: 403 },
+    );
     expect(api.post).not.toHaveBeenCalled();
   });
 
   it('never changes or removes a service note', async () => {
     const { controller, api } = setup({ note: serviceNote });
-    await expect(
-      controller.updateSupportNote(mockReq(handler), mockMunicipalityId, mockSupportErrandId, 'note-1', { body: 'Ändrad' }, mockRes()),
-    ).rejects.toMatchObject({ status: 403 });
-    await expect(controller.deleteSupportNote(mockReq(handler), mockMunicipalityId, mockSupportErrandId, 'note-1', mockRes())).rejects.toMatchObject({
+    await expect(controller.updateSupportNote(mockReq(handler), mockSupportErrandId, 'note-1', { body: 'Ändrad' }, mockRes())).rejects.toMatchObject({
+      status: 403,
+    });
+    await expect(controller.deleteSupportNote(mockReq(handler), mockSupportErrandId, 'note-1', mockRes())).rejects.toMatchObject({
       status: 403,
     });
     expect(api.patch).not.toHaveBeenCalled();
@@ -111,8 +110,8 @@ describe('service notes', () => {
 
   it('still lets comments be changed and removed', async () => {
     const { controller, api } = setup({ note: comment });
-    await controller.updateSupportNote(mockReq(handler), mockMunicipalityId, mockSupportErrandId, 'note-2', { body: 'Ändrad' }, mockRes());
-    await controller.deleteSupportNote(mockReq(handler), mockMunicipalityId, mockSupportErrandId, 'note-2', mockRes());
+    await controller.updateSupportNote(mockReq(handler), mockSupportErrandId, 'note-2', { body: 'Ändrad' }, mockRes());
+    await controller.deleteSupportNote(mockReq(handler), mockSupportErrandId, 'note-2', mockRes());
     expect(api.patch).toHaveBeenCalledOnce();
     expect(api.delete).toHaveBeenCalledOnce();
   });

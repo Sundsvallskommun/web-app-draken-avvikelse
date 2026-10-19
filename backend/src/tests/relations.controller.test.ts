@@ -6,7 +6,6 @@ import {
   mockFirstName,
   mockHandoverNamespace,
   mockLastName,
-  mockMunicipalityId,
   mockSupportErrandId,
   mockSupportErrandNumber,
   mockSupportNamespace,
@@ -72,7 +71,7 @@ const makeController = (sourceErrand: SupportManagementErrand, metadata: Metadat
 
 const referredFrom = async (sourceErrand: SupportManagementErrand, metadata: MetadataResponse, namespace?: string) => {
   const { controller } = makeController(sourceErrand, metadata, namespace);
-  const res = await controller.getReferredFromErrand(mockReq(), mockMunicipalityId, 'target-1');
+  const res = await controller.getReferredFromErrand(mockReq(), 'target-1');
   return res.data[0];
 };
 

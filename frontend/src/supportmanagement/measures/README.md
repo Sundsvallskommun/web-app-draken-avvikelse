@@ -293,7 +293,7 @@ vilka delar som utgår och varför. `REWORK` är ett fattat beslut, inte en beg�
 om ett omarbetat förslag. Kommentaren sparas i `acceptMotivation`, visas på kortet och
 vid redigering och ingår i fritextsökningen.
 
-Drakens `PATCH /supporterrands/:municipalityId/:errandId/measures/:measureId/decision`
+Drakens `PATCH /supporterrands/:errandId/measures/:measureId/decision`
 tar `accept` och `acceptMotivation`, och vid `TRUE` och `REWORK` även `plannedStart` och
 `plannedComplete`: den som godkänner anger när åtgärden ska genomföras, och saknas datumen
 svarar Draken 400. Vid `FALSE` skickas inga datum. Den använder åtgärdens `If-Match` och
@@ -406,7 +406,7 @@ Valet av agenda framför en tabell med detaljpanel eller ärendegrupper med kort
 14 september 2026 utifrån tre skisser; agendan träffar frågan "vad ska vara klart, och när?"
 direkt. Panelen och grupperingen kan läggas till senare utan att datat eller BFF:en ändras.
 
-BFF:en svarar på `GET /supportmeasures/:municipalityId/planned` (`support-measure.controller.ts`,
+BFF:en svarar på `GET /supportmeasures/planned` (`support-measure.controller.ts`,
 kräver `canEditSupportManagement` som ärendelistan). `SupportMeasureService.readPlanned` läser
 Support Managements ärendelista med filtret i `support-planned-measures.ts`:
 
@@ -442,7 +442,7 @@ behöva skäras om. Bytet är begränsat till `readPlanned`; svaret till fronten
 
 Knappen **Skapa handlingsplan** på fliken Åtgärder samlar ärendets samtliga sparade åtgärder i en
 PDF och lägger den som bilaga på ärendet. Planen byggs av BFF:en
-(`POST /supporterrands/:municipalityId/:errandId/measures/action-plan`,
+(`POST /supporterrands/:errandId/measures/action-plan`,
 `support-measure-action-plan.controller.ts`) ur det Support Management håller i anropsögonblicket:
 åtgärderna, typ- och rollnamn ur namespace-metadatan och visningsnamn ur handläggarkatalogen.
 Listan i webbläsaren skickas aldrig med. Renderingen går via Templating `render/direct/pdf` med

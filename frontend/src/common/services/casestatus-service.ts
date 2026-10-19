@@ -14,11 +14,11 @@ export interface CaseStatusResponse {
   errandNumber?: string;
 }
 
-export const getStatusesUsingPartyId = (municipalityId: string, partyId: string) => {
-  if (!municipalityId || !partyId) {
+export const getStatusesUsingPartyId = (partyId: string) => {
+  if (!partyId) {
     return Promise.resolve([]);
   }
-  const url = `${municipalityId}/party/${partyId}/statuses`;
+  const url = `party/${partyId}/statuses`;
 
   return apiService
     .get<ApiResponse<any>>(url)

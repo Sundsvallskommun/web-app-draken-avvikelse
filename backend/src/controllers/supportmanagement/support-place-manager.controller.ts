@@ -2,7 +2,7 @@ import { ArrayMaxSize, IsArray, IsString, MinLength } from 'class-validator';
 import { Body, Controller, Get, Param, Post, Put, Req, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
-import { SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
+import { MUNICIPALITY_ID, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
 import { apiServiceName } from '@/config/api-config';
 import { findInvestigationManagerRole } from '@/config/investigation-manager-roles';
 import type { AccessUser } from '@/data-contracts/access-mapper/data-contracts';
@@ -96,14 +96,14 @@ export class SupportPlaceManagerController {
   private namespace = SUPPORTMANAGEMENT_NAMESPACE;
   SERVICE = apiServiceName('supportmanagement');
 
-  @Get('/supportplacemanagers/:municipalityId')
+  @Get('/supportplacemanagers')
   @OpenAPI({ summary: 'The places every manager has' })
   @UseBefore(authMiddleware)
-  async getAssignments(@Req() req: RequestWithUser, @Param('municipalityId') municipalityId: string): Promise<PlaceManagerAssignmentsResponse> {
+  async getAssignments(@Req() req: RequestWithUser): Promise<PlaceManagerAssignmentsResponse> {
     this.assertAdministersPlaceManagers();
     const [placeRootPath, accessUsers] = await Promise.all([
-      this.readPlaceRootPath(req, municipalityId),
-      this.accessMapperService.listAccessUsers(req.user, municipalityId, this.namespace!),
+      this.readPlaceRootPath(req, MUNICIPALITY_ID),
+      this.accessMapperService.listAccessUsers(req.user, MUNICIPALITY_ID, this.namespace!),
     ]);
 
     return {
@@ -118,25 +118,20 @@ export class SupportPlaceManagerController {
    * Names and manager roles for the people at a place, asked for when the place is opened rather than for everybody
    * up front. A POST because the question is a list of accounts, which does not belong in a URL.
    */
-  @Post('/supportplacemanagers/:municipalityId/people')
+  @Post('/supportplacemanagers/people')
   @OpenAPI({ summary: 'Names and manager roles for a list of accounts' })
   @UseBefore(authMiddleware, validationMiddleware(PlaceManagerLookupDto, 'body'))
-  async lookupPeople(
-    @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
-    @Body() data: PlaceManagerLookupDto,
-  ): Promise<PlaceManagerPeopleResponse> {
+  async lookupPeople(@Req() req: RequestWithUser, @Body() data: PlaceManagerLookupDto): Promise<PlaceManagerPeopleResponse> {
     this.assertAdministersPlaceManagers();
     const adAccounts = [...new Map(data.adAccounts.map(account => [account.trim().toLowerCase(), account.trim()])).values()].filter(Boolean);
-    return { people: await this.describePeople(req, municipalityId, adAccounts) };
+    return { people: await this.describePeople(req, MUNICIPALITY_ID, adAccounts) };
   }
 
-  @Put('/supportplacemanagers/:municipalityId/people/:adAccount/places')
+  @Put('/supportplacemanagers/people/:adAccount/places')
   @OpenAPI({ summary: 'Give places to a manager, or take them away' })
   @UseBefore(authMiddleware, validationMiddleware(PlaceManagerPlacesDto, 'body'))
   async changePlaces(
     @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
     @Param('adAccount') adAccount: string,
     @Body() data: PlaceManagerPlacesDto,
   ): Promise<PlaceManagerAssignment> {
@@ -144,7 +139,7 @@ export class SupportPlaceManagerController {
     const account = adAccount.trim();
     if (!account) throw new HttpException(400, 'An AD account is required');
 
-    const labelStructure = (await this.readMetadata(req, municipalityId)).labels?.labelStructure;
+    const labelStructure = (await this.readMetadata(req, MUNICIPALITY_ID)).labels?.labelStructure;
     const placeRootPath = requirePlaceRootPath(labelStructure);
     const placesOf = (labelIds: readonly string[]) => labelIds.map(labelId => resolveAdministeredPlace(labelStructure, labelId));
     const addPaths = placesOf(data.add).flatMap(place => place.unitPaths);
@@ -152,7 +147,7 @@ export class SupportPlaceManagerController {
     const removePaths = placesOf(data.remove).flatMap(place => [...place.unitPaths, place.resourcePath]);
 
     // Read right before the write: the entry is replaced whole, and AccessMapper has no version to condition it on.
-    const accessUsers = await this.accessMapperService.listAccessUsers(req.user, municipalityId, this.namespace!);
+    const accessUsers = await this.accessMapperService.listAccessUsers(req.user, MUNICIPALITY_ID, this.namespace!);
     const existing = accessUsers.find(accessUser => accessUser.userId?.trim().toLowerCase() === account.toLowerCase());
     // A person not yet in AccessMapper has to be in the directory: a mistyped account would otherwise become an
     // entry that grants places to nobody, and looks like a manager who never answers.
@@ -160,11 +155,11 @@ export class SupportPlaceManagerController {
     const change = applyPlaceChanges(existing, userId, { placeRootPath, addPaths, removePaths });
 
     if (change.kind === 'create') {
-      await this.accessMapperService.createAccessUser(req.user, municipalityId, this.namespace!, change.accessUser);
+      await this.accessMapperService.createAccessUser(req.user, MUNICIPALITY_ID, this.namespace!, change.accessUser);
     } else if (change.kind === 'update') {
-      await this.accessMapperService.updateAccessUser(req.user, municipalityId, this.namespace!, this.requireEntryId(existing), change.accessUser);
+      await this.accessMapperService.updateAccessUser(req.user, MUNICIPALITY_ID, this.namespace!, this.requireEntryId(existing), change.accessUser);
     } else if (change.kind === 'delete') {
-      await this.accessMapperService.deleteAccessUser(req.user, municipalityId, this.namespace!, this.requireEntryId(existing));
+      await this.accessMapperService.deleteAccessUser(req.user, MUNICIPALITY_ID, this.namespace!, this.requireEntryId(existing));
     }
     if (change.kind !== 'none') {
       // AccessMapper keeps no history, so who changed whose places is recorded here.

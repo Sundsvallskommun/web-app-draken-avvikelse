@@ -336,7 +336,7 @@ med den. Fälten är `readOnly` i schemat och `ui:readonly` i formuläret:
   textredigeraren, så att formuläret inte blir ändrat bara av att öppnas.
 - `reportReceivedDate` är dagen LEX-utredaren återupptog ärendet efter tilldelningen: den första statusändringen
   bort från `ASSIGNED` efter den senaste tilldelningen till hen. BFF:en läser den ur ärendets händelselogg och
-  revisionsdiffar (`GET /supporthistory/:m/:id/assignee-resumed`), och bara så långt bakåt som tilldelningen.
+  revisionsdiffar (`GET /supporthistory/:id/assignee-resumed`), och bara så långt bakåt som tilldelningen.
 
 Bara fält som schemaversionen deklarerar fylls i, så ett dokument mot en äldre version får dem aldrig.
 

@@ -23,8 +23,8 @@ export interface SaveSupportInvestigationDocumentRequest {
   value: InvestigationFormData;
 }
 
-const documentUrl = (municipalityId: string, errandId: string, key: InvestigationDocumentKey): string =>
-  `supporterrands/${municipalityId}/${errandId}/json-parameters/${encodeURIComponent(key)}`;
+const documentUrl = (errandId: string, key: InvestigationDocumentKey): string =>
+  `supporterrands/${errandId}/json-parameters/${encodeURIComponent(key)}`;
 
 const responseStatus = (error: unknown): number | undefined => {
   if (typeof error !== 'object' || error === null) return undefined;
@@ -32,12 +32,11 @@ const responseStatus = (error: unknown): number | undefined => {
 };
 
 export async function getSupportInvestigationDocument(
-  municipalityId: string,
   errandId: string,
   key: InvestigationDocumentKey
 ): Promise<LoadedSupportInvestigationDocument | undefined> {
   try {
-    const response = await apiService.get<SupportInvestigationDocument>(documentUrl(municipalityId, errandId, key));
+    const response = await apiService.get<SupportInvestigationDocument>(documentUrl(errandId, key));
     return parseSupportInvestigationDocument(response.data, key, response.headers.etag);
   } catch (error) {
     if (responseStatus(error) === 404) return undefined;
@@ -55,7 +54,6 @@ export async function getSupportInvestigationDocument(
  * does move it.
  */
 export async function saveSupportInvestigationDocument(
-  municipalityId: string,
   errandId: string,
   key: InvestigationDocumentKey,
   data: SaveSupportInvestigationDocumentRequest,
@@ -63,7 +61,7 @@ export async function saveSupportInvestigationDocument(
   etag?: string
 ): Promise<SavedSupportInvestigationDocument> {
   const response = await apiService.put<SupportInvestigationDocument, SaveSupportInvestigationDocumentRequest>(
-    documentUrl(municipalityId, errandId, key),
+    documentUrl(errandId, key),
     data,
     {
       headers: {
@@ -137,13 +135,12 @@ const parseReportEntry = (value: unknown): SupportInvestigationReportEntry => {
  * document. The BFF makes the write; the response carries the document as it is afterwards.
  */
 export async function createSupportInvestigationReport(
-  municipalityId: string,
   errandId: string,
   key: InvestigationDocumentKey,
   operationId: string
 ): Promise<CreatedSupportInvestigationReport> {
   const response = await apiService.post<ReportResponseBody, { operationId: string }>(
-    `${documentUrl(municipalityId, errandId, key)}/reports`,
+    `${documentUrl(errandId, key)}/reports`,
     { operationId }
   );
   if (response.status !== 201) {
@@ -164,13 +161,12 @@ export interface SupportInvestigationReportDraft {
 
 /** Renders the form as it currently is, saved or not, without attaching or recording anything. */
 export async function previewSupportInvestigationReport(
-  municipalityId: string,
   errandId: string,
   key: InvestigationDocumentKey,
   draft: SupportInvestigationReportDraft
 ): Promise<{ fileName: string; pdfBase64: string }> {
   const response = await apiService.post<ReportResponseBody, { preview: true } & SupportInvestigationReportDraft>(
-    `${documentUrl(municipalityId, errandId, key)}/reports`,
+    `${documentUrl(errandId, key)}/reports`,
     { preview: true, ...draft }
   );
   const fileName = response.data.data?.fileName;

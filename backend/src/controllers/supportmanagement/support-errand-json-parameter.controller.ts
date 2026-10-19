@@ -3,7 +3,7 @@ import { Response } from 'express';
 import { Body, Controller, Get, HeaderParam, Param, Put, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
-import { SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
+import { MUNICIPALITY_ID, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
 import { apiServiceName } from '@/config/api-config';
 import { assessesHighHslRisk, IAF_VOF_HIGH_HSL_RISK_LABEL } from '@/config/iaf-vof-high-hsl-risk';
 import { IAF_VOF_HSL_ANALYSIS_SCHEMA_NAME, IAF_VOF_HSL_ANALYSIS_STARTED_LABEL, startsHslAnalysis } from '@/config/iaf-vof-hsl-analysis';
@@ -97,38 +97,36 @@ export class SupportErrandJsonParameterController {
     this.derivedLabelService = derivedLabelService;
   }
 
-  @Get('/supporterrands/:municipalityId/:errandId/json-parameters/:key')
+  @Get('/supporterrands/:errandId/json-parameters/:key')
   @OpenAPI({ summary: 'Read one JSON parameter from a support errand' })
   @UseBefore(authMiddleware)
   async getJsonParameter(
     @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
     @Param('errandId') errandId: string,
     @Param('key') key: string,
     @Res() response: Response,
   ): Promise<Response> {
     const reportDocument = this.reportDocumentFor(key);
-    if (reportDocument) return this.getReportDocument(req, reportDocument, municipalityId, errandId, response);
+    if (reportDocument) return this.getReportDocument(req, reportDocument, MUNICIPALITY_ID, errandId, response);
 
     const definition = requireJsonParameterDefinition(this.investigationProfile, key);
     // An unresolvable policy fails closed here as it does on every write path.
     if ((await this.policyService.getState()) === 'unavailable') {
       throw new HttpException(503, 'Investigation read policy is temporarily unavailable');
     }
-    await this.accessService.assertCanReadDocument(req.user, municipalityId, errandId, definition.key);
-    await this.assertDocumentAppliesToErrand(req, definition, municipalityId, errandId);
-    const result = await this.documentService.readJsonParameter({ definition, municipalityId, errandId, user: req.user });
+    await this.accessService.assertCanReadDocument(req.user, MUNICIPALITY_ID, errandId, definition.key);
+    await this.assertDocumentAppliesToErrand(req, definition, MUNICIPALITY_ID, errandId);
+    const result = await this.documentService.readJsonParameter({ definition, municipalityId: MUNICIPALITY_ID, errandId, user: req.user });
 
     setETagHeader(response, result.etag, result.document.version);
     return response.status(result.status).send(result.document);
   }
 
-  @Put('/supporterrands/:municipalityId/:errandId/json-parameters/:key')
+  @Put('/supporterrands/:errandId/json-parameters/:key')
   @OpenAPI({ summary: 'Create or update one JSON parameter on a support errand' })
   @UseBefore(authMiddleware, validationMiddleware(UpdateSupportErrandJsonParameterDto, 'body'))
   async updateJsonParameter(
     @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
     @Param('errandId') errandId: string,
     @Param('key') key: string,
     @HeaderParam('If-Match') ifMatch: string,
@@ -140,7 +138,7 @@ export class SupportErrandJsonParameterController {
     const reportDocument = this.reportDocumentFor(key);
     if (reportDocument) {
       const preconditions = { ifMatch, ifNoneMatch, parentErrandVersion };
-      return this.updateReportDocument(req, reportDocument, municipalityId, errandId, data, preconditions, response);
+      return this.updateReportDocument(req, reportDocument, MUNICIPALITY_ID, errandId, data, preconditions, response);
     }
 
     const definition = requireJsonParameterDefinition(this.investigationProfile, key);
@@ -150,13 +148,13 @@ export class SupportErrandJsonParameterController {
     // Support Management authorizes the document itself from the forwarded AD account; refusing
     // here keeps the BFF's answer a 403 about permissions instead of a relayed upstream failure.
     // A user who may only read the document is refused here rather than at the load.
-    await this.accessService.assertCanWriteDocument(req.user, municipalityId, errandId, definition.key);
-    const snapshot = await this.assertDocumentAppliesToErrand(req, definition, municipalityId, errandId);
-    await this.assertPrerequisiteDocumentSaved(req, definition, municipalityId, errandId, snapshot);
-    const serverOwnedOverrides = await this.resolveErrandFacts(req, definition, municipalityId, errandId, snapshot);
+    await this.accessService.assertCanWriteDocument(req.user, MUNICIPALITY_ID, errandId, definition.key);
+    const snapshot = await this.assertDocumentAppliesToErrand(req, definition, MUNICIPALITY_ID, errandId);
+    await this.assertPrerequisiteDocumentSaved(req, definition, MUNICIPALITY_ID, errandId, snapshot);
+    const serverOwnedOverrides = await this.resolveErrandFacts(req, definition, MUNICIPALITY_ID, errandId, snapshot);
     const result = await this.documentService.writeJsonParameter({
       definition,
-      municipalityId,
+      municipalityId: MUNICIPALITY_ID,
       errandId,
       user: req.user,
       data,
@@ -167,7 +165,7 @@ export class SupportErrandJsonParameterController {
     // A label the document decides is a second write on the errand. The client is told how many of the version steps
     // are this request's own, so it can tell them from somebody else's: the document write is one, read back right
     // after it, and the label write is the steps from there - as many as Support Management took for it.
-    const labelVersion = await this.applyDerivedLabel(req, definition, municipalityId, errandId, result);
+    const labelVersion = await this.applyDerivedLabel(req, definition, MUNICIPALITY_ID, errandId, result);
     const errandVersion = labelVersion ?? result.parentErrandVersion;
     setETagHeader(response, result.etag, result.document.version);
     response.setHeader('X-Errand-Version', String(errandVersion));

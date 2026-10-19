@@ -29,17 +29,17 @@ function cached<T>(cache: Map<string, Promise<T>>, key: string, loader: () => Pr
   return promise;
 }
 
-export async function getRjsfSchema(municipalityId: string, schemaId: string): Promise<RJSFSchema> {
-  return cached(schemaCache, `${municipalityId}:${schemaId}`, async () => {
-    const resp = await getSchema(municipalityId, schemaId);
+export async function getRjsfSchema(schemaId: string): Promise<RJSFSchema> {
+  return cached(schemaCache, `${schemaId}`, async () => {
+    const resp = await getSchema(schemaId);
     const payload = unwrap<JsonSchemaResponse>(resp);
     return payload.value;
   });
 }
 
-export async function getLatestRjsfSchema(municipalityId: string, schemaName: string): Promise<LatestSchemaResult> {
-  return cached(latestSchemaCache, `${municipalityId}:${schemaName}`, async () => {
-    const resp = await getLatestSchema(municipalityId, schemaName);
+export async function getLatestRjsfSchema(schemaName: string): Promise<LatestSchemaResult> {
+  return cached(latestSchemaCache, `${schemaName}`, async () => {
+    const resp = await getLatestSchema(schemaName);
     const payload = unwrap<JsonSchemaResponse>(resp);
 
     return {
@@ -51,9 +51,9 @@ export async function getLatestRjsfSchema(municipalityId: string, schemaName: st
   });
 }
 
-export async function getUiSchemaForSchema(municipalityId: string, schemaId: string): Promise<UiSchema> {
-  return cached(uiSchemaCache, `${municipalityId}:${schemaId}`, async () => {
-    const resp = await getUiSchema(municipalityId, schemaId);
+export async function getUiSchemaForSchema(schemaId: string): Promise<UiSchema> {
+  return cached(uiSchemaCache, `${schemaId}`, async () => {
+    const resp = await getUiSchema(schemaId);
     const payload = unwrap<UiSchemaResponse>(resp);
     return payload.value;
   });

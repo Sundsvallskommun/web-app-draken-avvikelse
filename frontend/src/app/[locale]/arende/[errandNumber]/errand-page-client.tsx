@@ -2,7 +2,6 @@
 
 import Layout from '@common/components/layout/layout.component';
 import { appConfig } from '@config/appconfig';
-import { useConfigStore } from '@stores/index';
 import { SupportErrandComponent } from '@supportmanagement/components/support-errand/support-errand.component';
 import NextLink from 'next/link';
 import { useRef } from 'react';
@@ -12,8 +11,6 @@ interface ErrandPageClientProps {
 }
 
 export function ErrandPageClient({ errandNumber }: Readonly<ErrandPageClientProps>) {
-  const municipalityId = useConfigStore((s) => s.municipalityId);
-
   const initialFocus = useRef<HTMLBodyElement>(null);
   const setInitalFocus = () => {
     setTimeout(() => {
@@ -34,7 +31,7 @@ export function ErrandPageClient({ errandNumber }: Readonly<ErrandPageClientProp
           Hoppa till innehåll
         </NextLink>
 
-        {!!municipalityId && <SupportErrandComponent />}
+        <SupportErrandComponent />
       </Layout>
     </div>
   );

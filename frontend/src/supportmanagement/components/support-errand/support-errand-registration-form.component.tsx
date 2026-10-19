@@ -17,9 +17,7 @@ import { initialRegistrationLocationId } from './support-errand-registration-loc
 import { RegistrationLocationField } from './support-errand-registration-location.component';
 import { RegistrationReportTypeField } from './support-errand-registration-report-type.component';
 
-interface SupportErrandRegistrationFormProps {
-  municipalityId: string;
-}
+interface SupportErrandRegistrationFormProps {}
 
 /** Registration opens in a tab of its own, so cancelling closes it - as CaseData's Avbryt does. */
 const CancelButton: FC = () => (
@@ -53,7 +51,7 @@ const RegistrationNotice: FC<{ type: 'error' | 'warning'; children: ReactNode; '
  * places this handler may register for - where they are employed, or else where they are configured - and the form
  * renders those.
  */
-export const SupportErrandRegistrationForm: FC<SupportErrandRegistrationFormProps> = ({ municipalityId }) => {
+export const SupportErrandRegistrationForm: FC<SupportErrandRegistrationFormProps> = ({}) => {
   const router = useRouter();
   const [options, setOptions] = useState<SupportRegistrationOptions>();
   const [loadError, setLoadError] = useState<string>();
@@ -64,7 +62,7 @@ export const SupportErrandRegistrationForm: FC<SupportErrandRegistrationFormProp
 
   useEffect(() => {
     let current = true;
-    getSupportRegistrationOptions(municipalityId)
+    getSupportRegistrationOptions()
       .then((loaded) => {
         if (!current) return;
         setOptions(loaded);
@@ -76,13 +74,13 @@ export const SupportErrandRegistrationForm: FC<SupportErrandRegistrationFormProp
     return () => {
       current = false;
     };
-  }, [municipalityId]);
+  }, []);
 
   const register = () => {
     setIsRegistering(true);
     setRegisterError(undefined);
     // No priority is sent: the handler is not asked for one, and the BFF starts every errand at Medel.
-    initiateSupportErrand(municipalityId, { reportTypeLabelId, locationLabelId })
+    initiateSupportErrand({ reportTypeLabelId, locationLabelId })
       .then((errand) => router.push(`/arende/${errand.errandNumber}`))
       .catch(() => {
         setIsRegistering(false);

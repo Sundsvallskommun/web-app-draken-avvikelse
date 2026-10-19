@@ -10,7 +10,6 @@ import {
 } from './investigation-access';
 
 const response = () => ({
-  municipalityId: '2281',
   errandId: 'one',
   documents: [
     { key: 'hsl', access: 'edit' },
@@ -20,7 +19,7 @@ const response = () => ({
 });
 
 test('uses explicit per-errand grants and treats missing keys as hidden', () => {
-  const access = parseInvestigationAccess(response(), '2281', 'one');
+  const access = parseInvestigationAccess(response(), 'one');
   const state = { status: 'ready', access } as const;
   assert.equal(investigationDocumentAccess(state, 'hsl'), 'edit');
   assert.equal(investigationDocumentAccess(state, 'sol'), 'read');
@@ -28,9 +27,8 @@ test('uses explicit per-errand grants and treats missing keys as hidden', () => 
   assert.equal(investigationDocumentAccess(state, 'new-document'), 'hidden');
 });
 
-test('rejects another errand or municipality instead of reusing those permissions', () => {
-  assert.throws(() => parseInvestigationAccess(response(), '2281', 'two'));
-  assert.throws(() => parseInvestigationAccess(response(), '2260', 'one'));
+test('rejects another errand instead of reusing its permissions', () => {
+  assert.throws(() => parseInvestigationAccess(response(), 'two'));
 });
 
 test('rejects missing, malformed and duplicate grants without an editable default', () => {
@@ -42,7 +40,7 @@ test('rejects missing, malformed and duplicate grants without an editable defaul
     { ...response(), documents: [{ key: 'hsl', access: 'write' }] },
     { ...response(), documents: [response().documents[0], response().documents[0]] },
   ])
-    assert.throws(() => parseInvestigationAccess(value, '2281', 'one'));
+    assert.throws(() => parseInvestigationAccess(value, 'one'));
 });
 
 test('an unresolved, denied or failed access request grants no document access', () => {
@@ -69,18 +67,14 @@ test('the generic JSON view cannot reveal a hidden investigation document from a
   assert.equal(isInvestigationParameterReadable(profile, { status: 'loading' }, 'hsl'), false);
   assert.equal(isInvestigationParameterReadable(profile, { status: 'error' }, 'hsl'), false);
   assert.equal(isInvestigationParameterReadable(profile, { status: 'denied' }, 'hsl'), false);
-  const access = parseInvestigationAccess(
-    { ...response(), documents: [{ key: 'hsl', access: 'hidden' }] },
-    '2281',
-    'one'
-  );
+  const access = parseInvestigationAccess({ ...response(), documents: [{ key: 'hsl', access: 'hidden' }] }, 'one');
   assert.equal(isInvestigationParameterReadable(profile, { status: 'ready', access }, 'hsl'), false);
   assert.equal(isInvestigationParameterReadable(profile, { status: 'error' }, 'other-system-document'), true);
   assert.equal(isInvestigationParameterReadable(profile, { status: 'disabled' }, 'hsl'), true);
 });
 
 test('conceals documents from what is drawn without widening any grant', () => {
-  const state = { status: 'ready', access: parseInvestigationAccess(response(), '2281', 'one') } as const;
+  const state = { status: 'ready', access: parseInvestigationAccess(response(), 'one') } as const;
 
   const concealed = concealInvestigationDocuments(state, ['hsl', 'decision', 'unknown']);
   assert.equal(investigationDocumentAccess(concealed, 'hsl'), 'hidden');
@@ -92,7 +86,7 @@ test('conceals documents from what is drawn without widening any grant', () => {
 });
 
 test('leaves the access as it is when there is nothing to conceal', () => {
-  const state = { status: 'ready', access: parseInvestigationAccess(response(), '2281', 'one') } as const;
+  const state = { status: 'ready', access: parseInvestigationAccess(response(), 'one') } as const;
   assert.equal(concealInvestigationDocuments(state, []), state);
   assert.equal(concealInvestigationDocuments(state, ['unknown']), state);
   const loading = { status: 'loading' } as const;

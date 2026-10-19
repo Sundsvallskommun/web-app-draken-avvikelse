@@ -70,6 +70,22 @@ export interface Problem {
   status?: number;
 }
 
+/** Identifier describing a user or subject (AD-account or party-id) */
+export interface Identifier {
+  /**
+   * Identifier type
+   * @minLength 1
+   * @pattern ^(adAccount|partyId)$
+   */
+  type: IdentifierTypeEnum;
+  /**
+   * Identifier value (AD-account name or partyId UUID)
+   * @minLength 0
+   * @maxLength 255
+   */
+  value: string;
+}
+
 export interface ConstraintViolationProblem {
   /** @format uri */
   type?: string;
@@ -92,7 +108,7 @@ export interface ThrowableProblem {
   detail?: string;
   /** @format uri */
   instance?: string;
-  causeAsProblem?: any;
+  causeAsProblem?: ThrowableProblem;
 }
 
 export interface Violation {
@@ -153,6 +169,17 @@ export interface NamespaceConfig {
   resourceAccessControl?: boolean;
   /** If set to true an errand may hold at most one decision. Leave false where interim decisions, partial decisions or reconsideration occur. If no value is set it defaults to false. */
   singleDecisionPerErrand?: boolean;
+  /** If set to true emails sent to subscribers only name the errands that were updated, without describing what happened to them. If no value is set it defaults to false. */
+  excludeEventDescriptionsInEmail?: boolean;
+  /** If set to true subscribers may be notified by sms, which only names the errands that were updated and links to them. Events routed to sms in a namespace where it is not enabled are not delivered by sms. If no value is set it defaults to false. */
+  smsNotificationsEnabled?: boolean;
+  /**
+   * Address of an errand in the web application handling errands in this namespace, short of the errand number. Links to errands are made as <baseUrl>/<errandNumber>, a trailing slash on the base url being ignored. Leaving it out means emails carry no links to errands.
+   * @pattern ^https?://\S+$
+   */
+  baseUrl?: string;
+  /** Id of a subscription profile in this namespace. When set, the reporter of an errand is subscribed to the errand with this profile as the errand is created. Leaving it out subscribes no reporter. */
+  reporterProfileId?: string;
   /** What a user whose labels only grant them limited read for an errand may reach on it. Limited read always reaches the errand itself, listing resources here extends it beyond that, up to what read access gives. The fields apply instead of the fields of any role the user holds */
   limitedReadAccess?: LimitedReadAccess;
   /** Access given to the reporter of an errand. Leaving it out means reporters get nothing beyond what their labels already grant */
@@ -243,6 +270,8 @@ export interface Label {
    * @minLength 1
    */
   classification: string;
+  /** Display name for the label classification, as registered for the namespace */
+  classificationDisplayName?: string;
   /** Display name for the label */
   displayName?: string;
   /** Resource path */
@@ -304,11 +333,10 @@ export interface JsonNode {
   number?: boolean;
   string?: boolean;
   boolean?: boolean;
-  integralNumber?: boolean;
-  missingNode?: boolean;
   valueNode?: boolean;
-  nodeType?: JsonNodeNodeTypeEnum;
   container?: boolean;
+  missingNode?: boolean;
+  integralNumber?: boolean;
   pojo?: boolean;
   floatingPointNumber?: boolean;
   short?: boolean;
@@ -320,6 +348,7 @@ export interface JsonNode {
   /** @deprecated */
   textual?: boolean;
   binary?: boolean;
+  nodeType?: JsonNodeNodeTypeEnum;
   embeddedValue?: boolean;
 }
 
@@ -432,27 +461,45 @@ export interface EventFilter {
    */
   type: EventFilterTypeEnum;
   /**
-   * Event subtype. If null, all subtypes of the given type match.
+   * Event subtype. If null, all subtypes of the given type match. MESSAGE matches every message, while MESSAGE_INTERNAL and MESSAGE_EXTERNAL match only messages in internal conversations and messages from outside respectively. Likewise ERRAND matches every change to an errand, while STATUS and PHASE match only changes of its status and of its phase respectively.
    * @minLength 0
    * @maxLength 64
    */
   subtype?: string;
+  /** Optional id of a metadata label. When set, only events that added this label to the errand match - every label counts as added when the errand is created. If null, the labels of the errand do not matter. */
+  labelId?: string;
 }
 
-/** Identifier describing a user or subject (AD-account or party-id) */
-export interface Identifier {
+/** A subscription profile is a named set of event filters and the channels the events they match are delivered on. A subscription pointing at a profile delivers the events the profile's filters select, while the subscriber's own event filters do not apply to it. The events are delivered on the profile's channels, or on the subscriber's own channels when the profile has none. */
+export interface SubscriptionProfile {
+  /** Unique identifier of the subscription profile */
+  id?: string;
   /**
-   * Identifier type
-   * @minLength 1
-   * @pattern ^(adAccount|partyId)$
-   */
-  type: IdentifierTypeEnum;
-  /**
-   * Identifier value (AD-account name or partyId UUID)
+   * Name of the profile, unique within the namespace
    * @minLength 0
    * @maxLength 255
    */
-  value: string;
+  name?: string;
+  /**
+   * Optional description of what the profile is for
+   * @minLength 0
+   * @maxLength 255
+   */
+  description?: string;
+  /** Event filters selecting which events the profile delivers. An event matching any of them is delivered. */
+  eventFilters?: EventFilter[];
+  /** Channels the events matched by the profile are delivered on. Leaving it out or empty delivers them on the subscriber's own channels instead, which lets each user choose how they are notified. An update with an empty list clears the profile's channels. */
+  channels?: SubscriptionProfileChannelsEnum[];
+  /**
+   * Timestamp when the profile was created
+   * @format date-time
+   */
+  created?: string;
+  /**
+   * Timestamp when the profile was last modified
+   * @format date-time
+   */
+  modified?: string;
 }
 
 /** Channel a subscriber wants to receive notifications on */
@@ -460,7 +507,7 @@ export interface NotificationChannel {
   /** Channel type */
   type: NotificationChannelTypeEnum;
   /**
-   * Optional destination override (e.g. an alternative e-mail address or phone number). If omitted, the default destination derived from the subscriber's identifier is used.
+   * Optional destination override (e.g. an alternative e-mail address or phone number). If omitted, the default destination derived from the subscriber's identifier is used, i.e. the e-mail address or mobile number of the employee. The destination of an SMS channel must be an MSISDN, e.g. +46701234567.
    * @minLength 0
    * @maxLength 255
    */
@@ -518,7 +565,9 @@ export interface Subscription {
   id?: string;
   /** What this subscription targets (an errand or the whole namespace). */
   target?: SubscriptionTarget;
-  /** Optional per-subscription override of the subscriber-level event filters. When set, these filters apply to events matched by this subscription instead of the subscriber's global filters. When null or empty, the subscriber-level filters are used as-is. */
+  /** Optional id of a subscription profile. When set, the profile alone decides which events this subscription delivers, and on which channels unless the profile has none, when the subscriber's own channels are used. The subscriber's event filters do not apply. Cannot be combined with eventFilters. */
+  profileId?: string;
+  /** Optional per-subscription override of the subscriber-level event filters. When set, these filters apply to events matched by this subscription instead of the subscriber's global filters. When null or empty, the subscriber-level filters are used as-is. Cannot be combined with profileId. */
   eventFilters?: EventFilter[];
   /**
    * Optional expiration timestamp. After this point the subscription is eligible for automatic cleanup.
@@ -820,6 +869,122 @@ export interface LabelMoveRequest {
   newParentId?: string | null;
   /** When true, return affected counts without making any changes. When false, starts the move as an asynchronous job. */
   dryRun: boolean;
+}
+
+/** Result of a label merge dry-run — no changes are made */
+export interface LabelMergeDryRunResponse {
+  /**
+   * Number of errands that reference one or more of the source labels
+   * @format int64
+   */
+  affectedErrandCount?: number;
+  /** Actions that have hasLabel conditions referencing one or more of the source labels */
+  affectedActions?: AffectedAction[];
+}
+
+/** Request for merging one or more source labels into a destination label */
+export interface LabelMergeRequest {
+  /**
+   * IDs of the source labels to merge into the destination label
+   * @minItems 1
+   */
+  sourceLabelIds: string[];
+  /** When true, return affected counts without making any changes. When false, starts the merge as an asynchronous job. */
+  dryRun: boolean;
+}
+
+/** Result of a label-tree restructure dry-run — no changes are made */
+export interface LabelRestructureDryRunResponse {
+  /**
+   * Sum of affectedErrandCount across all steps. An errand touched by more than one step is counted once per step that touches it, not deduplicated across steps
+   * @format int64
+   */
+  totalAffectedErrandCount?: number;
+  /** Per-step results, in the same order as the request's steps */
+  steps?: LabelRestructureStepResult[];
+}
+
+/** Dry-run result for one step of a label-tree restructure */
+export interface LabelRestructureStepResult {
+  /**
+   * Index of the step in the request's steps list
+   * @format int32
+   */
+  index?: number;
+  /** The step's type */
+  type?: LabelRestructureStepResultTypeEnum;
+  /** The step's path, as submitted */
+  path?: string[];
+  /**
+   * Number of errands that reference the label or, for MOVE/MERGE, any of its descendants/sources. Always 0 for ADD/RENAME, and for a step whose path was only created by an earlier step in the same request
+   * @format int64
+   */
+  affectedErrandCount?: number;
+  /** Actions that have hasLabel conditions referencing a label this step affects */
+  affectedActions?: AffectedAction[];
+}
+
+/** Request for restructuring the label tree as one ordered sequence of add/rename/delete/move/merge steps */
+export interface LabelRestructureRequest {
+  /**
+   * Steps to apply, in order. A later step may reference a label an earlier step in this same request added or moved
+   * @minItems 1
+   */
+  steps: LabelRestructureStep[];
+  /** When true, return affected counts for every step without making any changes. When false, starts the restructure as an asynchronous job. */
+  dryRun: boolean;
+}
+
+/** One step of a label-tree restructure */
+export interface LabelRestructureStep {
+  /** The kind of change this step makes */
+  type: LabelRestructureStepTypeEnum;
+  /**
+   * Path (resourceName segments from the root) of the label this step acts on. The label added, renamed or deleted for ADD/RENAME/DELETE; the label moved for MOVE; the merge destination for MERGE
+   * @minItems 1
+   */
+  path: string[];
+  /** MOVE only: path of the new parent, or null/absent to move to root */
+  destinationParentPath?: string[];
+  /** MERGE only: paths of the source labels merged into path */
+  sourcePaths?: string[][];
+  /** ADD: display name of the new label. RENAME: the new display name. MOVE: an optional new display name to set at the same time */
+  displayName?: string;
+  /** ADD only: classification of the new label */
+  classification?: string;
+  /**
+   * MOVE only: an optional new resourceName to set at the same time (used for a combined move+rename)
+   * @pattern [A-Z0-9_]+
+   */
+  newResourceName?: string;
+}
+
+/** Label classification model */
+export interface LabelClassification {
+  /** Label classification ID */
+  id?: string;
+  /**
+   * Label classification. Used as key and matched against the classification of the labels. Ignored on update
+   * @minLength 0
+   * @maxLength 255
+   * @pattern (?!\.{1,2}$)[^/\\;%]+
+   */
+  classification: string;
+  /**
+   * Display name for the label classification
+   * @maxLength 255
+   */
+  displayName?: string | null;
+  /**
+   * Timestamp when the label classification was created
+   * @format date-time
+   */
+  created?: string;
+  /**
+   * Timestamp when the label classification was last modified
+   * @format date-time
+   */
+  modified?: string;
 }
 
 /** ExternalIdType model */
@@ -1183,6 +1348,8 @@ export interface ErrandLabel {
   version?: number;
   /** Label classification */
   classification?: string;
+  /** Display name for the label classification, as registered for the namespace */
+  classificationDisplayName?: string;
   /** Display name for the label */
   displayName?: string;
   /** Resource path */
@@ -2408,12 +2575,12 @@ export interface PageSubscriberNotification {
 export interface PageableObject {
   /** @format int64 */
   offset?: number;
-  sort?: SortObject;
   paged?: boolean;
   /** @format int32 */
   pageNumber?: number;
   /** @format int32 */
   pageSize?: number;
+  sort?: SortObject;
   unpaged?: boolean;
 }
 
@@ -3023,6 +3190,16 @@ export interface CountResponse {
   count?: number;
 }
 
+/**
+ * Identifier type
+ * @minLength 1
+ * @pattern ^(adAccount|partyId)$
+ */
+export enum IdentifierTypeEnum {
+  AdAccount = "adAccount",
+  PartyId = "partyId",
+}
+
 /** What the holder may do with the field, narrowing it below the level the errand itself is held at. Left unset the field simply follows the errand, which is what every grant did before this was added, and a level may only ever restrict further - it can never make a readable errand writable. Only a field holding a keyed collection may carry one, and limited read is not a level a field can be held at */
 export enum FieldAccessLevelEnum {
   LR = "LR",
@@ -3065,14 +3242,11 @@ export enum EventFilterTypeEnum {
   DROP = "DROP",
 }
 
-/**
- * Identifier type
- * @minLength 1
- * @pattern ^(adAccount|partyId)$
- */
-export enum IdentifierTypeEnum {
-  AdAccount = "adAccount",
-  PartyId = "partyId",
+/** Channel through which a notification is delivered */
+export enum SubscriptionProfileChannelsEnum {
+  INTERNAL = "INTERNAL",
+  EMAIL = "EMAIL",
+  SMS = "SMS",
 }
 
 /** Channel type */
@@ -3091,7 +3265,9 @@ export enum SubscriptionTargetTypeEnum {
 /** Job type */
 export enum JobResponseTypeEnum {
   MOVE_LABEL = "MOVE_LABEL",
+  MERGE_LABELS = "MERGE_LABELS",
   ERRAND_PURGE = "ERRAND_PURGE",
+  RESTRUCTURE_LABEL_TREE = "RESTRUCTURE_LABEL_TREE",
 }
 
 /** Job status */
@@ -3101,6 +3277,24 @@ export enum JobResponseStatusEnum {
   COMPLETED = "COMPLETED",
   STOPPED = "STOPPED",
   FAILED = "FAILED",
+}
+
+/** The step's type */
+export enum LabelRestructureStepResultTypeEnum {
+  ADD = "ADD",
+  RENAME = "RENAME",
+  DELETE = "DELETE",
+  MOVE = "MOVE",
+  MERGE = "MERGE",
+}
+
+/** The kind of change this step makes */
+export enum LabelRestructureStepTypeEnum {
+  ADD = "ADD",
+  RENAME = "RENAME",
+  DELETE = "DELETE",
+  MOVE = "MOVE",
+  MERGE = "MERGE",
 }
 
 /** The channel the attachment was received via */

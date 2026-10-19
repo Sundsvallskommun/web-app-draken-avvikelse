@@ -22,7 +22,7 @@ import { SupportInvestigationAccessService } from '@/services/support-investigat
 import { SupportErrandClassificationOwner, SupportInvestigationPolicyService } from '@/services/support-investigation-policy.service';
 import { SupportJsonParameterService } from '@/services/support-json-parameter.service';
 
-import { ABSENT_HEADER, mockReq, mockRes, MockResponse, mockUser } from './helpers/http';
+import { ABSENT_HEADER, mockReq, mockRes, mockUser } from './helpers/http';
 import {
   mockAdUsername,
   mockCitizenPartyId,
@@ -388,42 +388,13 @@ describe('SupportErrandController', () => {
     });
   });
 
-  describe('municipality id guard', () => {
-    it('rejects every municipality-scoped endpoint with 400 and makes no API call', async () => {
-      const { controller, api } = makeController();
-      const req = mockReq();
-
-      const calls = [
-        (res: MockResponse) => controller.errand(req, mockSupportErrandId, '', res),
-        (res: MockResponse) => controller.errands(req, ...errandsArgs(), '', res),
-        (res: MockResponse) => controller.countErrandsByStatusGroups(req, ...statusGroupCountArgs([['NEW']]), '', res),
-        (res: MockResponse) => controller.registerSupportErrand(req, '', {}, res),
-        (res: MockResponse) => controller.updateSupportErrand(req, mockSupportErrandId, '', ABSENT_HEADER, {}, res),
-        (res: MockResponse) =>
-          controller.updateSupportErrandStatus(req, mockSupportErrandId, '', { expectedVersion: 1, expectedStatus: 'NEW', status: 'ONGOING' }, res),
-        (res: MockResponse) =>
-          controller.becomeAdminForSupportErrand(req, mockSupportErrandId, '', ABSENT_HEADER, { assignedUserId: mockAdUsername }, res),
-      ];
-
-      for (const call of calls) {
-        const res = mockRes();
-        await call(res);
-        expect(res.statusCode).toBe(400);
-        expect(res.body).toBe('Municipality id missing');
-      }
-      expect(api.get).not.toHaveBeenCalled();
-      expect(api.post).not.toHaveBeenCalled();
-      expect(api.patch).not.toHaveBeenCalled();
-    });
-  });
-
   describe('errand', () => {
     it('fetches the errand by id from the namespaced errands endpoint', async () => {
       const { controller, api } = makeController();
       api.get.mockResolvedValue({ data: { id: mockSupportErrandId }, message: 'success' });
       const res = mockRes();
 
-      await controller.errand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, res);
+      await controller.errand(mockReq(), mockSupportErrandId, res);
 
       expect(api.get).toHaveBeenCalledWith(
         { url: `${SUPPORT_SERVICE}/${MUNICIPALITY_ID}/${NAMESPACE}/errands/${mockSupportErrandId}` },
@@ -454,7 +425,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
       api.get.mockResolvedValue({ data: { content: [] }, message: 'success' });
 
-      await controller.errands(mockReq(), ...errandsArgs(), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs(), mockRes());
 
       expect(api.get).toHaveBeenCalledWith({ url: `${SUPPORT_SERVICE}/${MUNICIPALITY_ID}/${NAMESPACE}/errands?page=0&size=8` }, expect.anything());
     });
@@ -463,7 +434,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
       api.get.mockResolvedValue({ data: { content: [] }, message: 'success' });
 
-      await controller.errands(mockReq(), ...errandsArgs({ page: 2, size: 25, status: 'NEW', sort: 'created,desc' }), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs({ page: 2, size: 25, status: 'NEW', sort: 'created,desc' }), mockRes());
 
       expect(api.get).toHaveBeenCalledWith(
         {
@@ -485,7 +456,7 @@ describe('SupportErrandController', () => {
         { groupKey: 'classification', fieldKey: 'type', resourcePath: 'CATEGORY/HSL/REHAB/MISSED' },
       ]);
 
-      await controller.errands(mockReq(), ...errandsArgs({ status: 'NEW', labelFilter }), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs({ status: 'NEW', labelFilter }), mockRes());
 
       expect(api.get.mock.calls[0][0]).toMatchObject({
         url: `${SUPPORT_SERVICE}/${MUNICIPALITY_ID}/${NAMESPACE}/metadata/labels`,
@@ -511,7 +482,7 @@ describe('SupportErrandController', () => {
         { groupKey: 'risk', fieldKey: 'risk', resourcePath: 'RISK/HIGH_HSL' },
       ]);
 
-      await controller.errands(mockReq(), ...errandsArgs({ labelFilter }), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs({ labelFilter }), mockRes());
 
       const filter = upstreamFilter(api.get.mock.calls[1][0].url);
       expect(filter).toContain(
@@ -529,11 +500,10 @@ describe('SupportErrandController', () => {
           ...errandsArgs({
             labelFilter: JSON.stringify([{ groupKey: 'classification', fieldKey: 'type', resourcePath: 'REPORT_TYPE/DEVIATION' }]),
           }),
-          MUNICIPALITY_ID,
           mockRes(),
         ),
       ).rejects.toMatchObject({ status: 400 });
-      await expect(controller.errands(mockReq(), ...errandsArgs({ labelFilter: '{invalid' }), MUNICIPALITY_ID, mockRes())).rejects.toMatchObject({
+      await expect(controller.errands(mockReq(), ...errandsArgs({ labelFilter: '{invalid' }), mockRes())).rejects.toMatchObject({
         status: 400,
         message: 'Support Management labelFilter must be a valid JSON array',
       });
@@ -545,7 +515,7 @@ describe('SupportErrandController', () => {
       api.get.mockResolvedValue({ data: page, message: 'success' });
       const res = mockRes();
 
-      await controller.errands(mockReq(), ...errandsArgs(), MUNICIPALITY_ID, res);
+      await controller.errands(mockReq(), ...errandsArgs(), res);
 
       expect(res.statusCode).toBe(200);
       expect(res.body).toEqual(page);
@@ -558,7 +528,7 @@ describe('SupportErrandController', () => {
 
       // The mock organization number is Luhn-valid and its third digit is > 1, which is what
       // marks it as an organization number rather than a personal number.
-      await controller.errands(mockReq(), ...errandsArgs({ query: mockOrganizationNumber }), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs({ query: mockOrganizationNumber }), mockRes());
 
       expect(organization.getPartyIdByOrganizationNumber).toHaveBeenCalledWith(MUNICIPALITY_ID, mockOrganizationNumberDigits, expect.anything());
       expect(upstreamFilter(api.get.mock.calls[0][0].url)).toContain(`or exists(stakeholders.externalId~'*${mockOrganizationPartyId}*')`);
@@ -570,7 +540,7 @@ describe('SupportErrandController', () => {
         url.includes('/guid') ? { data: mockCitizenPartyId, message: 'success' } : { data: { content: [] }, message: 'success' },
       );
 
-      await controller.errands(mockReq(), ...errandsArgs({ query: mockPersonNumber }), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs({ query: mockPersonNumber }), mockRes());
 
       expect(api.get).toHaveBeenCalledWith({ url: `${CITIZEN_SERVICE}/${MUNICIPALITY_ID}/${mockPersonNumber}/guid` }, expect.anything());
       expect(upstreamFilter(api.get.mock.calls[1][0].url)).toContain(`or exists(stakeholders.externalId~'*${mockCitizenPartyId}*')`);
@@ -582,7 +552,7 @@ describe('SupportErrandController', () => {
         url.includes('/guid') ? Promise.reject(new Error('boom')) : { data: { content: [] }, message: 'success' },
       );
 
-      await controller.errands(mockReq(), ...errandsArgs({ query: mockPersonNumber }), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs({ query: mockPersonNumber }), mockRes());
 
       // Only the clause matching the raw query text remains; no extra party-id clause is added.
       expect(upstreamFilter(api.get.mock.calls[1][0].url).match(/stakeholders\.externalId~/gu)).toHaveLength(1);
@@ -592,7 +562,7 @@ describe('SupportErrandController', () => {
       const { controller, api, organization } = makeController();
       api.get.mockResolvedValue({ data: { content: [] }, message: 'success' });
 
-      await controller.errands(mockReq(), ...errandsArgs({ query: mockFirstName }), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs({ query: mockFirstName }), mockRes());
 
       expect(organization.getPartyIdByOrganizationNumber).not.toHaveBeenCalled();
       expect(api.get).toHaveBeenCalledTimes(1);
@@ -602,7 +572,7 @@ describe('SupportErrandController', () => {
       const { controller, api, organization } = makeController();
       api.get.mockResolvedValue({ data: { content: [] }, message: 'success' });
 
-      await controller.errands(mockReq(), ...errandsArgs({ query: mockInvalidOrganizationNumber }), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs({ query: mockInvalidOrganizationNumber }), mockRes());
 
       expect(organization.getPartyIdByOrganizationNumber).not.toHaveBeenCalled();
       expect(api.get).toHaveBeenCalledTimes(1);
@@ -615,12 +585,7 @@ describe('SupportErrandController', () => {
       api.get.mockImplementation(async ({ url }: { url: string }) => ({ data: { count: url.includes('ONGOING') ? 5 : 2 }, message: 'success' }));
       const res = mockRes();
 
-      await controller.countErrandsByStatusGroups(
-        mockReq(),
-        ...statusGroupCountArgs([['NEW'], ['ONGOING', 'PENDING']], { priority: 'HIGH' }),
-        MUNICIPALITY_ID,
-        res,
-      );
+      await controller.countErrandsByStatusGroups(mockReq(), ...statusGroupCountArgs([['NEW'], ['ONGOING', 'PENDING']], { priority: 'HIGH' }), res);
 
       expect(api.get).toHaveBeenCalledTimes(2);
       expect(
@@ -639,9 +604,7 @@ describe('SupportErrandController', () => {
       async statusGroups => {
         const { controller, api } = makeController();
 
-        await expect(
-          controller.countErrandsByStatusGroups(mockReq(), ...statusGroupCountArgs(statusGroups), MUNICIPALITY_ID, mockRes()),
-        ).rejects.toMatchObject({
+        await expect(controller.countErrandsByStatusGroups(mockReq(), ...statusGroupCountArgs(statusGroups), mockRes())).rejects.toMatchObject({
           status: 400,
         });
         expect(api.get).not.toHaveBeenCalled();
@@ -661,12 +624,7 @@ describe('SupportErrandController', () => {
       api.get.mockResolvedValue({ data: page, message: 'success' });
       const res = mockRes();
 
-      await controller.errands(
-        mockReq(),
-        ...errandsArgs({ page: 2, size: 25, status: 'NEW,ONGOING', channel: 'EMAIL', sort: 'touched,desc' }),
-        MUNICIPALITY_ID,
-        res,
-      );
+      await controller.errands(mockReq(), ...errandsArgs({ page: 2, size: 25, status: 'NEW,ONGOING', channel: 'EMAIL', sort: 'touched,desc' }), res);
 
       expect(api.get).toHaveBeenCalledTimes(1);
       const [config] = api.get.mock.calls[0];
@@ -687,7 +645,7 @@ describe('SupportErrandController', () => {
       enableErrandSearch(controller);
       api.get.mockResolvedValue({ data: { content: [] }, message: 'success' });
 
-      await controller.errands(mockReq(), ...errandsArgs(), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs(), mockRes());
 
       expect(api.get.mock.calls[0][0].url).toBe(`${SEARCH_URL}page=0&size=8`);
     });
@@ -698,7 +656,7 @@ describe('SupportErrandController', () => {
       organization.getPartyIdByOrganizationNumber.mockResolvedValue(mockOrganizationPartyId);
       api.get.mockResolvedValue({ data: { content: [] }, message: 'success' });
 
-      await controller.errands(mockReq(), ...errandsArgs({ query: mockOrganizationNumber }), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs({ query: mockOrganizationNumber }), mockRes());
 
       const query = upstreamSearchQuery(api.get.mock.calls[0][0].url);
       expect(query).toContain(`errandNumber:(*${escapedHyphens(mockOrganizationNumber)}*)`);
@@ -718,7 +676,7 @@ describe('SupportErrandController', () => {
         { groupKey: 'classification', fieldKey: 'type', resourcePath: 'CATEGORY/HSL/REHAB/MISSED' },
       ]);
 
-      await controller.errands(mockReq(), ...errandsArgs({ status: 'NEW', labelFilter }), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs({ status: 'NEW', labelFilter }), mockRes());
 
       expect(api.get.mock.calls[0][0].url).toBe(`${SUPPORT_SERVICE}/${MUNICIPALITY_ID}/${NAMESPACE}/metadata/labels`);
       expect(upstreamSearchQuery(api.get.mock.calls[1][0].url)).toBe('labels.metadataLabelId:("type-label-id") AND status:("NEW")');
@@ -733,13 +691,13 @@ describe('SupportErrandController', () => {
       );
       const categoryFilter = { labelCategory: 'CATEGORY/HSL/REHAB', labelType: 'CATEGORY/HSL/REHAB/MISSED,CATEGORY/HSL/REHAB/OTHER' };
 
-      await controller.errands(mockReq(), ...errandsArgs(categoryFilter), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs(categoryFilter), mockRes());
       expect(api.get).toHaveBeenCalledTimes(1);
       expect(api.get.mock.calls[0][0].url.startsWith(FILTER_URL)).toBe(true);
 
       api.get.mockClear();
       enableErrandSearch(controller);
-      await controller.errands(mockReq(), ...errandsArgs(categoryFilter), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs(categoryFilter), mockRes());
       expect(upstreamSearchQuery(api.get.mock.calls[1][0].url)).toBe('labels.metadataLabelId:("type-label-id" OR "other-type-label-id")');
     });
 
@@ -752,7 +710,7 @@ describe('SupportErrandController', () => {
           : { data: { content: [] }, message: 'success' },
       );
 
-      await controller.errands(mockReq(), ...errandsArgs({ labelCategory: 'CATEGORY/REMOVED' }), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs({ labelCategory: 'CATEGORY/REMOVED' }), mockRes());
 
       expect(api.get).toHaveBeenCalledTimes(2);
       expect(api.get.mock.calls[1][0].url.startsWith(FILTER_URL)).toBe(true);
@@ -764,7 +722,7 @@ describe('SupportErrandController', () => {
       enableErrandSearch(controller);
       api.get.mockResolvedValue({ data: { content: [] }, message: 'success' });
 
-      await controller.errands(mockReq(), ...errandsArgs({ query: 'a'.repeat(200) }), MUNICIPALITY_ID, mockRes());
+      await controller.errands(mockReq(), ...errandsArgs({ query: 'a'.repeat(200) }), mockRes());
 
       expect(api.get).toHaveBeenCalledTimes(1);
       expect(api.get.mock.calls[0][0].url.startsWith(FILTER_URL)).toBe(true);
@@ -777,7 +735,7 @@ describe('SupportErrandController', () => {
       api.get.mockRejectedValueOnce(new HttpException(503, 'Search not available')).mockResolvedValueOnce({ data: page, message: 'success' });
       const res = mockRes();
 
-      await controller.errands(mockReq(), ...errandsArgs({ status: 'NEW' }), MUNICIPALITY_ID, res);
+      await controller.errands(mockReq(), ...errandsArgs({ status: 'NEW' }), res);
 
       expect(api.get.mock.calls[0][0].url.startsWith(SEARCH_URL)).toBe(true);
       expect(api.get.mock.calls[1][0]).toEqual({ url: `${FILTER_URL}page=0&size=8&filter=%28status%3A%27NEW%27%29` });
@@ -789,7 +747,7 @@ describe('SupportErrandController', () => {
       enableErrandSearch(controller);
       api.get.mockRejectedValue(new HttpException(504, 'Gateway Timeout'));
 
-      await expect(controller.errands(mockReq(), ...errandsArgs({ query: mockFirstName }), MUNICIPALITY_ID, mockRes())).rejects.toMatchObject({
+      await expect(controller.errands(mockReq(), ...errandsArgs({ query: mockFirstName }), mockRes())).rejects.toMatchObject({
         status: 504,
         message: 'Sökningen tog för lång tid. Förfina sökningen och försök igen.',
       });
@@ -801,7 +759,7 @@ describe('SupportErrandController', () => {
       enableErrandSearch(controller);
       api.get.mockRejectedValue(new HttpException(403, 'The query names a resource the user may not read'));
 
-      await expect(controller.errands(mockReq(), ...errandsArgs({ query: mockFirstName }), MUNICIPALITY_ID, mockRes())).rejects.toMatchObject({
+      await expect(controller.errands(mockReq(), ...errandsArgs({ query: mockFirstName }), mockRes())).rejects.toMatchObject({
         status: 403,
       });
       expect(api.get).toHaveBeenCalledTimes(1);
@@ -816,8 +774,8 @@ describe('SupportErrandController', () => {
       });
       const res = mockRes();
 
-      await controller.countErrandsByStatusGroups(mockReq(), ...statusGroupCountArgs([['NEW'], ['SOLVED']]), MUNICIPALITY_ID, res);
-      await controller.errands(mockReq(), ...errandsArgs({ status: 'NEW' }), MUNICIPALITY_ID, mockRes());
+      await controller.countErrandsByStatusGroups(mockReq(), ...statusGroupCountArgs([['NEW'], ['SOLVED']]), res);
+      await controller.errands(mockReq(), ...errandsArgs({ status: 'NEW' }), mockRes());
 
       const [countConfig, listConfig] = api.get.mock.calls.map(([config]) => config);
       expect(countConfig.url.startsWith(`${SUPPORT_SERVICE}/${MUNICIPALITY_ID}/${NAMESPACE}/errands/search/count?`)).toBe(true);
@@ -851,7 +809,6 @@ describe('SupportErrandController', () => {
       await controller.countErrandsByStatusGroups(
         mockReq(),
         ...statusGroupCountArgs([['NEW'], ['ONGOING', 'PENDING'], ['SUSPENDED']], { priority: 'HIGH' }),
-        MUNICIPALITY_ID,
         res,
       );
 
@@ -868,7 +825,7 @@ describe('SupportErrandController', () => {
       api.get.mockRejectedValueOnce(new HttpException(503, 'Search not available')).mockResolvedValue({ data: { count: 4 }, message: 'success' });
       const res = mockRes();
 
-      await controller.countErrandsByStatusGroups(mockReq(), ...statusGroupCountArgs([['NEW'], ['SOLVED']]), MUNICIPALITY_ID, res);
+      await controller.countErrandsByStatusGroups(mockReq(), ...statusGroupCountArgs([['NEW'], ['SOLVED']]), res);
 
       expect(api.get.mock.calls.slice(1).map(([config]) => upstreamFilter(config.url))).toEqual(["(status:'NEW')", "(status:'SOLVED')"]);
       expect(res.body).toEqual({ counts: [4, 4] });
@@ -883,7 +840,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeRegistrationController();
       const res = mockRes();
 
-      await controller.registerSupportErrand(mockReq(mockUser()), MUNICIPALITY_ID, deviationAtOwnPlace, res);
+      await controller.registerSupportErrand(mockReq(mockUser()), deviationAtOwnPlace, res);
 
       const [config] = api.post.mock.calls[0];
       expect(config.url).toBe(`${MUNICIPALITY_ID}/${NAMESPACE}/errands`);
@@ -911,7 +868,7 @@ describe('SupportErrandController', () => {
     it('does not create an investigation-owned errand while its registration policy is unavailable', async () => {
       const { controller, api } = makeController('unavailable');
 
-      await expect(controller.registerSupportErrand(mockReq(), MUNICIPALITY_ID, deviationAtOwnPlace, mockRes())).rejects.toMatchObject({
+      await expect(controller.registerSupportErrand(mockReq(), deviationAtOwnPlace, mockRes())).rejects.toMatchObject({
         status: 503,
         message: 'Support errand registration policy is temporarily unavailable',
       });
@@ -922,7 +879,7 @@ describe('SupportErrandController', () => {
     it('fetches the namespace metadata before creating the errand', async () => {
       const { controller, api } = makeRegistrationController();
 
-      await controller.registerSupportErrand(mockReq(), MUNICIPALITY_ID, deviationAtOwnPlace, mockRes());
+      await controller.registerSupportErrand(mockReq(), deviationAtOwnPlace, mockRes());
 
       expect(api.get).toHaveBeenCalledWith({ url: `${SUPPORT_SERVICE}/${MUNICIPALITY_ID}/${NAMESPACE}/metadata` }, expect.anything());
     });
@@ -942,7 +899,7 @@ describe('SupportErrandController', () => {
         message: 'success',
       });
 
-      await controller.registerSupportErrand(mockReq(mockUser()), MUNICIPALITY_ID, deviationAtOwnPlace, mockRes());
+      await controller.registerSupportErrand(mockReq(mockUser()), deviationAtOwnPlace, mockRes());
 
       expect(api.post.mock.calls[0][0].data).toMatchObject({ activePhaseId: 'actualization', status: 'NEW' });
     });
@@ -950,7 +907,7 @@ describe('SupportErrandController', () => {
     it('creates the errand without a phase when the namespace has no workflow', async () => {
       const { controller, api } = makeRegistrationController();
 
-      await controller.registerSupportErrand(mockReq(mockUser()), MUNICIPALITY_ID, deviationAtOwnPlace, mockRes());
+      await controller.registerSupportErrand(mockReq(mockUser()), deviationAtOwnPlace, mockRes());
 
       expect(api.post.mock.calls[0][0].data).not.toHaveProperty('activePhaseId');
     });
@@ -960,7 +917,7 @@ describe('SupportErrandController', () => {
       api.post.mockResolvedValue({ data: '', message: 'success' });
       const res = mockRes();
 
-      await controller.registerSupportErrand(mockReq(), MUNICIPALITY_ID, deviationAtOwnPlace, res);
+      await controller.registerSupportErrand(mockReq(), deviationAtOwnPlace, res);
 
       expect(res.statusCode).toBe(500);
       expect(res.body).toBe('Something went wrong when initiating support errand');
@@ -970,7 +927,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeRegistrationController();
       api.post.mockRejectedValue(new Error('upstream down'));
 
-      await expect(controller.registerSupportErrand(mockReq(), MUNICIPALITY_ID, deviationAtOwnPlace, mockRes())).rejects.toThrow('upstream down');
+      await expect(controller.registerSupportErrand(mockReq(), deviationAtOwnPlace, mockRes())).rejects.toThrow('upstream down');
     });
   });
 
@@ -980,9 +937,9 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
       api.get.mockResolvedValue({ data: { version: 7, status: 'ONGOING', channel: 'ESERVICE' }, headers: { etag: '"7"' }, message: 'success' });
 
-      await expect(
-        controller.updateSupportErrand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, '"7"', { channel: 'WEB_UI' }, mockRes()),
-      ).rejects.toMatchObject({ status: 409 });
+      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { channel: 'WEB_UI' }, mockRes())).rejects.toMatchObject({
+        status: 409,
+      });
       expect(api.patch).not.toHaveBeenCalled();
     });
 
@@ -990,14 +947,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
       api.get.mockResolvedValue({ data: { version: 7, status: 'ONGOING', channel: 'ESERVICE' }, headers: { etag: '"7"' }, message: 'success' });
 
-      await controller.updateSupportErrand(
-        mockReq(),
-        mockSupportErrandId,
-        MUNICIPALITY_ID,
-        '"7"',
-        { channel: 'ESERVICE', title: 'Ny rubrik' },
-        mockRes(),
-      );
+      await controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { channel: 'ESERVICE', title: 'Ny rubrik' }, mockRes());
 
       expect(api.patch).toHaveBeenCalledTimes(1);
     });
@@ -1007,7 +957,7 @@ describe('SupportErrandController', () => {
       (investigationPolicy as { profile: unknown }).profile = { documents: [] };
       api.get.mockResolvedValue({ data: { version: 7, status: 'ONGOING', channel: 'PHONE' }, headers: { etag: '"7"' }, message: 'success' });
 
-      await controller.updateSupportErrand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, '"7"', { channel: 'EMAIL' }, mockRes());
+      await controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { channel: 'EMAIL' }, mockRes());
 
       expect(api.patch.mock.calls[0][0].data).toEqual({ channel: 'EMAIL' });
     });
@@ -1019,7 +969,7 @@ describe('SupportErrandController', () => {
       api.patch.mockResolvedValue({ data: { id: mockSupportErrandId }, message: 'success' });
       const res = mockRes();
 
-      await controller.updateSupportErrand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, '"7"', { title: 'Ny titel' }, res);
+      await controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { title: 'Ny titel' }, res);
 
       const [config] = api.patch.mock.calls[0];
       expect(config.url).toBe(`${MUNICIPALITY_ID}/${NAMESPACE}/errands/${mockSupportErrandId}`);
@@ -1034,9 +984,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
       api.patch.mockRejectedValue(new Error('upstream down'));
 
-      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, '"7"', { title: 'x' }, mockRes())).rejects.toThrow(
-        'upstream down',
-      );
+      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { title: 'x' }, mockRes())).rejects.toThrow('upstream down');
     });
 
     it.each([
@@ -1048,9 +996,10 @@ describe('SupportErrandController', () => {
     ] as const)('rejects a missing or malformed generic mutation precondition %s', async (ifMatch, status, message) => {
       const { controller, api } = makeController();
 
-      await expect(
-        controller.updateSupportErrand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, ifMatch, { title: 'x' }, mockRes()),
-      ).rejects.toMatchObject({ status, message });
+      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, ifMatch, { title: 'x' }, mockRes())).rejects.toMatchObject({
+        status,
+        message,
+      });
       expect(api.get).not.toHaveBeenCalled();
       expect(api.patch).not.toHaveBeenCalled();
     });
@@ -1058,9 +1007,10 @@ describe('SupportErrandController', () => {
     it('rejects a stale generic mutation before patching upstream', async () => {
       const { controller, api } = makeController();
 
-      await expect(
-        controller.updateSupportErrand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, '"6"', { title: 'x' }, mockRes()),
-      ).rejects.toMatchObject({ status: 412, message: 'If-Match does not match the current support errand version' });
+      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"6"', { title: 'x' }, mockRes())).rejects.toMatchObject({
+        status: 412,
+        message: 'If-Match does not match the current support errand version',
+      });
       expect(api.patch).not.toHaveBeenCalled();
     });
 
@@ -1068,9 +1018,10 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
       api.get.mockResolvedValue({ data: { version: 7, status: 'SOLVED' }, headers: { etag: '"7"' }, message: 'success' });
 
-      await expect(
-        controller.updateSupportErrand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, '"7"', { title: 'x' }, mockRes()),
-      ).rejects.toMatchObject({ status: 409, message: 'Support errand status does not allow generic changes' });
+      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { title: 'x' }, mockRes())).rejects.toMatchObject({
+        status: 409,
+        message: 'Support errand status does not allow generic changes',
+      });
       expect(api.patch).not.toHaveBeenCalled();
     });
 
@@ -1090,7 +1041,7 @@ describe('SupportErrandController', () => {
             : { data: { version: 7, status: 'ONGOING', labels: errandLabels }, headers: { etag: '"7"' }, message: 'success' },
         );
         const patched = controller
-          .updateSupportErrand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, '"7"', { labels: sentLabels }, mockRes())
+          .updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { labels: sentLabels }, mockRes())
           .then(() => api.patch.mock.calls[0][0].data.labels);
         return { api, patched };
       };
@@ -1119,9 +1070,10 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
       api.get.mockResolvedValue({ data: { version: 7, status: 'ONGOING' }, headers: { etag: 'W/"7"' }, message: 'success' });
 
-      await expect(
-        controller.updateSupportErrand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, '"7"', { title: 'x' }, mockRes()),
-      ).rejects.toMatchObject({ status: 502, message: 'Support Management response contains an invalid errand ETag' });
+      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { title: 'x' }, mockRes())).rejects.toMatchObject({
+        status: 502,
+        message: 'Support Management response contains an invalid errand ETag',
+      });
       expect(api.patch).not.toHaveBeenCalled();
     });
 
@@ -1129,14 +1081,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
 
       await expect(
-        controller.updateSupportErrand(
-          mockReq(),
-          mockSupportErrandId,
-          MUNICIPALITY_ID,
-          ABSENT_HEADER,
-          { activePhaseId: 'unvalidated-target' },
-          mockRes(),
-        ),
+        controller.updateSupportErrand(mockReq(), mockSupportErrandId, ABSENT_HEADER, { activePhaseId: 'unvalidated-target' }, mockRes()),
       ).rejects.toMatchObject({ status: 400, message: 'Use the phase transition endpoint to change the active phase' });
       expect(api.patch).not.toHaveBeenCalled();
     });
@@ -1148,9 +1093,10 @@ describe('SupportErrandController', () => {
     ])('rejects direct %s writes so workflow commands cannot bypass current-state validation', async (data, _field) => {
       const { controller, api } = makeController();
 
-      await expect(
-        controller.updateSupportErrand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, ABSENT_HEADER, data, mockRes()),
-      ).rejects.toMatchObject({ status: 400, message: 'Use the status transition endpoint to change status, resolution or suspension' });
+      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, ABSENT_HEADER, data, mockRes())).rejects.toMatchObject({
+        status: 400,
+        message: 'Use the status transition endpoint to change status, resolution or suspension',
+      });
       expect(api.patch).not.toHaveBeenCalled();
     });
 
@@ -1158,7 +1104,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
 
       await expect(
-        controller.updateSupportErrand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, ABSENT_HEADER, { assignedUserId: mockAdUsername }, mockRes()),
+        controller.updateSupportErrand(mockReq(), mockSupportErrandId, ABSENT_HEADER, { assignedUserId: mockAdUsername }, mockRes()),
       ).rejects.toMatchObject({ status: 400, message: 'Use the administrator endpoint to change the assigned user' });
       expect(api.get).not.toHaveBeenCalled();
       expect(api.patch).not.toHaveBeenCalled();
@@ -1171,7 +1117,6 @@ describe('SupportErrandController', () => {
         controller.updateSupportErrand(
           mockReq(),
           mockSupportErrandId,
-          MUNICIPALITY_ID,
           '"7"',
           { classification: { category: 'CATEGORY/HSL', type: 'CATEGORY/HSL/TYPE' }, labels: [] },
           mockRes(),
@@ -1195,7 +1140,6 @@ describe('SupportErrandController', () => {
         controller.updateSupportErrand(
           mockReq(),
           mockSupportErrandId,
-          MUNICIPALITY_ID,
           '"7"',
           { parameters: [{ key: 'eventType', values: ['MISSFORHALLANDE'] }] },
           mockRes(),
@@ -1225,7 +1169,6 @@ describe('SupportErrandController', () => {
       await controller.updateSupportErrand(
         mockReq(),
         mockSupportErrandId,
-        MUNICIPALITY_ID,
         '"7"',
         {
           parameters: [
@@ -1251,7 +1194,6 @@ describe('SupportErrandController', () => {
       await controller.updateSupportErrand(
         mockReq(),
         mockSupportErrandId,
-        MUNICIPALITY_ID,
         '"7"',
         {
           version: 9,
@@ -1277,12 +1219,7 @@ describe('SupportErrandController', () => {
     it('creates IAF/VOF errands from the chosen report type and place', async () => {
       const { controller, api } = makeRegistrationController();
 
-      await controller.registerSupportErrand(
-        mockReq(mockUser()),
-        MUNICIPALITY_ID,
-        { reportTypeLabelId: 'abuse', locationLabelId: 'unit' },
-        mockRes(),
-      );
+      await controller.registerSupportErrand(mockReq(mockUser()), { reportTypeLabelId: 'abuse', locationLabelId: 'unit' }, mockRes());
 
       const body = api.post.mock.calls[0][0].data;
       expect(body).not.toHaveProperty('classification');
@@ -1302,9 +1239,9 @@ describe('SupportErrandController', () => {
     it('refuses to create the errand before the handler has said what is being reported', async () => {
       const { controller, api } = makeRegistrationController();
 
-      await expect(
-        controller.registerSupportErrand(mockReq(mockUser()), MUNICIPALITY_ID, { locationLabelId: 'unit' }, mockRes()),
-      ).rejects.toMatchObject({ status: 400 });
+      await expect(controller.registerSupportErrand(mockReq(mockUser()), { locationLabelId: 'unit' }, mockRes())).rejects.toMatchObject({
+        status: 400,
+      });
       expect(api.post).not.toHaveBeenCalled();
     });
 
@@ -1315,7 +1252,7 @@ describe('SupportErrandController', () => {
       accessMapper.findAccountLabelPatterns.mockResolvedValue(['LOCATION/VOF/ANNAN_ENHET/**']);
 
       await expect(
-        controller.registerSupportErrand(mockReq(mockUser()), MUNICIPALITY_ID, { reportTypeLabelId: 'abuse', locationLabelId: 'unit' }, mockRes()),
+        controller.registerSupportErrand(mockReq(mockUser()), { reportTypeLabelId: 'abuse', locationLabelId: 'unit' }, mockRes()),
       ).rejects.toMatchObject({ status: 400 });
       expect(api.post).not.toHaveBeenCalled();
     });
@@ -1323,7 +1260,7 @@ describe('SupportErrandController', () => {
     it('offers the handler the configured report types and their own places', async () => {
       const { controller, accessMapper } = makeRegistrationController();
 
-      const options = await controller.getNewErrandOptions(mockReq(mockUser()), MUNICIPALITY_ID);
+      const options = await controller.getNewErrandOptions(mockReq(mockUser()));
 
       expect(options.reportTypes.map(({ resourcePath }) => resourcePath)).toEqual(['REPORT_TYPE/DEVIATION', 'REPORT_TYPE/ABUSE']);
       expect(options.locations).toEqual([{ labelId: 'unit', displayName: 'Hemtjänst Norr', resourcePath: 'LOCATION/VOF/HEMTJANST_NORR' }]);
@@ -1337,7 +1274,7 @@ describe('SupportErrandController', () => {
       const { controller, accessMapper } = makeRegistrationController();
       accessMapper.findAccountLabelPatterns.mockResolvedValue(['LOCATION/VOF/**', 'LOCATION/**']);
 
-      const options = await controller.getNewErrandOptions(mockReq(mockUser()), MUNICIPALITY_ID);
+      const options = await controller.getNewErrandOptions(mockReq(mockUser()));
 
       expect(options.locations).toEqual([]);
     });
@@ -1345,7 +1282,7 @@ describe('SupportErrandController', () => {
     it('offers the place the handler is employed at, and nothing AccessMapper configures besides', async () => {
       const { controller, accessMapper } = makeEmployedRegistrationController();
 
-      const options = await controller.getNewErrandOptions(mockReq(mockUser()), MUNICIPALITY_ID);
+      const options = await controller.getNewErrandOptions(mockReq(mockUser()));
 
       expect(options.locationSource).toBe('employment');
       expect(options.locations).toEqual([
@@ -1358,7 +1295,7 @@ describe('SupportErrandController', () => {
       const { controller, employment } = makeEmployedRegistrationController();
       employment.readEmployments.mockResolvedValue([{ orgId: EMPLOYMENT_ORGANIZATION_ID + 1, isMainEmployment: true }]);
 
-      const options = await controller.getNewErrandOptions(mockReq(mockUser()), MUNICIPALITY_ID);
+      const options = await controller.getNewErrandOptions(mockReq(mockUser()));
 
       expect(options.locationSource).toBe('access');
       expect(options.locations.map(({ labelId }) => labelId)).toEqual(['unit']);
@@ -1368,7 +1305,7 @@ describe('SupportErrandController', () => {
       const { controller, employment } = makeEmployedRegistrationController();
       employment.readEmployments.mockRejectedValue(new HttpException(500, 'Internal server error'));
 
-      const options = await controller.getNewErrandOptions(mockReq(mockUser()), MUNICIPALITY_ID);
+      const options = await controller.getNewErrandOptions(mockReq(mockUser()));
 
       expect(options.locationSource).toBe('access');
       expect(options.locations.map(({ labelId }) => labelId)).toEqual(['unit']);
@@ -1377,12 +1314,7 @@ describe('SupportErrandController', () => {
     it('registers the errand at the place the handler is employed at', async () => {
       const { controller, api } = makeEmployedRegistrationController();
 
-      await controller.registerSupportErrand(
-        mockReq(mockUser()),
-        MUNICIPALITY_ID,
-        { reportTypeLabelId: 'deviation', locationLabelId: 'employment-unit' },
-        mockRes(),
-      );
+      await controller.registerSupportErrand(mockReq(mockUser()), { reportTypeLabelId: 'deviation', locationLabelId: 'employment-unit' }, mockRes());
 
       expect(api.post.mock.calls[0][0].data.labels.map(({ resourcePath }: Label) => resourcePath)).toEqual([
         'REPORT_TYPE',
@@ -1397,12 +1329,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeEmployedRegistrationController();
 
       await expect(
-        controller.registerSupportErrand(
-          mockReq(mockUser()),
-          MUNICIPALITY_ID,
-          { reportTypeLabelId: 'deviation', locationLabelId: 'unit' },
-          mockRes(),
-        ),
+        controller.registerSupportErrand(mockReq(mockUser()), { reportTypeLabelId: 'deviation', locationLabelId: 'unit' }, mockRes()),
       ).rejects.toMatchObject({ status: 400 });
       expect(api.post).not.toHaveBeenCalled();
     });
@@ -1411,18 +1338,11 @@ describe('SupportErrandController', () => {
       const unavailable = makeController('unavailable');
 
       await expect(
-        unavailable.controller.updateSupportErrand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, '"7"', { labels: [] }, mockRes()),
+        unavailable.controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { labels: [] }, mockRes()),
       ).rejects.toMatchObject({ status: 503 });
       expect(unavailable.api.patch).not.toHaveBeenCalled();
 
-      await unavailable.controller.updateSupportErrand(
-        mockReq(),
-        mockSupportErrandId,
-        MUNICIPALITY_ID,
-        '"7"',
-        { title: 'Unrelated update' },
-        mockRes(),
-      );
+      await unavailable.controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { title: 'Unrelated update' }, mockRes());
       expect(unavailable.api.patch).toHaveBeenCalledTimes(1);
     });
   });
@@ -1433,14 +1353,7 @@ describe('SupportErrandController', () => {
       api.patch.mockResolvedValue({ data: { id: mockSupportErrandId }, message: 'success' });
       const response = mockRes();
 
-      await controller.becomeAdminForSupportErrand(
-        mockReq(),
-        mockSupportErrandId,
-        MUNICIPALITY_ID,
-        '"7"',
-        { assignedUserId: mockAdUsername },
-        response,
-      );
+      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: mockAdUsername }, response);
 
       expect(api.patch.mock.calls[0][0]).toEqual({
         url: `${MUNICIPALITY_ID}/${NAMESPACE}/errands/${mockSupportErrandId}`,
@@ -1457,14 +1370,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
 
       await expect(
-        controller.becomeAdminForSupportErrand(
-          mockReq(),
-          mockSupportErrandId,
-          MUNICIPALITY_ID,
-          ABSENT_HEADER,
-          { assignedUserId: mockAdUsername },
-          mockRes(),
-        ),
+        controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, ABSENT_HEADER, { assignedUserId: mockAdUsername }, mockRes()),
       ).rejects.toMatchObject({ status: 428, message: 'If-Match is required when updating a support errand' });
       expect(api.get).not.toHaveBeenCalled();
       expect(api.patch).not.toHaveBeenCalled();
@@ -1474,7 +1380,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
 
       await expect(
-        controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, '"6"', { assignedUserId: mockAdUsername }, mockRes()),
+        controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"6"', { assignedUserId: mockAdUsername }, mockRes()),
       ).rejects.toMatchObject({ status: 412, message: 'If-Match does not match the current support errand version' });
       expect(api.patch).not.toHaveBeenCalled();
     });
@@ -1484,7 +1390,7 @@ describe('SupportErrandController', () => {
       api.get.mockResolvedValue({ data: { version: 7, status: 'SOLVED' }, headers: { etag: '"7"' }, message: 'success' });
 
       await expect(
-        controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, '"7"', { assignedUserId: mockAdUsername }, mockRes()),
+        controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: mockAdUsername }, mockRes()),
       ).rejects.toMatchObject({ status: 409, message: 'Support errand status does not allow administrator changes' });
       expect(api.patch).not.toHaveBeenCalled();
     });
@@ -1494,14 +1400,7 @@ describe('SupportErrandController', () => {
       api.get.mockResolvedValue({ data: { version: 7, status }, headers: { etag: '"7"' }, message: 'success' });
       api.patch.mockResolvedValue({ data: { id: mockSupportErrandId, status }, message: 'success' });
 
-      await controller.becomeAdminForSupportErrand(
-        mockReq(),
-        mockSupportErrandId,
-        MUNICIPALITY_ID,
-        '"7"',
-        { assignedUserId: mockAdUsername },
-        mockRes(),
-      );
+      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: mockAdUsername }, mockRes());
 
       expect(api.patch).toHaveBeenCalledTimes(1);
     });
@@ -1523,14 +1422,7 @@ describe('SupportErrandController', () => {
       Object.assign(investigationPolicy, { assigneeFollowsErrand: true });
       api.get.mockImplementation(assignedFromPreviousHandler);
 
-      await controller.becomeAdminForSupportErrand(
-        mockReq(),
-        mockSupportErrandId,
-        MUNICIPALITY_ID,
-        '"7"',
-        { assignedUserId: mockAdUsername },
-        mockRes(),
-      );
+      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: mockAdUsername }, mockRes());
 
       expect(api.delete.mock.calls.map(([config]) => config.url)).toEqual([
         expect.stringMatching(/\/previous-subscriber\/subscriptions\/followed$/u),
@@ -1544,14 +1436,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
       api.get.mockImplementation(assignedFromPreviousHandler);
 
-      await controller.becomeAdminForSupportErrand(
-        mockReq(),
-        mockSupportErrandId,
-        MUNICIPALITY_ID,
-        '"7"',
-        { assignedUserId: mockAdUsername },
-        mockRes(),
-      );
+      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: mockAdUsername }, mockRes());
 
       expect(api.get.mock.calls.some(([config]) => config.url.includes('/subscribers'))).toBe(false);
       expect(api.delete).not.toHaveBeenCalled();
@@ -1751,7 +1636,6 @@ describe('updateSupportErrandStatus', () => {
       controller.updateSupportErrandStatus(
         mockReq(),
         mockSupportErrandId,
-        MUNICIPALITY_ID,
         { expectedVersion: 7, expectedStatus: 'ONGOING', status: 'SOLVED', resolution: 'CLOSED' },
         mockRes(),
       );
@@ -1812,7 +1696,6 @@ describe('updateSupportErrandStatus', () => {
         controller.updateSupportErrandStatus(
           mockReq(),
           mockSupportErrandId,
-          MUNICIPALITY_ID,
           { expectedVersion: 7, expectedStatus: 'REVIEW', status: 'SOLVED', closingMotivation: 'Dubblettanmälan.' },
           mockRes(),
         ),
@@ -1828,7 +1711,6 @@ describe('updateSupportErrandStatus', () => {
       await controller.updateSupportErrandStatus(
         mockReq(),
         mockSupportErrandId,
-        MUNICIPALITY_ID,
         { expectedVersion: 7, expectedStatus: 'ONGOING', status: 'ONGOING' },
         mockRes(),
       );
@@ -1862,7 +1744,6 @@ describe('updateSupportErrandStatus', () => {
     await controller.updateSupportErrandStatus(
       req,
       mockSupportErrandId,
-      MUNICIPALITY_ID,
       { expectedVersion: 7, expectedStatus: 'ONGOING', status: 'SOLVED', resolution: 'CLOSED' },
       res,
     );
@@ -1907,7 +1788,6 @@ describe('updateSupportErrandStatus', () => {
     await controller.updateSupportErrandStatus(
       req,
       mockSupportErrandId,
-      MUNICIPALITY_ID,
       { expectedVersion: 7, expectedStatus: 'REVIEW', status: 'SOLVED', closingMotivation: ' Dubblettanmälan. ' },
       mockRes(),
     );
@@ -1948,7 +1828,6 @@ describe('updateSupportErrandStatus', () => {
       controller.updateSupportErrandStatus(
         mockReq(),
         mockSupportErrandId,
-        MUNICIPALITY_ID,
         { expectedVersion: 7, expectedStatus: status, status: 'SOLVED', ...(closingMotivation ? { closingMotivation } : {}) },
         mockRes(),
       );
@@ -1998,7 +1877,6 @@ describe('updateSupportErrandStatus', () => {
       controller.updateSupportErrandStatus(
         mockReq(mockUser({ groups: ['MOCK_LEX_MANAGERS'] })),
         mockSupportErrandId,
-        MUNICIPALITY_ID,
         { expectedVersion: 7, expectedStatus: 'DECISION', status: 'SOLVED' },
         mockRes(),
       ),
@@ -2031,9 +1909,7 @@ describe('updateSupportErrandStatus', () => {
       config.url === metadataUrl ? { data: { statuses }, message: 'success' } : { data: current, message: 'success' },
     );
 
-    await expect(controller.updateSupportErrandStatus(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, command, mockRes())).rejects.toMatchObject(
-      expected,
-    );
+    await expect(controller.updateSupportErrandStatus(mockReq(), mockSupportErrandId, command, mockRes())).rejects.toMatchObject(expected);
     expect(api.patch).not.toHaveBeenCalled();
   });
 });
@@ -2137,9 +2013,10 @@ describe('updateSupportErrandClassification', () => {
   ] as const)('rejects the narrow command when ownership is %s', async (owner, status, message) => {
     const { controller, api } = makeController(owner);
 
-    await expect(
-      controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, update(), mockRes()),
-    ).rejects.toMatchObject({ status, message });
+    await expect(controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, update(), mockRes())).rejects.toMatchObject({
+      status,
+      message,
+    });
     expect(api.get).not.toHaveBeenCalled();
     expect(api.patch).not.toHaveBeenCalled();
   });
@@ -2158,9 +2035,10 @@ describe('updateSupportErrandClassification', () => {
       status: 200,
     });
 
-    await expect(
-      controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, update(), mockRes()),
-    ).rejects.toMatchObject({ status: 409, message: 'Investigation document has changed since classification was edited' });
+    await expect(controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, update(), mockRes())).rejects.toMatchObject({
+      status: 409,
+      message: 'Investigation document has changed since classification was edited',
+    });
     expect(api.patch).not.toHaveBeenCalled();
   });
 
@@ -2178,9 +2056,10 @@ describe('updateSupportErrandClassification', () => {
       status: 200,
     });
 
-    await expect(
-      controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, update(), mockRes()),
-    ).rejects.toMatchObject({ status: 409, message: 'The requested classification is incompatible with the investigation legal bases' });
+    await expect(controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, update(), mockRes())).rejects.toMatchObject({
+      status: 409,
+      message: 'The requested classification is incompatible with the investigation legal bases',
+    });
     expect(api.patch).not.toHaveBeenCalled();
   });
 
@@ -2198,9 +2077,7 @@ describe('updateSupportErrandClassification', () => {
       },
     ]);
 
-    await expect(
-      controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, update(), mockRes()),
-    ).rejects.toMatchObject({
+    await expect(controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, update(), mockRes())).rejects.toMatchObject({
       status: 409,
       message: 'The selected investigation document does not own classification for this errand',
     });
@@ -2216,9 +2093,7 @@ describe('updateSupportErrandClassification', () => {
       },
     ]);
 
-    await expect(
-      controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, update(), mockRes()),
-    ).rejects.toMatchObject({
+    await expect(controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, update(), mockRes())).rejects.toMatchObject({
       status: 409,
       message: 'Support errand status does not allow investigation classification changes',
     });
@@ -2254,7 +2129,7 @@ describe('updateSupportErrandClassification', () => {
     const req = mockReq();
     const res = mockRes();
 
-    await controller.updateSupportErrandClassification(req, mockSupportErrandId, MUNICIPALITY_ID, update(), res);
+    await controller.updateSupportErrandClassification(req, mockSupportErrandId, update(), res);
 
     expect(investigationDocument.readJsonParameter).toHaveBeenCalledWith({
       definition: expect.objectContaining({ key: update().documentKey }),
@@ -2344,7 +2219,6 @@ describe('updateSupportErrandClassification', () => {
       await controller.updateSupportErrandClassification(
         mockReq(),
         mockSupportErrandId,
-        MUNICIPALITY_ID,
         { ...update(), classifications: [hslClassification(), socialClassification()] },
         mockRes(),
       );
@@ -2367,9 +2241,10 @@ describe('updateSupportErrandClassification', () => {
     it('refuses to classify only one of the two groups', async () => {
       const { controller, api } = setup();
 
-      await expect(
-        controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, update(), mockRes()),
-      ).rejects.toMatchObject({ status: 409, message: 'The investigation legal bases require a classification in every legal base group' });
+      await expect(controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, update(), mockRes())).rejects.toMatchObject({
+        status: 409,
+        message: 'The investigation legal bases require a classification in every legal base group',
+      });
       expect(api.patch).not.toHaveBeenCalled();
     });
   });
@@ -2378,9 +2253,10 @@ describe('updateSupportErrandClassification', () => {
     const { controller, api } = makeController();
     routeClassificationGets(api, [{ data: { id: mockSupportErrandId, version: 8, labels: [] }, message: 'success' }]);
 
-    await expect(
-      controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, update(), mockRes()),
-    ).rejects.toMatchObject({ status: 409, message: 'Support errand classification has changed since it was loaded' });
+    await expect(controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, update(), mockRes())).rejects.toMatchObject({
+      status: 409,
+      message: 'Support errand classification has changed since it was loaded',
+    });
 
     expect(api.patch).not.toHaveBeenCalled();
   });
@@ -2389,9 +2265,10 @@ describe('updateSupportErrandClassification', () => {
     const { controller, api } = makeController();
     routeClassificationGets(api, [{ data: { id: mockSupportErrandId, labels: [] }, message: 'success' }]);
 
-    await expect(
-      controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, update(), mockRes()),
-    ).rejects.toMatchObject({ status: 502, message: 'Support Management response is missing a valid errand version' });
+    await expect(controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, update(), mockRes())).rejects.toMatchObject({
+      status: 502,
+      message: 'Support Management response is missing a valid errand version',
+    });
 
     expect(api.patch).not.toHaveBeenCalled();
   });
@@ -2404,9 +2281,10 @@ describe('updateSupportErrandClassification', () => {
         : { data: { id: mockSupportErrandId, version: 7, labels: [] }, message: 'success' },
     );
 
-    await expect(
-      controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, update(), mockRes()),
-    ).rejects.toMatchObject({ status: 502, message: 'Support Management classification metadata is unavailable' });
+    await expect(controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, update(), mockRes())).rejects.toMatchObject({
+      status: 502,
+      message: 'Support Management classification metadata is unavailable',
+    });
 
     expect(api.patch).not.toHaveBeenCalled();
   });
@@ -2415,9 +2293,10 @@ describe('updateSupportErrandClassification', () => {
     const { controller, api } = makeController();
     routeClassificationGets(api, [{ data: { id: mockSupportErrandId, version: 7, labels: [] }, message: 'success', headers: { etag: invalidETag } }]);
 
-    await expect(
-      controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, update(), mockRes()),
-    ).rejects.toMatchObject({ status: 502, message: 'Support Management response contains an invalid errand ETag' });
+    await expect(controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, update(), mockRes())).rejects.toMatchObject({
+      status: 502,
+      message: 'Support Management response contains an invalid errand ETag',
+    });
     expect(api.patch).not.toHaveBeenCalled();
   });
 
@@ -2428,7 +2307,7 @@ describe('updateSupportErrandClassification', () => {
       { data: { id: mockSupportErrandId, version: 8 }, message: 'success', headers: { etag: '"8"' } },
     ]);
 
-    await controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, update(), mockRes());
+    await controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, update(), mockRes());
 
     expect(api.patch.mock.calls[0][0].headers).toEqual({ 'If-Match': '"7"' });
   });
@@ -2437,9 +2316,10 @@ describe('updateSupportErrandClassification', () => {
     const { controller, api } = makeController();
     routeClassificationGets(api, [{ data: { id: mockSupportErrandId, version: 7, labels: [] }, message: 'success', headers: { etag: '"8"' } }]);
 
-    await expect(
-      controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, update(), mockRes()),
-    ).rejects.toMatchObject({ status: 502, message: 'Support Management response contains inconsistent errand versions' });
+    await expect(controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, update(), mockRes())).rejects.toMatchObject({
+      status: 502,
+      message: 'Support Management response contains inconsistent errand versions',
+    });
 
     expect(api.patch).not.toHaveBeenCalled();
   });
@@ -2449,9 +2329,7 @@ describe('updateSupportErrandClassification', () => {
     const readbackError = new HttpException(403, 'Readback forbidden');
     routeClassificationGets(api, [{ data: { id: mockSupportErrandId, version: 7, labels: [] }, message: 'success' }, readbackError]);
 
-    await expect(controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, MUNICIPALITY_ID, update(), mockRes())).rejects.toBe(
-      readbackError,
-    );
+    await expect(controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, update(), mockRes())).rejects.toBe(readbackError);
 
     expect(api.patch).toHaveBeenCalledTimes(1);
     expect(api.get).toHaveBeenCalledTimes(3);
@@ -2476,7 +2354,7 @@ describe('Mina ärenden for a MAS/MAR handler', () => {
   it('lists the errands they are recorded on as MAS/MAR beside the ones assigned to them', async () => {
     const { controller, api } = makeMasMarController();
 
-    await controller.errands(mockReq(masMarUser()), ...errandsArgs({ stakeholders: mockAdUsername }), MUNICIPALITY_ID, mockRes());
+    await controller.errands(mockReq(masMarUser()), ...errandsArgs({ stakeholders: mockAdUsername }), mockRes());
 
     expect(upstreamFilter(firstUrl(api))).toBe(`${ownClause.slice(0, -1)} or ${masMarClause})`);
   });
@@ -2487,7 +2365,6 @@ describe('Mina ärenden for a MAS/MAR handler', () => {
     await controller.countErrandsByStatusGroups(
       mockReq(masMarUser()),
       ...statusGroupCountArgs([['NEW']], { stakeholders: mockAdUsername }),
-      MUNICIPALITY_ID,
       mockRes(),
     );
 
@@ -2501,7 +2378,6 @@ describe('Mina ärenden for a MAS/MAR handler', () => {
     await controller.countErrandsByStatusGroups(
       mockReq(masMarUser()),
       ...statusGroupCountArgs([['NEW']], { stakeholders: mockAdUsername }),
-      MUNICIPALITY_ID,
       mockRes(),
     );
 
@@ -2513,7 +2389,7 @@ describe('Mina ärenden for a MAS/MAR handler', () => {
     const { controller, api } = makeMasMarController();
     enableErrandSearch(controller);
 
-    await controller.errands(mockReq(masMarUser()), ...errandsArgs({ stakeholders: mockAdUsername }), MUNICIPALITY_ID, mockRes());
+    await controller.errands(mockReq(masMarUser()), ...errandsArgs({ stakeholders: mockAdUsername }), mockRes());
 
     expect(firstUrl(api)).not.toContain('/errands/search');
     expect(upstreamFilter(firstUrl(api))).toContain(masMarClause);
@@ -2521,11 +2397,11 @@ describe('Mina ärenden for a MAS/MAR handler', () => {
 
   it('leaves Mina ärenden as it was for everybody else, and for a MAS/MAR handler picking another handler', async () => {
     const withoutRole = makeMasMarController();
-    await withoutRole.controller.errands(mockReq(), ...errandsArgs({ stakeholders: mockAdUsername }), MUNICIPALITY_ID, mockRes());
+    await withoutRole.controller.errands(mockReq(), ...errandsArgs({ stakeholders: mockAdUsername }), mockRes());
     expect(upstreamFilter(firstUrl(withoutRole.api))).toBe(ownClause);
 
     const otherHandler = makeMasMarController();
-    await otherHandler.controller.errands(mockReq(masMarUser()), ...errandsArgs({ stakeholders: 'someone.else' }), MUNICIPALITY_ID, mockRes());
+    await otherHandler.controller.errands(mockReq(masMarUser()), ...errandsArgs({ stakeholders: 'someone.else' }), mockRes());
     expect(upstreamFilter(firstUrl(otherHandler.api))).not.toContain('parameters.key');
   });
 });

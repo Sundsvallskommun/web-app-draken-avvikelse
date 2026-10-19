@@ -37,7 +37,7 @@ beforeEach(() => {
 
 // One request per changed parameter, and one notification for all of them: they are one action.
 test('writes the changed parameters, each on its own version, in one request group', async () => {
-  await saveChangedErrandParameters('2281', 'errand-1', current, [
+  await saveChangedErrandParameters('errand-1', current, [
     { key: 'street', values: ['Storgatan 2'] },
     { key: 'districtname', values: ['Centrum'] },
     { key: 'propertyDesignation', values: ['BALDER 2'] },
@@ -56,8 +56,8 @@ test('writes the changed parameters, each on its own version, in one request gro
 });
 
 test('gives the next save a request group of its own', async () => {
-  await saveChangedErrandParameters('2281', 'errand-1', current, [{ key: 'street', values: ['Storgatan 2'] }]);
-  await saveChangedErrandParameters('2281', 'errand-1', current, [{ key: 'street', values: ['Storgatan 3'] }]);
+  await saveChangedErrandParameters('errand-1', current, [{ key: 'street', values: ['Storgatan 2'] }]);
+  await saveChangedErrandParameters('errand-1', current, [{ key: 'street', values: ['Storgatan 3'] }]);
 
   const [first, second] = groupIdsSent();
   assert.ok(first && second);
@@ -67,8 +67,8 @@ test('gives the next save a request group of its own', async () => {
 // Spara ärende saves the errand's fields, its parameters and its documents in one group; the parameters join it.
 test('joins the request group of the action it is part of', async () => {
   await withRequestGroup(async () => {
-    await saveChangedErrandParameters('2281', 'errand-1', current, [{ key: 'street', values: ['Storgatan 2'] }]);
-    await saveChangedErrandParameters('2281', 'errand-1', current, [{ key: 'districtname', values: ['Haga'] }]);
+    await saveChangedErrandParameters('errand-1', current, [{ key: 'street', values: ['Storgatan 2'] }]);
+    await saveChangedErrandParameters('errand-1', current, [{ key: 'districtname', values: ['Haga'] }]);
   });
 
   const groupIds = groupIdsSent();

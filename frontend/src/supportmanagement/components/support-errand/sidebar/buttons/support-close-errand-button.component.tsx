@@ -2,7 +2,7 @@ import { deepFlattenToObject } from '@common/services/helper-service';
 import { closeErrandTabSoon } from '@common/utils/close-errand-tab';
 import { getToastOptions } from '@common/utils/toast-message-settings';
 import { Button, Modal, useSnackbar } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
+import { useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
 import { getInvestigationEarlyClose } from '@supportmanagement/investigation/investigation-variant-registry';
 import {
   getSupportErrandById,
@@ -28,7 +28,6 @@ import { SupportEarlyCloseDialog } from './support-early-close-dialog.component'
 export const SupportCloseErrandButtonComponent: React.FC<{ disabled: boolean }> = ({ disabled }) => {
   const user = useUserStore((s) => s.user);
   const administrators = useUserStore((s) => s.administrators);
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const supportErrand = useSupportStore((s) => s.supportErrand);
   const setSupportErrand = useSupportStore((s) => s.setSupportErrand);
   const toastMessage = useSnackbar();
@@ -69,7 +68,6 @@ export const SupportCloseErrandButtonComponent: React.FC<{ disabled: boolean }> 
 
     await setSupportErrandAdmin(
       errandId,
-      municipalityId,
       currentAdmin.adAccount,
       supportErrand?.version,
       undefined,
@@ -78,7 +76,7 @@ export const SupportCloseErrandButtonComponent: React.FC<{ disabled: boolean }> 
 
     return {
       assignedUserId: currentAdmin.adAccount,
-      expected: await readSupportErrandWriteSnapshot(errandId, municipalityId),
+      expected: await readSupportErrandWriteSnapshot(errandId),
     };
   };
 
@@ -93,8 +91,8 @@ export const SupportCloseErrandButtonComponent: React.FC<{ disabled: boolean }> 
     setIsLoading(true);
     try {
       const assignment = await ensureHandlerAssigned(errandId);
-      await setSupportErrandStatus(errandId, municipalityId, Status.SOLVED, assignment.expected, closingMotivation);
-      const closed = await getSupportErrandById(errandId, municipalityId);
+      await setSupportErrandStatus(errandId, Status.SOLVED, assignment.expected, closingMotivation);
+      const closed = await getSupportErrandById(errandId);
       if (closed.error) throw new Error('Could not read back the closed support errand');
       setSupportErrand(closed.errand);
       formControls.reset(closed.errand);

@@ -2,7 +2,7 @@
 
 import { withRequestGroup } from '@common/services/api-service';
 import { Button } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore, useSupportStore } from '@stores/index';
+import { useMetadataStore, useSupportStore } from '@stores/index';
 import {
   getSupportErrandById,
   isSupportErrandLocked,
@@ -28,7 +28,6 @@ import {
 export const VcCommentRequest: FC = () => {
   const supportErrand = useSupportStore((state) => state.supportErrand);
   const labelStructure = useMetadataStore((state) => state.supportMetadata?.labels?.labelStructure);
-  const municipalityId = useConfigStore((state) => state.municipalityId);
   const { resetField } = useFormContext<SupportErrand>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -46,10 +45,10 @@ export const VcCommentRequest: FC = () => {
       setBusy(true);
       setError(undefined);
       try {
-        await applyInvestigationHandover(municipalityId, errandId, 'request-vc-comment', supportErrand.version);
+        await applyInvestigationHandover(errandId, 'request-vc-comment', supportErrand.version);
         // The label is this action's own write, read right after it: the page takes the labels and the version it
         // left, so the tab opens and the next save is not refused as somebody else's change.
-        const { errand } = await getSupportErrandById(errandId, municipalityId);
+        const { errand } = await getSupportErrandById(errandId);
         if (errand) {
           useSupportStore.setState((state) =>
             state.supportErrand?.id === errandId

@@ -1200,21 +1200,21 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
 
     // Support Management's subscriber model: the user's notifications, their acknowledgement when an
     // errand opens, and the subscriptions behind the follow button.
-    if (method === 'GET' && path.endsWith(`/supportnotifications/${municipalityId}`)) {
+    if (method === 'GET' && path.endsWith(`/supportnotifications`)) {
       await fulfillJson(route, []);
       return;
     }
-    const acknowledgeAll = path.match(/\/supportnotifications\/[^/]+\/([^/]+)\/acknowledge-all$/u);
+    const acknowledgeAll = path.match(/\/supportnotifications\/([^/]+)\/acknowledge-all$/u);
     if (method === 'PUT' && acknowledgeAll) {
       trace.notificationAcknowledgements.push(acknowledgeAll[1]);
       await fulfillJson(route, { acknowledged: [], failed: [] });
       return;
     }
-    if (method === 'GET' && path.endsWith(`/supportsubscriptions/${municipalityId}`)) {
+    if (method === 'GET' && path.endsWith(`/supportsubscriptions`)) {
       await fulfillJson(route, []);
       return;
     }
-    if (method === 'POST' && path.endsWith(`/supportsubscriptions/${municipalityId}`)) {
+    if (method === 'POST' && path.endsWith(`/supportsubscriptions`)) {
       const target = (request.postDataJSON() as { target?: { id?: string } } | null)?.target;
       trace.subscriptionsCreated.push(target?.id ?? '');
       await fulfillJson(route, { id: 'subscription-1', target }, 201);
@@ -1252,14 +1252,14 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       return;
     }
 
-    if (method === 'GET' && /\/newerrand\/[^/]+\/options$/u.test(path)) {
+    if (method === 'GET' && /\/newerrand\/options$/u.test(path)) {
       // The BFF answers with the options themselves, not wrapped in `{ data }` - wrapping them here
       // once hid a client that read the wrapper and failed against every real backend.
       await fulfillJson(route, scenario.registrationOptions ?? { reportTypes: [], locations: [], priorities: [] });
       return;
     }
 
-    if (method === 'POST' && /\/newerrand\/[^/]+$/u.test(path)) {
+    if (method === 'POST' && /\/newerrand$/u.test(path)) {
       const body = request.postDataJSON() as {
         reportTypeLabelId?: string;
         locationLabelId?: string;
@@ -1295,7 +1295,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       return;
     }
 
-    if (method === 'GET' && path.endsWith(`/supportmetadata/${municipalityId}`)) {
+    if (method === 'GET' && path.endsWith(`/supportmetadata`)) {
       await fulfillJson(route, {
         ...metadata,
         ...(scenario.statuses ? { statuses: scenario.statuses } : {}),
@@ -1309,7 +1309,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       return;
     }
 
-    if (method === 'PATCH' && path.endsWith(`/supporterrands/${municipalityId}/${errandId}/phase`)) {
+    if (method === 'PATCH' && path.endsWith(`/supporterrands/${errandId}/phase`)) {
       const body = requestBody(request) as { transitionId?: string; expectedActivePhaseId?: string | null } | undefined;
       trace.phasePatches.push({ transitionId: body?.transitionId, expectedActivePhaseId: body?.expectedActivePhaseId });
       // Like the BFF: the precondition is the phase the client saw, not the errand's version.
@@ -1330,7 +1330,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       return;
     }
 
-    if (method === 'PATCH' && path.endsWith(`/supporterrands/${municipalityId}/${errandId}/classification`)) {
+    if (method === 'PATCH' && path.endsWith(`/supporterrands/${errandId}/classification`)) {
       const body = requestBody(request);
       classificationPatchAttempts += 1;
       trace.classificationPatches.push({ headers: request.headers(), body });
@@ -1382,7 +1382,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       return;
     }
 
-    if (method === 'PATCH' && path.endsWith(`/supporterrands/${municipalityId}/${errandId}/admin`)) {
+    if (method === 'PATCH' && path.endsWith(`/supporterrands/${errandId}/admin`)) {
       const body = requestBody(request) as { assignedUserId?: string } | undefined;
       // Like the BFF: an assignment is conditioned on the errand's version, and a stale one is refused.
       if (request.headers()['if-match'] !== `"${errandVersion}"`) {
@@ -1396,7 +1396,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       return;
     }
 
-    if (method === 'PATCH' && path.endsWith(`/supporterrands/${municipalityId}/${errandId}/status`)) {
+    if (method === 'PATCH' && path.endsWith(`/supporterrands/${errandId}/status`)) {
       if (scenario.statusTransitionResult === 'bad-request') {
         await fulfillJson(route, { message: 'Target status is not available in Support Management metadata' }, 400);
         return;
@@ -1411,7 +1411,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
     if (
       method === 'GET' &&
       scenario.assignableHandlers &&
-      path.endsWith(`/supporterrands/${municipalityId}/${errandId}/assignable-handlers`)
+      path.endsWith(`/supporterrands/${errandId}/assignable-handlers`)
     ) {
       const answer =
         scenario.assignableHandlers.afterDocumentSave && trace.puts.length > 0
@@ -1421,19 +1421,17 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       return;
     }
 
-    if (method === 'GET' && path.endsWith(`/supporthistory/${municipalityId}/${errandId}/assignee-resumed`)) {
+    if (method === 'GET' && path.endsWith(`/supporthistory/${errandId}/assignee-resumed`)) {
       await fulfillJson(route, { resumedAt: scenario.assigneeResumedAt ?? null });
       return;
     }
 
-    if (method === 'GET' && path.endsWith(`/supporthistory/${municipalityId}/${errandId}/assigned-by`)) {
+    if (method === 'GET' && path.endsWith(`/supporthistory/${errandId}/assigned-by`)) {
       await fulfillJson(route, { assignedBy: scenario.assignedBy ?? null });
       return;
     }
 
-    const parameterMatch = path.match(
-      new RegExp(`/supporterrands/${municipalityId}/${errandId}/parameters/([^/]+)$`, 'u')
-    );
+    const parameterMatch = path.match(new RegExp(`/supporterrands/${errandId}/parameters/([^/]+)$`, 'u'));
     if (method === 'PUT' && parameterMatch) {
       // One parameter, conditioned on its own version - or, when new, on there being none.
       const key = decodeURIComponent(parameterMatch[1]);
@@ -1462,7 +1460,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
     }
 
     // An errand with no measures, as the BFF answers it. A spec about measures routes its own in front of this.
-    if (method === 'GET' && path.endsWith(`/supporterrands/${municipalityId}/${errandId}/measures`)) {
+    if (method === 'GET' && path.endsWith(`/supporterrands/${errandId}/measures`)) {
       await fulfillJson(route, {
         measures: [],
         errandVersion,
@@ -1478,7 +1476,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       return;
     }
 
-    if (method === 'GET' && path.endsWith(`/supporterrands/${municipalityId}/${errandId}/unit-manager`)) {
+    if (method === 'GET' && path.endsWith(`/supporterrands/${errandId}/unit-manager`)) {
       // The deepest place the errand carries, as the BFF resolves it for the return to a manager.
       const place = [...errandLabels].reverse().find((candidate) => candidate.classification === 'LOCATION');
       await fulfillJson(route, {
@@ -1493,9 +1491,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       return;
     }
 
-    const locationManagersMatch = path.match(
-      new RegExp(`/supporterrands/${municipalityId}/${errandId}/location-managers/([^/]+)$`, 'u')
-    );
+    const locationManagersMatch = path.match(new RegExp(`/supporterrands/${errandId}/location-managers/([^/]+)$`, 'u'));
     if (method === 'GET' && locationManagersMatch) {
       const labelId = decodeURIComponent(locationManagersMatch[1]);
       trace.locationManagerGets.push(labelId);
@@ -1516,9 +1512,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       return;
     }
 
-    const handoverMatch = path.match(
-      new RegExp(`/supporterrands/${municipalityId}/${errandId}/investigation-handover/([^/]+)$`, 'u')
-    );
+    const handoverMatch = path.match(new RegExp(`/supporterrands/${errandId}/investigation-handover/([^/]+)$`, 'u'));
     if (method === 'POST' && handoverMatch) {
       const step = decodeURIComponent(handoverMatch[1]);
       const body = (requestBody(request) ?? {}) as {
@@ -1574,7 +1568,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       return;
     }
 
-    if (method === 'PATCH' && path.endsWith(`/supporterrands/${municipalityId}/${errandId}`)) {
+    if (method === 'PATCH' && path.endsWith(`/supporterrands/${errandId}`)) {
       const body = requestBody(request);
       trace.errandPatches.push(body);
       if (body && typeof body === 'object' && !Array.isArray(body)) {
@@ -1600,8 +1594,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
 
     if (
       method === 'GET' &&
-      (path.endsWith(`/supporterrands/errandnumber/${errandNumber}`) ||
-        path.endsWith(`/supporterrands/${municipalityId}/${errandId}`))
+      (path.endsWith(`/supporterrands/errandnumber/${errandNumber}`) || path.endsWith(`/supporterrands/${errandId}`))
     ) {
       await fulfillJson(route, buildErrand());
       return;
@@ -1747,7 +1740,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       }
     }
 
-    const latestSchemaMatch = path.match(new RegExp(`/${municipalityId}/schemas/([^/]+)/latest$`, 'u'));
+    const latestSchemaMatch = path.match(new RegExp(`/schemas/([^/]+)/latest$`, 'u'));
     if (method === 'GET' && latestSchemaMatch && decodeURIComponent(latestSchemaMatch[1]) === reportSchema.name) {
       trace.latestSchemaNames.push(reportSchema.name);
       await fulfillJson(route, apiResponse(reportSchema));
@@ -1784,7 +1777,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       return;
     }
 
-    const uiSchemaMatch = path.match(new RegExp(`/${municipalityId}/schemas/([^/]+)/ui-schema$`, 'u'));
+    const uiSchemaMatch = path.match(new RegExp(`/schemas/([^/]+)/ui-schema$`, 'u'));
     if (method === 'GET' && uiSchemaMatch) {
       const schemaId = decodeURIComponent(uiSchemaMatch[1]);
       if (schemaId === katlaSchemaId) {
@@ -1830,7 +1823,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       return;
     }
 
-    const exactSchemaMatch = path.match(new RegExp(`/${municipalityId}/schemas/([^/]+)$`, 'u'));
+    const exactSchemaMatch = path.match(new RegExp(`/schemas/([^/]+)$`, 'u'));
     if (method === 'GET' && exactSchemaMatch) {
       const schemaId = decodeURIComponent(exactSchemaMatch[1]);
       trace.exactSchemaIds.push(schemaId);

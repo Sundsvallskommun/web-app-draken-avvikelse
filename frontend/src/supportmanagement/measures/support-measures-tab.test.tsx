@@ -67,13 +67,7 @@ function Harness({ active = true, followUp = true }: { active?: boolean; followU
   const methods = useForm<SupportErrand>({ defaultValues: errand });
   return (
     <FormProvider {...methods}>
-      <SupportMeasuresTab
-        errand={errand}
-        municipalityId="2281"
-        onDirtyChange={mocks.dirty}
-        isActive={active}
-        followUp={followUp}
-      />
+      <SupportMeasuresTab errand={errand} onDirtyChange={mocks.dirty} isActive={active} followUp={followUp} />
     </FormProvider>
   );
 }
@@ -169,7 +163,7 @@ test.each(['Ja', 'Nej'])(
       ],
     });
     fireEvent.click(save);
-    await waitFor(() => expect(mocks.followUp).toHaveBeenCalledWith('2281', 'errand-one', 'measure-one', 3, result));
+    await waitFor(() => expect(mocks.followUp).toHaveBeenCalledWith('errand-one', 'measure-one', 3, result));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.dirty).toHaveBeenLastCalledWith(false);
@@ -220,7 +214,7 @@ test('a follow-up whose response was lost is recognised as saved from the reload
   fireEvent.click(within(dialog).getByRole('button', { name: 'Spara uppföljning' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(mocks.followUp).toHaveBeenCalledTimes(1);
-  expect(mocks.followUp).toHaveBeenCalledWith('2281', 'errand-one', 'measure-one', 3, answers);
+  expect(mocks.followUp).toHaveBeenCalledWith('errand-one', 'measure-one', 3, answers);
   expect(await screen.findByText('Utförd')).toBeTruthy();
   expect(screen.getByText(answers.followUpDescription)).toBeTruthy();
 });
@@ -304,7 +298,6 @@ test('the follow-up moves the end date and shows the decided start without offer
   fireEvent.click(within(dialog).getByRole('button', { name: 'Spara slutdatum' }));
   await waitFor(() =>
     expect(mocks.changeEnd).toHaveBeenCalledWith(
-      '2281',
       'errand-one',
       'measure-one',
       3,
@@ -342,7 +335,6 @@ test('the description can be rewritten when the end date is moved, and is saved 
   fireEvent.click(save);
   await waitFor(() =>
     expect(mocks.changeEnd).toHaveBeenCalledWith(
-      '2281',
       'errand-one',
       'measure-one',
       3,

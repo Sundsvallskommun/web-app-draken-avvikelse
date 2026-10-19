@@ -39,14 +39,7 @@ describe('SupportHistoryController investigation document protection', () => {
     const response = mockRes();
     const req = mockReq();
 
-    await controller.fetchErrandRevisionsDiff(
-      req,
-      mockSupportErrandId,
-      mockMunicipalityId,
-      2,
-      3,
-      response as unknown as Response<DifferenceResponse>,
-    );
+    await controller.fetchErrandRevisionsDiff(req, mockSupportErrandId, 2, 3, response as unknown as Response<DifferenceResponse>);
 
     expect(response.body).toEqual(difference);
     expect(verifyReadableDocuments).toHaveBeenCalledWith({
@@ -63,14 +56,7 @@ describe('SupportHistoryController investigation document protection', () => {
     const response = mockRes();
     const req = mockReq();
 
-    await controller.fetchErrandRevisionsDiff(
-      req,
-      mockSupportErrandId,
-      mockMunicipalityId,
-      2,
-      3,
-      response as unknown as Response<DifferenceResponse>,
-    );
+    await controller.fetchErrandRevisionsDiff(req, mockSupportErrandId, 2, 3, response as unknown as Response<DifferenceResponse>);
 
     expect(response.body).toEqual({ operations: [difference.operations?.[1]] });
     expect(apiService.get).toHaveBeenCalledWith(
@@ -89,14 +75,7 @@ describe('SupportHistoryController investigation document protection', () => {
     const { controller } = makeController(vi.fn().mockRejectedValue(unavailable));
 
     await expect(
-      controller.fetchErrandRevisionsDiff(
-        mockReq(),
-        mockSupportErrandId,
-        mockMunicipalityId,
-        2,
-        3,
-        mockRes() as unknown as Response<DifferenceResponse>,
-      ),
+      controller.fetchErrandRevisionsDiff(mockReq(), mockSupportErrandId, 2, 3, mockRes() as unknown as Response<DifferenceResponse>),
     ).rejects.toBe(unavailable);
   });
 });
@@ -145,7 +124,7 @@ describe('SupportHistoryController assignee resumed', () => {
   it('answers when the handler took the errand up after it was given to them, reading back no further', async () => {
     const { controller, apiService } = makeResumeController('lex.investigator');
 
-    await expect(controller.fetchAssigneeResumedAt(mockReq(), mockSupportErrandId, mockMunicipalityId)).resolves.toEqual({
+    await expect(controller.fetchAssigneeResumedAt(mockReq(), mockSupportErrandId)).resolves.toEqual({
       resumedAt: '2026-10-08T09:00:00Z',
     });
     const urls = apiService.get.mock.calls.map(([config]) => config.url);
@@ -157,14 +136,14 @@ describe('SupportHistoryController assignee resumed', () => {
   it('answers nothing for an errand nobody is assigned', async () => {
     const { controller } = makeResumeController(undefined);
 
-    await expect(controller.fetchAssigneeResumedAt(mockReq(), mockSupportErrandId, mockMunicipalityId)).resolves.toEqual({ resumedAt: null });
+    await expect(controller.fetchAssigneeResumedAt(mockReq(), mockSupportErrandId)).resolves.toEqual({ resumedAt: null });
   });
 
   // A LEX investigator hands the errand back to the LEX manager who gave it to them.
   it('answers who gave the errand to its handler, reading back no further than that assignment', async () => {
     const { controller, apiService } = makeResumeController('lex.investigator');
 
-    await expect(controller.fetchAssignedBy(mockReq(), mockSupportErrandId, mockMunicipalityId)).resolves.toEqual({
+    await expect(controller.fetchAssignedBy(mockReq(), mockSupportErrandId)).resolves.toEqual({
       assignedBy: 'Lex.Manager',
     });
     const urls = apiService.get.mock.calls.map(([config]) => config.url);
@@ -174,6 +153,6 @@ describe('SupportHistoryController assignee resumed', () => {
   it('answers nobody for an errand nobody is assigned', async () => {
     const { controller } = makeResumeController(undefined);
 
-    await expect(controller.fetchAssignedBy(mockReq(), mockSupportErrandId, mockMunicipalityId)).resolves.toEqual({ assignedBy: null });
+    await expect(controller.fetchAssignedBy(mockReq(), mockSupportErrandId)).resolves.toEqual({ assignedBy: null });
   });
 });

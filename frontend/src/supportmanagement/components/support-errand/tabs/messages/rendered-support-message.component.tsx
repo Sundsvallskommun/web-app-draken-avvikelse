@@ -2,7 +2,7 @@ import { MessageAvatar } from '@common/components/message/message-avatar.compone
 import { CommunicationDirectionEnum } from '@common/data-contracts/supportmanagement/data-contracts';
 import { sanitized } from '@common/services/sanitizer-service';
 import { Button, cx, Icon, useSnackbar } from '@sk-web-gui/react';
-import { useConfigStore, useSupportStore, useUserStore } from '@stores/index';
+import { useSupportStore, useUserStore } from '@stores/index';
 import {
   isSupportReplyableCommunicationType,
   SupportCommunicationType,
@@ -67,7 +67,6 @@ export const RenderedSupportMessage: FC<{
   children: any;
 }> = ({ update, setShowMessageForm, message, onSelect, root = false, children }) => {
   const _supportErrand = useSupportStore((s) => s.supportErrand);
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const user = useUserStore((s) => s.user);
   const supportErrand = _supportErrand!;
 
@@ -130,7 +129,7 @@ export const RenderedSupportMessage: FC<{
     if (!message.conversationId && !message.viewed && supportErrand.assignedUserId === user.username) {
       expanded &&
         isInViewport(document.querySelector(`.message-${message.communicationID}`)!) &&
-        setMessageViewStatus(supportErrand.id!, municipalityId, message.communicationID, true).then(() => {
+        setMessageViewStatus(supportErrand.id!, message.communicationID, true).then(() => {
           update();
         });
     }
@@ -252,7 +251,6 @@ export const RenderedSupportMessage: FC<{
                   onClick={() => {
                     if (message?.conversationId) {
                       getSupportConversationAttachment(
-                        municipalityId,
                         supportErrand.id!,
                         message.conversationId!,
                         message.messageId!,
@@ -285,7 +283,7 @@ export const RenderedSupportMessage: FC<{
                           });
                         });
                     } else {
-                      getMessageAttachment(municipalityId, supportErrand.id!, message.communicationID, a.id!)
+                      getMessageAttachment(supportErrand.id!, message.communicationID, a.id!)
                         .then((res) => {
                           if (res.data) {
                             const uri = `data:${a.mimeType};base64,${res.data}`;

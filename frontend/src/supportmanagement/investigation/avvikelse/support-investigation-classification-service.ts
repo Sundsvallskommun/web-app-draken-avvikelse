@@ -91,14 +91,13 @@ export const buildSupportInvestigationClassificationRequest = (
 };
 
 export async function saveSupportInvestigationClassification(
-  municipalityId: string,
   errandId: string,
   request: SupportInvestigationClassificationRequest
 ): Promise<SupportInvestigationClassificationResponse> {
   const response = await apiService.patch<
     SupportInvestigationClassificationResponse,
     SupportInvestigationClassificationRequest
-  >(`supporterrands/${municipalityId}/${errandId}/classification`, request);
+  >(`supporterrands/${errandId}/classification`, request);
 
   return response.data;
 }

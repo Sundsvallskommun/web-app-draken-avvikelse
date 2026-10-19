@@ -1,7 +1,6 @@
 'use client';
 
 import { useRefreshNotifications } from '@common/hooks/useNotificationPoller';
-import { useConfigStore } from '@stores/index';
 import { acknowledgeAllForErrand } from '@supportmanagement/services/support-notification-service';
 import { useEffect, useRef } from 'react';
 
@@ -14,15 +13,14 @@ import { useEffect, useRef } from 'react';
  * are none. A failure only leaves them unread, so it never interrupts the user.
  */
 export const useAcknowledgeErrandNotifications = (errandId: string | undefined): void => {
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const refreshNotifications = useRefreshNotifications();
   const acknowledgedErrandId = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    if (!municipalityId || !errandId || acknowledgedErrandId.current === errandId) return;
+    if (!errandId || acknowledgedErrandId.current === errandId) return;
     acknowledgedErrandId.current = errandId;
 
-    acknowledgeAllForErrand(municipalityId, errandId)
+    acknowledgeAllForErrand(errandId)
       .then((result) => {
         if (result.failed.length) {
           console.error(`Could not acknowledge ${result.failed.length} notification(s) for errand ${errandId}`);
@@ -32,5 +30,5 @@ export const useAcknowledgeErrandNotifications = (errandId: string | undefined):
       })
       // Already logged by the service; the notifications simply stay unread.
       .catch(() => undefined);
-  }, [municipalityId, errandId, refreshNotifications]);
+  }, [errandId, refreshNotifications]);
 };

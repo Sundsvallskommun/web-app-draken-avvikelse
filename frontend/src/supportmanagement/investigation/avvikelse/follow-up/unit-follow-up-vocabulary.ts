@@ -123,9 +123,9 @@ export const buildUnitFollowUpVocabulary = ({
  * Reads the vocabulary. A schema that cannot be read leaves its part empty, and the follow-up then shows
  * the stored codes instead of failing as a whole.
  */
-export const loadUnitFollowUpVocabulary = async (municipalityId: string): Promise<UnitFollowUpVocabulary> => {
+export const loadUnitFollowUpVocabulary = async (): Promise<UnitFollowUpVocabulary> => {
   const read = (schemaName: string) =>
-    getLatestRjsfSchema(municipalityId, schemaName).then(
+    getLatestRjsfSchema(schemaName).then(
       (latest) => latest.schema,
       () => undefined
     );

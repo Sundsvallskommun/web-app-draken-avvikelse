@@ -26,12 +26,11 @@ const renderPdf = (url: string, data: any, includeParameters?: string[]) =>
     });
 
 export const exportSingleSupportErrand: (
-  municipalityId: string,
   errand: SupportErrand,
   options: SupportExportOptions,
   includeParameters?: string[]
-) => Promise<{ pdfBase64: string; error?: string }> = (municipalityId, errand, options, includeParameters) => {
-  let url = `${municipalityId}/exportsinglesupport`;
+) => Promise<{ pdfBase64: string; error?: string }> = (errand, options, includeParameters) => {
+  let url = `exportsinglesupport`;
   if (includeParameters?.length) {
     url += `?include=${includeParameters.join(',')}`;
   }

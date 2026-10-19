@@ -80,8 +80,7 @@ const makeController = ({
 };
 
 const resDouble = () => mockRes() as unknown as MockResponse & Response;
-const create = (controller: SupportMeasureActionPlanController, res: Response) =>
-  controller.createActionPlan(mockReq(), mockMunicipalityId, mockSupportErrandId, res);
+const create = (controller: SupportMeasureActionPlanController, res: Response) => controller.createActionPlan(mockReq(), mockSupportErrandId, res);
 
 describe('SupportMeasureActionPlanController', () => {
   it('renders every stored measure as the next numbered plan and attaches it to the errand', async () => {

@@ -108,7 +108,6 @@ describe('move-location', () => {
 
     await controller.applyHandover(
       mockReq(),
-      MUNICIPALITY_ID,
       mockSupportErrandId,
       'move-location',
       { expectedVersion: 7, assignedUserId: 'south.manager', locationLabelId: 'south-unit' },
@@ -153,7 +152,6 @@ describe('move-location', () => {
 
     await controller.applyHandover(
       mockReq(),
-      MUNICIPALITY_ID,
       mockSupportErrandId,
       'move-location',
       { expectedVersion: 7, assignedUserId: 'south.manager', locationLabelId: 'south-unit' },
@@ -168,20 +166,12 @@ describe('move-location', () => {
     const { controller, stubs } = makeController();
 
     await expect(
-      controller.applyHandover(
-        mockReq(),
-        MUNICIPALITY_ID,
-        mockSupportErrandId,
-        'move-location',
-        { expectedVersion: 7, assignedUserId: 'x' },
-        mockRes(),
-      ),
+      controller.applyHandover(mockReq(), mockSupportErrandId, 'move-location', { expectedVersion: 7, assignedUserId: 'x' }, mockRes()),
     ).rejects.toMatchObject({ status: 400, message: expect.stringContaining('target place') });
 
     await expect(
       controller.applyHandover(
         mockReq(),
-        MUNICIPALITY_ID,
         mockSupportErrandId,
         'move-location',
         { expectedVersion: 7, assignedUserId: 'south.nurse', locationLabelId: 'south-unit' },
@@ -198,7 +188,6 @@ describe('move-location', () => {
     await expect(
       controller.applyHandover(
         mockReq(),
-        MUNICIPALITY_ID,
         mockSupportErrandId,
         'move-location',
         { expectedVersion: 7, assignedUserId: 'south.manager', locationLabelId: 'south-unit' },
@@ -214,7 +203,6 @@ describe('move-location', () => {
     await expect(
       controller.applyHandover(
         mockReq(),
-        MUNICIPALITY_ID,
         mockSupportErrandId,
         'move-location',
         { expectedVersion: 6, assignedUserId: 'south.manager', locationLabelId: 'south-unit' },
@@ -228,7 +216,7 @@ describe('move-location', () => {
   it('previews the managers of the target place, grouped by their AccessMapper role', async () => {
     const { controller, stubs } = makeController();
 
-    const response = await controller.getLocationManagers(mockReq(), MUNICIPALITY_ID, mockSupportErrandId, 'south-unit');
+    const response = await controller.getLocationManagers(mockReq(), mockSupportErrandId, 'south-unit');
 
     expect(response).toEqual({
       candidates: [{ adAccount: 'south.manager', displayName: 'Sonja Söder', roleKey: 'UNIT_MANAGER' }],
@@ -245,7 +233,7 @@ describe('move-location', () => {
   it('refuses a preview for a level with sub-places', async () => {
     const { controller } = makeController();
 
-    await expect(controller.getLocationManagers(mockReq(), MUNICIPALITY_ID, mockSupportErrandId, 'south')).rejects.toMatchObject({
+    await expect(controller.getLocationManagers(mockReq(), mockSupportErrandId, 'south')).rejects.toMatchObject({
       status: 400,
       message: expect.stringContaining('sub-places'),
     });
@@ -303,14 +291,7 @@ describe('decline-lex', () => {
       getClassificationOwner: vi.fn(async () => 'investigation'),
     };
     const decline = () =>
-      controller.applyHandover(
-        mockReq(),
-        MUNICIPALITY_ID,
-        mockSupportErrandId,
-        'decline-lex',
-        { expectedVersion: 7, assignedUserId: 'south.manager' },
-        mockRes(),
-      );
+      controller.applyHandover(mockReq(), mockSupportErrandId, 'decline-lex', { expectedVersion: 7, assignedUserId: 'south.manager' }, mockRes());
     return { decline, post, stubs };
   };
 
@@ -383,8 +364,7 @@ describe('request-vc-comment', () => {
       profile: { documents: [{ key: analysisKey, schemaName: 'utredning-hsl' }] },
       getClassificationOwner: vi.fn(async () => 'investigation'),
     };
-    const request = () =>
-      controller.applyHandover(mockReq(), MUNICIPALITY_ID, mockSupportErrandId, 'request-vc-comment', { expectedVersion: 7 }, mockRes());
+    const request = () => controller.applyHandover(mockReq(), mockSupportErrandId, 'request-vc-comment', { expectedVersion: 7 }, mockRes());
     return { request, stubs };
   };
 
@@ -448,7 +428,7 @@ describe('assignable handlers', () => {
       roles: [{ key: 'lex-ansvarig', label: 'LEX-ansvarig', group: 'MOCK_LEX_MANAGERS' }],
       listHandlers: vi.fn(async () => [lexManager]),
     };
-    return controller.getAssignableHandlers(mockReq(), MUNICIPALITY_ID, mockSupportErrandId);
+    return controller.getAssignableHandlers(mockReq(), mockSupportErrandId);
   };
 
   it("offers the LEX managers, as the handover to LEX, once the unit manager's completed investigation suspects a misconduct", async () => {

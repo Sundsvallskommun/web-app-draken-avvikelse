@@ -97,7 +97,7 @@ describe('supportMetadataCache', () => {
   });
 });
 
-describe('GET /supportmetadata/:municipalityId', () => {
+describe('GET /supportmetadata', () => {
   it('answers the overview from the kept metadata instead of asking Support Management for every page', async () => {
     const api = metadataApi();
     const controller = new SupportMetadataController();
@@ -105,7 +105,7 @@ describe('GET /supportmetadata/:municipalityId', () => {
 
     for (let request = 0; request < 3; request += 1) {
       const res = mockRes();
-      await controller.fetchSupportMetadata(mockReq(), mockMunicipalityId, res);
+      await controller.fetchSupportMetadata(mockReq(), res);
       expect(res.body).toMatchObject({ statuses: [{ name: 'NEW' }] });
     }
 

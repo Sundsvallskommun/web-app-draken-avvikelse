@@ -8,7 +8,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { RelatedReportsDisclosure } from './related-reports-disclosure.component';
 
 const mocks = vi.hoisted(() => ({
-  statusesByParty: vi.fn<(municipalityId: string, partyId: string) => Promise<CaseStatusResponse[]>>(),
+  statusesByParty: vi.fn<(partyId: string) => Promise<CaseStatusResponse[]>>(),
   searchErrands: vi.fn(),
   createRelation: vi.fn(),
   deleteRelation: vi.fn(),
@@ -58,7 +58,7 @@ test("lists the brukare's other reports under one heading, and nothing else", as
   expect(screen.getByRole('heading', { level: 2, name: 'Relaterade rapporter till brukaren' })).toBeTruthy();
   // The report being read is not related to itself.
   expect(screen.queryByText('VOF-2026-0001')).toBeNull();
-  expect(mocks.statusesByParty).toHaveBeenCalledWith(expect.anything(), 'brukare-party');
+  expect(mocks.statusesByParty).toHaveBeenCalledWith('brukare-party');
 
   // Read-only: no search, no linking, and none of the sections Kopplade ärenden has.
   expect(screen.queryByRole('searchbox')).toBeNull();

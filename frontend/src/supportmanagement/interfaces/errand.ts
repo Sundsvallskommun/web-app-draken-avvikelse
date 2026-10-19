@@ -52,7 +52,6 @@ export interface RegisterSupportErrandFormModel {
   businessRelated: boolean;
   status: Status;
   resolution?: string;
-  municipalityId: string;
   channel: string;
   description: string;
   notes: string;

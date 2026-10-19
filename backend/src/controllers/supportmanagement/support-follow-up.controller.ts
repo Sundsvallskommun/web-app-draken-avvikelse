@@ -1,8 +1,9 @@
 import { Matches } from 'class-validator';
 import dayjs from 'dayjs';
-import { Controller, Get, Param, QueryParams, Req, UseBefore } from 'routing-controllers';
+import { Controller, Get, QueryParams, Req, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
+import { MUNICIPALITY_ID } from '@/config';
 import { HttpException } from '@/exceptions/HttpException';
 import { RequestWithUser } from '@/interfaces/auth.interface';
 import authMiddleware from '@/middlewares/auth.middleware';
@@ -27,18 +28,14 @@ export class UnitFollowUpQueryDto {
 export class SupportFollowUpController {
   constructor(private readonly followUp = new SupportFollowUpService()) {}
 
-  // Own prefix: under /supporterrands/:municipalityId a segment reads as an errand id.
-  @Get('/supportfollowup/:municipalityId/units')
+  // Own prefix: under /supporterrands a segment reads as an errand id.
+  @Get('/supportfollowup/units')
   @OpenAPI({ summary: 'Read the errands registered in a period, with their investigation facts and measures' })
   @UseBefore(authMiddleware, hasPermissions(['canEditSupportManagement']), validationMiddleware(UnitFollowUpQueryDto, 'query'))
-  async readUnits(
-    @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
-    @QueryParams() query: UnitFollowUpQueryDto,
-  ): Promise<UnitFollowUpSnapshot> {
+  async readUnits(@Req() req: RequestWithUser, @QueryParams() query: UnitFollowUpQueryDto): Promise<UnitFollowUpSnapshot> {
     if (!dayjs(query.from).isValid() || !dayjs(query.to).isValid() || dayjs(query.from).isAfter(dayjs(query.to))) {
       throw new HttpException(400, 'The period must run from a valid day to the same or a later one');
     }
-    return this.followUp.read(municipalityId, { from: query.from, to: query.to }, req.user);
+    return this.followUp.read(MUNICIPALITY_ID, { from: query.from, to: query.to }, req.user);
   }
 }

@@ -14,7 +14,7 @@ const status = (caseId: string, errandNumber: string) => ({ caseId, errandNumber
 
 const givenRelations = (source: Relation[], target: Relation[]) =>
   vi.mocked(apiService.get).mockImplementation(async (url: string) => {
-    const relations = url.includes('/resolvedrelations/source/') ? source : target;
+    const relations = url.startsWith('resolvedrelations/source/') ? source : target;
     return {
       data: { data: { relations, caseStatuses: [status('ks-errand', 'KS-1'), status('other', 'BOU-2')] } },
     } as never;
@@ -31,7 +31,7 @@ describe('getAllRelatedErrands', () => {
       [relation('handover', 'HANDOVER', 'ks-errand', 'bou-errand')]
     );
 
-    const result = await getAllRelatedErrands('2281', 'bou-errand');
+    const result = await getAllRelatedErrands('bou-errand');
 
     expect(result.map((e) => [e.errandNumber, e.relation.id])).toEqual([['KS-1', 'handover-from']]);
   });
@@ -42,7 +42,7 @@ describe('getAllRelatedErrands', () => {
       [relation('link-2', 'LINK', 'other', 'bou-errand')]
     );
 
-    const result = await getAllRelatedErrands('2281', 'bou-errand');
+    const result = await getAllRelatedErrands('bou-errand');
 
     expect(result.map((e) => e.errandNumber)).toEqual(['BOU-2', 'KS-1']);
   });

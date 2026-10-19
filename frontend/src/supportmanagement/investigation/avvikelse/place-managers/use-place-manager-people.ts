@@ -6,7 +6,7 @@ import { lookupPlaceManagerPeople, type PlaceManagerPerson } from './place-manag
  * Names and manager roles for the accounts on show, asked for once per account and kept while the view is open.
  * They are not in AccessMapper's list of places, so they are read as places are opened rather than for everybody.
  */
-export const usePlaceManagerPeople = (municipalityId: string | undefined, adAccounts: readonly string[]) => {
+export const usePlaceManagerPeople = (adAccounts: readonly string[]) => {
   const [people, setPeople] = useState<ReadonlyMap<string, PlaceManagerPerson>>(new Map());
   const [failed, setFailed] = useState(false);
   // What has been asked for, so that an answer on its way is not asked for again.
@@ -21,10 +21,10 @@ export const usePlaceManagerPeople = (municipalityId: string | undefined, adAcco
 
   useEffect(() => {
     const missing = adAccounts.filter((account) => !requested.current.has(account.toLowerCase()));
-    if (!municipalityId || missing.length === 0) return;
+    if (missing.length === 0) return;
 
     missing.forEach((account) => requested.current.add(account.toLowerCase()));
-    lookupPlaceManagerPeople(municipalityId, missing).then(
+    lookupPlaceManagerPeople(missing).then(
       (found) => {
         setFailed(false);
         remember(found);
@@ -35,7 +35,7 @@ export const usePlaceManagerPeople = (municipalityId: string | undefined, adAcco
         setFailed(true);
       }
     );
-  }, [municipalityId, adAccounts, remember]);
+  }, [adAccounts, remember]);
 
   return { people, failed, remember };
 };

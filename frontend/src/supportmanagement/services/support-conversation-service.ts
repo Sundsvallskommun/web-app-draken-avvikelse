@@ -26,15 +26,12 @@ export interface ConversationMessageCountSummary {
   unread: number;
 }
 
-export const getSupportConversations: (municipalityId: string, errandId: string) => Promise<ApiResponse<any[]>> = (
-  municipalityId,
-  errandId
-) => {
+export const getSupportConversations: (errandId: string) => Promise<ApiResponse<any[]>> = (errandId) => {
   if (!errandId) {
     console.error('No errand id found, cannot fetch. Returning.');
   }
 
-  const url = `supportmanagement/${municipalityId}/namespace/errands/${errandId}/communication/conversations`;
+  const url = `supportmanagement/namespace/errands/${errandId}/communication/conversations`;
   return apiService
     .get<ApiResponse<any>>(url)
     .then((res) => {
@@ -47,14 +44,13 @@ export const getSupportConversations: (municipalityId: string, errandId: string)
 };
 
 export const getSupportConversationMessages: (
-  municipalityId: string,
   errandId: string,
   conversationId: string
-) => Promise<ApiResponse<MessageNode[]>> = (municipalityId, errandId, conversationId) => {
+) => Promise<ApiResponse<MessageNode[]>> = (errandId, conversationId) => {
   if (!errandId) {
     console.error('No errand id found, cannot fetch. Returning.');
   }
-  const url = `supportmanagement/${municipalityId}/namespace/errands/${errandId}/communication/conversations/${conversationId}/messages`;
+  const url = `supportmanagement/namespace/errands/${errandId}/communication/conversations/${conversationId}/messages`;
   return apiService
     .get<ApiResponse<any>>(url)
     .then((res) => {
@@ -67,7 +63,6 @@ export const getSupportConversationMessages: (
 };
 
 export const getSupportConversationReadByCounts = (
-  municipalityId: string,
   errandId: string,
   conversationId?: string,
   includeSystemMessages = false
@@ -76,7 +71,7 @@ export const getSupportConversationReadByCounts = (
   if (conversationId) {
     query.set('conversationId', conversationId);
   }
-  const url = `supportmanagement/${municipalityId}/namespace/errands/${errandId}/communication/conversations/count-read-by?${query}`;
+  const url = `supportmanagement/namespace/errands/${errandId}/communication/conversations/count-read-by?${query}`;
 
   return apiService
     .get<ConversationReadByCount[]>(url)
@@ -88,12 +83,11 @@ export const getSupportConversationReadByCounts = (
 };
 
 export const markSupportConversationMessagesAsRead = (
-  municipalityId: string,
   errandId: string,
   conversationId: string,
   messageIds: string[]
 ): Promise<void> => {
-  const url = `supportmanagement/${municipalityId}/namespace/errands/${errandId}/communication/conversations/${conversationId}/messages/mark-as-read`;
+  const url = `supportmanagement/namespace/errands/${errandId}/communication/conversations/${conversationId}/messages/mark-as-read`;
   return apiService.post<void, { messageIds: string[] }>(url, { messageIds }).then(() => undefined);
 };
 
@@ -119,14 +113,8 @@ export const getConversationMessageCountSummary = (
     { total: 0, unread: 0 }
   );
 
-const createSupportConversation = async (
-  municipalityId: string,
-  errandId: string,
-  topic: string,
-  type: string,
-  relationId?: string
-) => {
-  const url = `supportmanagement/${municipalityId}/namespace/errand/${errandId}/communication/conversations`;
+const createSupportConversation = async (errandId: string, topic: string, type: string, relationId?: string) => {
+  const url = `supportmanagement/namespace/errand/${errandId}/communication/conversations`;
 
   const body: Partial<any> = {
     topic: topic,
@@ -146,14 +134,13 @@ const createSupportConversation = async (
 };
 
 export const sendSupportConversationMessage = (
-  municipalityId: string,
   errandId: string,
   conversationId: string,
   message: string,
   files?: { file: File }[],
   existingAttachments?: SingleSupportAttachment[]
 ) => {
-  const url = `supportmanagement/${municipalityId}/namespace/errand/${errandId}/communication/conversations/${conversationId}/messages`;
+  const url = `supportmanagement/namespace/errand/${errandId}/communication/conversations/${conversationId}/messages`;
 
   const formData = new FormData();
   const messageBody: { content: string; attachmentIds?: string[] } = {
@@ -191,17 +178,16 @@ export const sendSupportConversationMessage = (
 };
 
 export const getSupportConversationAttachment: (
-  municipalityId: string,
   errandId: string,
   conversationId: string,
   messageId: string,
   attachmentId: string
-) => Promise<ApiResponse<any>> = (municipalityId, errandId, conversationId, messageId, attachmentId) => {
+) => Promise<ApiResponse<any>> = (errandId, conversationId, messageId, attachmentId) => {
   if (!errandId) {
     console.error('No errand id found, cannot fetch. Returning.');
   }
 
-  const url = `supportmanagement/${municipalityId}/namespace/errands/${errandId}/communication/conversations/${conversationId}/messages/${messageId}/attachments/${attachmentId}`;
+  const url = `supportmanagement/namespace/errands/${errandId}/communication/conversations/${conversationId}/messages/${messageId}/attachments/${attachmentId}`;
   return apiService
     .get<ApiResponse<any>>(url)
     .then((res) => {
@@ -214,7 +200,6 @@ export const getSupportConversationAttachment: (
 };
 
 export const getOrCreateSupportConversationId = async (
-  municipalityId: string,
   supportErrand: SupportErrand,
   contactMeans: string,
   selectedRelationId: string,
@@ -230,7 +215,7 @@ export const getOrCreateSupportConversationId = async (
       ? relationErrands.find((entry) => entry.otherResourceId === selectedRelationId)
       : undefined;
 
-  const conversations = await getSupportConversations(municipalityId, supportErrand.id!);
+  const conversations = await getSupportConversations(supportErrand.id!);
   const existingExternalConversation = conversations.data.find((c) => c.type === 'EXTERNAL');
   const existingInternalConversation = conversations.data.find(
     (conv: any) => conv.type === 'INTERNAL' && conv.relationIds && conv.relationIds[0] === selectedEntry?.relation.id
@@ -270,7 +255,6 @@ export const getOrCreateSupportConversationId = async (
     }
 
     const newConversation = await createSupportConversation(
-      municipalityId,
       supportErrand.id!,
       topic,
       conversationType,

@@ -57,7 +57,7 @@ async function installPhases(
     canWrite: true,
     mayFollowUp: false,
   };
-  await page.route(/\/supporterrands\/[^/]+\/[^/]+\/measures$/, async (route) => {
+  await page.route(/\/supporterrands\/[^/]+\/measures$/, async (route) => {
     if (route.request().method() !== 'GET') {
       await route.fallback();
       return;

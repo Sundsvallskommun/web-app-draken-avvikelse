@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { FormProvider, useForm } from 'react-hook-form';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import { useConfigStore } from '../../../../stores/config-store';
 import { useSupportStore } from '../../../../stores/support-store';
 import { useUserStore } from '../../../../stores/user-store';
 import type { SupportErrand } from '../../../services/support-errand-service';
@@ -122,7 +121,6 @@ beforeEach(() => {
   mocks.save.mockReset().mockResolvedValue(undefined);
   mocks.read.mockReset().mockResolvedValue({ errand: { ...loaded, title: 'Someone else changed this', version: 2 } });
   useSupportStore.setState({ supportErrand: { ...loaded } });
-  useConfigStore.setState({ municipalityId: '2281' });
   useUserStore.setState({
     user: { ...useUserStore.getState().user, username: 'handler' },
     administrators: [],
@@ -202,7 +200,7 @@ test('Starta handläggning saves a draft first, and starts the errand as saved',
     )
   );
   expect(mocks.save).toHaveBeenCalledOnce();
-  expect(mocks.save).toHaveBeenCalledWith('2281', expect.objectContaining({ title: 'My draft' }), 1, undefined);
+  expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ title: 'My draft' }), 1, undefined);
   expect(mocks.status).toHaveBeenCalledOnce();
 });
 
@@ -266,7 +264,7 @@ const registerDraft = (save: () => Promise<boolean>) => {
 test('giving the errand to a candidate whose assignment is a handover takes that step and leaves the errand', async () => {
   await handToLex();
 
-  await waitFor(() => expect(mocks.handover).toHaveBeenCalledWith('2281', 'one', 'assign-lex', 3, 'lena.lex'));
+  await waitFor(() => expect(mocks.handover).toHaveBeenCalledWith('one', 'assign-lex', 3, 'lena.lex'));
   expect(mocks.assign).not.toHaveBeenCalled();
   expect(mocks.push).toHaveBeenCalledWith('/oversikt');
 });

@@ -3,7 +3,7 @@ import { Response } from 'express';
 import { Body, Controller, Param, Post, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
-import { SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
+import { MUNICIPALITY_ID, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
 import { apiServiceName } from '@/config/api-config';
 import { AVVIKELSE_INVESTIGATION_PROFILE } from '@/config/support-investigation-profile';
 import { trimSupportManagementPath } from '@/config/supportmanagement-path';
@@ -99,12 +99,11 @@ export class SupportInvestigationReportController {
     this.clock = dependencies.clock ?? (() => new Date());
   }
 
-  @Post('/supporterrands/:municipalityId/:errandId/json-parameters/:key/reports')
+  @Post('/supporterrands/:errandId/json-parameters/:key/reports')
   @OpenAPI({ summary: 'Render a completed investigation document as a PDF report and attach it to the errand' })
   @UseBefore(authMiddleware, validationMiddleware(CreateSupportInvestigationReportDto, 'body'))
   async createReport(
     @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
     @Param('errandId') errandId: string,
     @Param('key') key: string,
     @Body() body: CreateSupportInvestigationReportDto,
@@ -116,10 +115,10 @@ export class SupportInvestigationReportController {
     }
 
     const preview = body.preview === true;
-    if (preview) await this.accessService.assertCanReadDocument(req.user, municipalityId, errandId, definition.key);
-    else await this.accessService.assertCanWriteDocument(req.user, municipalityId, errandId, definition.key);
+    if (preview) await this.accessService.assertCanReadDocument(req.user, MUNICIPALITY_ID, errandId, definition.key);
+    else await this.accessService.assertCanWriteDocument(req.user, MUNICIPALITY_ID, errandId, definition.key);
 
-    const request = { definition, municipalityId, errandId, user: req.user };
+    const request = { definition, municipalityId: MUNICIPALITY_ID, errandId, user: req.user };
     const draft =
       preview && typeof body.schemaId === 'string' && isJsonObject(body.value) ? { schemaId: body.schemaId, value: body.value } : undefined;
     // A draft may belong to a document that was never saved; a real report needs the stored one.
@@ -177,7 +176,7 @@ export class SupportInvestigationReportController {
     const pdfBase64 = await renderPdfWithTemplating({
       apiService: this.apiService,
       templatingService: this.templatingService,
-      municipalityId,
+      municipalityId: MUNICIPALITY_ID,
       template: renderInvestigationReportTemplate(),
       parameters: { report: model },
       subject: 'the investigation report',

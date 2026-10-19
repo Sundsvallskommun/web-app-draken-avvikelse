@@ -40,12 +40,9 @@ export interface SupportNoteData {
   };
 }
 
-export const getSupportNotes: (errandId: string, municipalityId: string) => Promise<SupportNoteData> = (
-  errandId,
-  municipalityId
-) => {
+export const getSupportNotes: (errandId: string) => Promise<SupportNoteData> = (errandId) => {
   return apiService
-    .get<SupportNoteData>(`supportnotes/${municipalityId}/${errandId}`)
+    .get<SupportNoteData>(`supportnotes/${errandId}`)
     .then((res) => {
       return res.data;
     })
@@ -55,12 +52,9 @@ export const getSupportNotes: (errandId: string, municipalityId: string) => Prom
     });
 };
 
-export const getSupportNotesCount: (errandId: string, municipalityId: string) => Promise<number> = (
-  errandId,
-  municipalityId
-) => {
+export const getSupportNotesCount: (errandId: string) => Promise<number> = (errandId) => {
   return apiService
-    .get<SupportNoteData>(`supportnotes/${municipalityId}/${errandId}`)
+    .get<SupportNoteData>(`supportnotes/${errandId}`)
     .then((res) => {
       return res.data.notes.length;
     })
@@ -70,14 +64,13 @@ export const getSupportNotesCount: (errandId: string, municipalityId: string) =>
     });
 };
 
-export const saveSupportNote: (
-  errandId: string,
-  municipalityId: string,
-  body: string,
-  partyId?: string
-) => Promise<boolean> = (errandId, municipalityId, body, partyId) => {
+export const saveSupportNote: (errandId: string, body: string, partyId?: string) => Promise<boolean> = (
+  errandId,
+  body,
+  partyId
+) => {
   return apiService
-    .post<boolean, Partial<SupportNoteDto>>(`supportnotes/${municipalityId}/${errandId}`, { body, partyId })
+    .post<boolean, Partial<SupportNoteDto>>(`supportnotes/${errandId}`, { body, partyId })
     .then((res) => {
       return true;
     })
@@ -88,41 +81,34 @@ export const saveSupportNote: (
 };
 
 /** Service notes (tjänsteanteckningar) are listed and written apart from the comments, and never changed once saved. */
-const serviceNotesUrl = (municipalityId: string, errandId: string) =>
-  `supportnotes/${encodeURIComponent(municipalityId)}/${encodeURIComponent(errandId)}/service-notes`;
+const serviceNotesUrl = (errandId: string) => `supportnotes/${encodeURIComponent(errandId)}/service-notes`;
 
-export const getSupportServiceNotes = (errandId: string, municipalityId: string): Promise<SupportNoteData> =>
+export const getSupportServiceNotes = (errandId: string): Promise<SupportNoteData> =>
   apiService
-    .get<SupportNoteData>(serviceNotesUrl(municipalityId, errandId))
+    .get<SupportNoteData>(serviceNotesUrl(errandId))
     .then((res) => res.data)
     .catch((e) => {
       console.error('Something went wrong when fetching service notes', e);
       return { notes: [] } as unknown as SupportNoteData;
     });
 
-export const getSupportServiceNotesCount = (errandId: string, municipalityId: string): Promise<number> =>
-  getSupportServiceNotes(errandId, municipalityId).then((data) => data.notes?.length ?? 0);
+export const getSupportServiceNotesCount = (errandId: string): Promise<number> =>
+  getSupportServiceNotes(errandId).then((data) => data.notes?.length ?? 0);
 
-export const saveSupportServiceNote = async (
-  errandId: string,
-  municipalityId: string,
-  body: string,
-  partyId?: string
-): Promise<void> => {
+export const saveSupportServiceNote = async (errandId: string, body: string, partyId?: string): Promise<void> => {
   await apiService.post<unknown, Pick<SupportNoteDto, 'body'> & Partial<Pick<SupportNoteDto, 'partyId'>>>(
-    serviceNotesUrl(municipalityId, errandId),
+    serviceNotesUrl(errandId),
     { body, ...(partyId ? { partyId } : {}) }
   );
 };
 
-export const updateSupportNote: (
-  errandId: string,
-  municipalityId: string,
-  noteId: string,
-  body: string
-) => Promise<boolean> = (errandId, municipalityId, noteId, body) => {
+export const updateSupportNote: (errandId: string, noteId: string, body: string) => Promise<boolean> = (
+  errandId,
+  noteId,
+  body
+) => {
   return apiService
-    .patch<boolean, Partial<SupportNoteDto>>(`supportnotes/${municipalityId}/${errandId}/notes/${noteId}`, { body })
+    .patch<boolean, Partial<SupportNoteDto>>(`supportnotes/${errandId}/notes/${noteId}`, { body })
     .then((res) => {
       return true;
     })
@@ -132,13 +118,9 @@ export const updateSupportNote: (
     });
 };
 
-export const deleteSupportNote: (errandId: string, municipalityId: string, noteId: string) => Promise<boolean> = (
-  errandId,
-  municipalityId,
-  noteId
-) => {
+export const deleteSupportNote: (errandId: string, noteId: string) => Promise<boolean> = (errandId, noteId) => {
   return apiService
-    .deleteRequest<boolean>(`supportnotes/${municipalityId}/${errandId}/notes/${noteId}`)
+    .deleteRequest<boolean>(`supportnotes/${errandId}/notes/${noteId}`)
     .then((res) => {
       return true;
     })

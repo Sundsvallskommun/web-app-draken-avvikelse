@@ -124,7 +124,7 @@ async function installMeasures(
           ]
         : [],
   };
-  await page.route(/\/supporterrands\/[^/]+\/[^/]+\/measures(?:\/[^/]+(?:\/decision)?)?$/, async (route) => {
+  await page.route(/\/supporterrands\/[^/]+\/measures(?:\/[^/]+(?:\/decision)?)?$/, async (route) => {
     const request = route.request();
     if (request.method() === 'GET') {
       reads++;
@@ -804,7 +804,7 @@ test('partial approval locks the original content but lets its author report exe
 /** The BFF builds the plan from the stored measures; the browser only asks for it and reports the answer. */
 async function installActionPlan(page: Page, { status = 201 }: { status?: number } = {}) {
   const requests: string[] = [];
-  await page.route(/\/supporterrands\/[^/]+\/[^/]+\/measures\/action-plan$/, async (route) => {
+  await page.route(/\/supporterrands\/[^/]+\/measures\/action-plan$/, async (route) => {
     requests.push(route.request().method());
     await route.fulfill(
       status === 201

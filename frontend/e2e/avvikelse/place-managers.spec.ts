@@ -113,10 +113,10 @@ async function installPlaceManagers(
   await jsonRoute(page, '**/administrators', mockAdmins);
   await jsonRoute(page, '**/me', { ...mockMe, data: { ...mockMe.data, roleKeys: [], superadmin } });
   await jsonRoute(page, '**/users/admins', mockNoAdmins);
-  await jsonRoute(page, '**/supportnotifications/2281', []);
+  await jsonRoute(page, '**/supportnotifications', []);
   await jsonRoute(page, '**/supportmanagement/investigation-profile', defaultInvestigationProfile());
   await mockStatusGroupCounts(page, 0);
-  await jsonRoute(page, '**/supportmetadata/2281', {
+  await jsonRoute(page, '**/supportmetadata', {
     categories: [],
     types: [],
     statuses: [
@@ -125,9 +125,9 @@ async function installPlaceManagers(
     ],
     labels: { labelStructure },
   });
-  await jsonRoute(page, /\/supporterrands\/2281\?/, emptyErrandPage);
+  await jsonRoute(page, /\/supporterrands\?/, emptyErrandPage);
 
-  await page.route('**/supportplacemanagers/2281', async (route) => {
+  await page.route('**/supportplacemanagers', async (route) => {
     trace.assignmentReads += 1;
     await route.fulfill({
       status: assignmentStatus,
@@ -136,7 +136,7 @@ async function installPlaceManagers(
     });
   });
 
-  await page.route('**/supportplacemanagers/2281/people', async (route) => {
+  await page.route('**/supportplacemanagers/people', async (route) => {
     const { adAccounts } = route.request().postDataJSON() as { adAccounts: string[] };
     trace.lookups.push(adAccounts);
     const people = adAccounts.map((adAccount) => ({
@@ -146,7 +146,7 @@ async function installPlaceManagers(
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ people }) });
   });
 
-  await page.route('**/supportplacemanagers/2281/people/*/places', async (route) => {
+  await page.route('**/supportplacemanagers/people/*/places', async (route) => {
     const adAccount = decodeURIComponent(new URL(route.request().url()).pathname.split('/').at(-2) ?? '');
     const body = route.request().postDataJSON() as PlaceChangeRequest['body'];
     trace.changes.push({ adAccount, body });

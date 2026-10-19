@@ -8,8 +8,8 @@ import { MeasureActionPlanButton } from './measure-action-plan-button';
 import type { CreatedMeasureActionPlan } from './measure-action-plan-service';
 
 const mocks = vi.hoisted(() => ({
-  create: vi.fn<(municipalityId: string, errandId: string) => Promise<CreatedMeasureActionPlan>>(),
-  refresh: vi.fn<(municipalityId: string, errandId: string) => Promise<void>>(),
+  create: vi.fn<(errandId: string) => Promise<CreatedMeasureActionPlan>>(),
+  refresh: vi.fn<(errandId: string) => Promise<void>>(),
   snackbar: vi.fn(),
 }));
 vi.mock('./measure-action-plan-service', () => ({
@@ -37,7 +37,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 test('is disabled with an explanation while the errand has no measures', () => {
-  render(<MeasureActionPlanButton errand={errand} municipalityId="2281" measureCount={0} />);
+  render(<MeasureActionPlanButton errand={errand} measureCount={0} />);
   expect(button()).toHaveProperty('disabled', true);
   expect(screen.getByText('Handlingsplanen kan skapas när ärendet har minst en åtgärd.')).toBeTruthy();
   fireEvent.click(button());
@@ -47,20 +47,20 @@ test('is disabled with an explanation while the errand has no measures', () => {
 test('creates the plan from the stored measures, names the attached file and refreshes the attachments', async () => {
   mocks.create.mockResolvedValue({ fileName, attachmentId: 'plan-1' });
   const onCreated = vi.fn(async () => undefined);
-  render(<MeasureActionPlanButton errand={errand} municipalityId="2281" measureCount={2} onCreated={onCreated} />);
+  render(<MeasureActionPlanButton errand={errand} measureCount={2} onCreated={onCreated} />);
   expect(button()).toHaveProperty('disabled', false);
   expect(screen.getByText('Alla registrerade åtgärder samlas i en PDF som läggs som bilaga på ärendet.')).toBeTruthy();
 
   fireEvent.click(button());
 
-  await waitFor(() => expect(mocks.create).toHaveBeenCalledWith('2281', 'errand-one'));
+  await waitFor(() => expect(mocks.create).toHaveBeenCalledWith('errand-one'));
   await waitFor(() =>
     expect(mocks.snackbar).toHaveBeenCalledWith({
       message: `Handlingsplanen ${fileName} har skapats och lagts som en bilaga på ärendet.`,
       status: 'success',
     })
   );
-  expect(mocks.refresh).toHaveBeenCalledWith('2281', 'errand-one');
+  expect(mocks.refresh).toHaveBeenCalledWith('errand-one');
   // The plan is an attachment on the errand: the tab is told, so the errand's version follows the handler's write.
   expect(onCreated).toHaveBeenCalledTimes(1);
   await waitFor(() => expect(button()).toHaveProperty('disabled', false));
@@ -86,7 +86,7 @@ test.each([
   ],
 ])('explains a failed plan with %s and leaves the attachments alone', async (_case, failure, message) => {
   mocks.create.mockRejectedValue(failure);
-  render(<MeasureActionPlanButton errand={errand} municipalityId="2281" measureCount={1} />);
+  render(<MeasureActionPlanButton errand={errand} measureCount={1} />);
 
   fireEvent.click(button());
 

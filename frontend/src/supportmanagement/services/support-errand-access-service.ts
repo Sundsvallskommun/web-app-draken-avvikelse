@@ -6,12 +6,9 @@ import type { SupportErrand } from './support-errand-service';
 type SupportErrandAccessLevel = 'LR' | 'R' | 'RW';
 
 /** The current user's level on one errand, as Support Management's /access answers it. */
-const getSupportErrandAccessLevel = (
-  municipalityId: string,
-  errandId: string
-): Promise<SupportErrandAccessLevel | undefined> =>
+const getSupportErrandAccessLevel = (errandId: string): Promise<SupportErrandAccessLevel | undefined> =>
   apiService
-    .get<{ level?: SupportErrandAccessLevel }>(`supporterrands/${municipalityId}/${errandId}/errand-access`)
+    .get<{ level?: SupportErrandAccessLevel }>(`supporterrands/${errandId}/errand-access`)
     .then((response) => response.data.level);
 
 /**
@@ -19,11 +16,8 @@ const getSupportErrandAccessLevel = (
  * An unanswered question leaves the errand as it was read: Support Management refuses whatever the user
  * may not do either way, so a failed lookup costs a clearer page, not access.
  */
-export const markLimitedSupportErrandAccess = async (
-  municipalityId: string,
-  errand: SupportErrand
-): Promise<SupportErrand> => {
+export const markLimitedSupportErrandAccess = async (errand: SupportErrand): Promise<SupportErrand> => {
   if (!errand?.id) return errand;
-  const level = await getSupportErrandAccessLevel(municipalityId, errand.id).catch(() => undefined);
+  const level = await getSupportErrandAccessLevel(errand.id).catch(() => undefined);
   return level === 'LR' ? { ...errand, limitedAccess: true } : errand;
 };

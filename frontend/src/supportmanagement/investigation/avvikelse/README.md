@@ -298,7 +298,7 @@ yarn test:e2e
 ### Ärendets dokumentbehörigheter
 
 Profilen beskriver dokumenten; rättigheter hämtas separat från backendens
-`supporterrands/{municipalityId}/{errandId}/investigation-access`, som projicerar
+`supporterrands/{errandId}/investigation-access`, som projicerar
 Support Management Sprint 16.0 `/access`. Nyckeln i fältposten med
 `field: "jsonParameters"` och resursen `errand/json-parameter` måste båda tillåta åtkomst.
 `allKeys: true` omfattar nya dokument; annars måste nyckeln vara explicit listad.
@@ -575,7 +575,7 @@ tilldelas en LEX-ansvarig och markeras Tilldelat (`LexManagerHandoverRequirement
 administratör hålls inte tillbaka, och utan konfigurerade handläggarroller finns ingen utredare att hålla tillbaka.
 
 Ärendet går tillbaka till den LEX-ansvarige som gav utredaren det, så dialogen förväljer den. Vem det var läser
-BFF:en ur ärendets historik (`GET supporthistory/:m/:id/assigned-by`): kontot i `ExecutedBy` på den senaste
+BFF:en ur ärendets historik (`GET supporthistory/:id/assigned-by`): kontot i `ExecutedBy` på den senaste
 skrivningen som gav ärendet till den nuvarande handläggaren, jämfört utan hänsyn till skiftläge. Listan väntar på
 svaret; saknas historiken, eller är kontot ingen LEX-ansvarig, står den första i listan kvar som förut.
 
@@ -669,7 +669,7 @@ Ett IAF/VOF-ärende avslutas inte så länge en åtgärd väntar på något (`su
 förslag som inte är beslutat, och en godkänd planerad åtgärd som inte är uppföljd, alltså saknar svaren från
 uppföljningen (`result`). En planerad åtgärd som rapporterats som genomförd i redigeringen (bara `executed`) väntar
 alltså fortfarande på sin uppföljning. BFF:en vägrar avslutet med 422 i statusbytet och i fasbytet. Åtgärdsbilden
-(`GET supporterrands/:m/:id/measures`) bär samma besked i `closeRefusal`. Med det är fasknappen Avsluta ärendet i
+(`GET supporterrands/:id/measures`) bär samma besked i `closeRefusal`. Med det är fasknappen Avsluta ärendet i
 uppföljningsfasen avstängd, och beskedet visas under knappen (`useMeasuresCloseRefusal`). Avsluta ärendet i en
 tidigare fas stängs inte av i klienten, så att varje sidladdning slipper läsa åtgärderna. Där svarar BFF:en med
 samma besked.
@@ -694,7 +694,7 @@ Utredningen är inte klar och öppnar en dialog som säger vilken utredning som 
 rapporterat missförhållande som ännu inte flyttats till LEX av Support Managements schemalagda
 `ADD_LABEL`: enhetschefen kan inte längre skicka det till beslut, eftersom LEX-utredningen inte är klar.
 
-BFF:en (`PATCH /supporterrands/:m/:id/phase`) avvisar samma fasbyte med **422** och ett meddelande som
+BFF:en (`PATCH /supporterrands/:id/phase`) avvisar samma fasbyte med **422** och ett meddelande som
 namnger utredningen, så regeln gäller även anrop som inte går via knappen. Där läses klarmarkeringen ur
 dokumentets bundna schema (`x-draken-completion`), inte ur ett antaget fältnamn. Går utredningens tillstånd inte
 att avgöra svarar BFF:en 503 i stället för att släppa förbi.
@@ -722,7 +722,7 @@ Knappen byter ut ärendetabellen mot `follow-up/unit-follow-up.component.tsx`, m
 - **Åtgärder**: varje åtgärd på ärendena, med Åtgärdstyp, Rapporttyp, Tillagd av, Status, Påbörjad, Slutförd,
   Ärende och Effekt. Raden fälls ut till beskrivning, mål och åtgärdens effekt.
 
-BFF:en (`GET /supportfollowup/:municipalityId/units?from&to`, `SupportFollowUpService`) läser Support
+BFF:en (`GET /supportfollowup/units?from&to`, `SupportFollowUpService`) läser Support
 Managements ärendelista för ärenden registrerade i perioden, sidvandrar som Planerade åtgärder och svarar smalt:
 etiketterna, åtgärderna och utredningsvärdena ur dokumenten (`toUnitFollowUpErrand` i
 `config/iaf-vof-follow-up.ts`). Listan bär redan de JSON-parametrar och åtgärder användaren får läsa, så inget
@@ -803,7 +803,7 @@ backend löser ut resten ur metadataträdet (`resolveInvestigationLocationTarget
   strukturen, inte en plats;
 - chefen väljs ur den **nya** platsens chefer, upplösta med exakt samma regel som återlämningen
   (`resolveManagersForLocation`), och förhandsvisas via
-  `GET /supporterrands/:m/:id/location-managers/:labelId`. Den som flyttar skriver bort sig själv
+  `GET /supporterrands/:id/location-managers/:labelId`. Den som flyttar skriver bort sig själv
   från ärendet, så någon i andra änden måste kunna se det.
 
 Steget auktoriseras av skrivrätt på `utredning-enhetschef`: den chef som felaktigt fick ärendet är
@@ -824,7 +824,7 @@ labels till platsstrukturnod, delad med `place-structure.ts` som Ärendeuppgifte
 `GET /users/admins` svarar "vilka finns i de konfigurerade AD-grupperna" och är identisk för alla
 ärenden — vilket är hur en enhetschef kunde stå kvar som valbar för ett ärende hen inte längre nådde.
 Sidopanelen frågar därför per ärende i stället, via
-`GET /supporterrands/:m/:id/assignable-handlers`:
+`GET /supporterrands/:id/assignable-handlers`:
 
 | Ärendets tillstånd | Listan innehåller |
 | --- | --- |
@@ -932,9 +932,9 @@ ovanför den valda platsen tas det bort där, inte här.
 
 | Rutt | Gör |
 | --- | --- |
-| `GET /supportplacemanagers/:m` | Varje persons platser (ur `access-config/user`) och chefsrollerna i visningsordning |
-| `POST /supportplacemanagers/:m/people` | Namn och chefsroller för de konton som visas, högst 150 per anrop |
-| `PUT /supportplacemanagers/:m/people/:adAccount/places` | `{ add, remove }` med platsernas label-id; svarar med personens platser efteråt |
+| `GET /supportplacemanagers` | Varje persons platser (ur `access-config/user`) och chefsrollerna i visningsordning |
+| `POST /supportplacemanagers/people` | Namn och chefsroller för de konton som visas, högst 150 per anrop |
+| `PUT /supportplacemanagers/people/:adAccount/places` | `{ add, remove }` med platsernas label-id; svarar med personens platser efteråt |
 
 - Alla tre kräver behörigheten `canAdministerPlaceManagers`, som bara `SUPERADMIN_GROUP` ger, och svarar 404 i
   en applikation utan avvikelsens klassificeringspolicy. AccessMapper frågar inte själv vem som anropar, så

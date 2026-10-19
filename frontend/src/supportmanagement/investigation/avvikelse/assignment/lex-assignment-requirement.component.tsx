@@ -1,6 +1,6 @@
 'use client';
 
-import { useConfigStore, useSupportStore } from '@stores/index';
+import { useSupportStore } from '@stores/index';
 import { FC } from 'react';
 
 import type { InvestigationPhaseEntryRequirementProps } from '../../investigation-variant';
@@ -11,7 +11,6 @@ import { LexAssignmentPrompt } from './lex-assignment-prompt.component';
  * unit manager investigation assesses a suspected misconduct that has not been handed over.
  */
 export const LexAssignmentRequirement: FC<InvestigationPhaseEntryRequirementProps> = ({ onClose }) => {
-  const municipalityId = useConfigStore((state) => state.municipalityId);
   const errandId = useSupportStore((state) => state.supportErrand?.id);
   const version = useSupportStore((state) => state.supportErrand?.version);
   if (!errandId) return null;
@@ -19,7 +18,6 @@ export const LexAssignmentRequirement: FC<InvestigationPhaseEntryRequirementProp
   return (
     <LexAssignmentPrompt
       show
-      municipalityId={municipalityId}
       errandId={errandId}
       // The handover is the first write of this flow, so it is conditioned on the errand as the page shows it.
       expectedVersion={version}

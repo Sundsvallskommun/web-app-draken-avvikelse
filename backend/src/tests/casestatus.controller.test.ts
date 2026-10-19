@@ -40,7 +40,7 @@ describe('getStatusesUsingPartyId', () => {
     const { controller, get } = makeController();
     const req = mockReq(mockUser());
 
-    const answer = await controller.getStatusesUsingPartyId(req, mockMunicipalityId, 'brukare-party-id');
+    const answer = await controller.getStatusesUsingPartyId(req, 'brukare-party-id');
 
     expect(get.mock.calls[0][0]).toMatchObject({ url: `${mockMunicipalityId}/party/brukare-party-id/statuses` });
     expect((answer.data as CaseStatusResponse[]).map(({ caseId }) => caseId)).toEqual(['vof-report']);
@@ -50,7 +50,7 @@ describe('getStatusesUsingPartyId', () => {
     const { controller } = makeController();
     const req = mockReq(mockUser());
 
-    const answer = await controller.getStatusesUsingPartyId(req, mockMunicipalityId, 'brukare-party-id');
+    const answer = await controller.getStatusesUsingPartyId(req, 'brukare-party-id');
 
     expect((answer.data as CaseStatusResponse[]).some(({ namespace }) => namespace === undefined)).toBe(false);
   });

@@ -4,6 +4,7 @@ import ApiService from '@services/api.service';
 import { Body, Controller, Get, HttpCode, Param, Post, QueryParam, Req, UploadedFiles, UseBefore } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 
+import { MUNICIPALITY_ID } from '@/config';
 import { apiServiceName } from '@/config/api-config';
 import { PortalPersonData } from '@/data-contracts/employee/data-contracts';
 import {
@@ -30,32 +31,27 @@ export class SupportConversationController {
   CITIZEN_SERVICE = apiServiceName('citizen');
   EMPLOYEE_SERVICE = apiServiceName('employee');
 
-  @Get('/supportmanagement/:municipalityId/namespace/errands/:errandId/communication/conversations')
+  @Get('/supportmanagement/namespace/errands/:errandId/communication/conversations')
   @OpenAPI({ summary: 'Return all conversations by errandId' })
   @UseBefore(authMiddleware)
-  async returnAllConversations(
-    @Req() req: RequestWithUser,
-    @Param('errandId') errandId: string,
-    @Param('municipalityId') municipalityId: string,
-  ): Promise<ResponseData> {
-    const url = `${municipalityId}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations`;
+  async returnAllConversations(@Req() req: RequestWithUser, @Param('errandId') errandId: string): Promise<ResponseData> {
+    const url = `${MUNICIPALITY_ID}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations`;
     const baseURL = apiURL(this.SERVICE);
     const res = await this.apiService.get<Conversation[]>({ url, baseURL }, req.user);
     return { data: res, message: 'success' } as ResponseData;
   }
 
-  @Get('/supportmanagement/:municipalityId/namespace/errands/:errandId/communication/conversations/count-read-by')
+  @Get('/supportmanagement/namespace/errands/:errandId/communication/conversations/count-read-by')
   @OpenAPI({ summary: 'Return read statistics for every conversation connected to an errand' })
   @ResponseSchema(ConversationReadByCountDto, { isArray: true })
   @UseBefore(authMiddleware)
   async returnConversationReadByCounts(
     @Req() req: RequestWithUser,
     @Param('errandId') errandId: string,
-    @Param('municipalityId') municipalityId: string,
     @QueryParam('includeSystemMessages') includeSystemMessages = false,
     @QueryParam('conversationId') conversationId?: string,
   ): Promise<ConversationReadByCount[]> {
-    const url = `${municipalityId}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations/count-read-by`;
+    const url = `${MUNICIPALITY_ID}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations/count-read-by`;
     const baseURL = apiURL(this.SERVICE);
     const params = {
       includeSystemMessages,
@@ -65,24 +61,23 @@ export class SupportConversationController {
     return response.data;
   }
 
-  @Get('/supportmanagement/:municipalityId/namespace/errands/:errandId/communication/conversations/:conversationId/messages')
+  @Get('/supportmanagement/namespace/errands/:errandId/communication/conversations/:conversationId/messages')
   @OpenAPI({ summary: 'Return all conversations by errandId' })
   @UseBefore(authMiddleware)
   async returnAllMessages(
     @Req() req: RequestWithUser,
     @Param('errandId') errandId: string,
-    @Param('municipalityId') municipalityId: string,
     @Param('conversationId') conversationId: string,
   ): Promise<ResponseData> {
     const baseURL = apiURL(this.SERVICE);
-    let url = `${municipalityId}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations`;
+    let url = `${MUNICIPALITY_ID}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations`;
     const resConversation = await this.apiService.get<Conversation[]>({ url, baseURL }, req.user);
 
     const conversation = resConversation.data.find(item => item.id === conversationId);
     const topic = conversation ? conversation.topic : undefined;
     const communicationType = conversation?.type === ConversationType.INTERNAL ? 'DRAKEN' : 'MINASIDOR';
 
-    url = `${municipalityId}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations/${conversationId}/messages`;
+    url = `${MUNICIPALITY_ID}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations/${conversationId}/messages`;
     const resPageMessage = await this.apiService.get<PageMessage>({ url, baseURL }, req.user);
 
     const mappedMessages = await Promise.all(
@@ -103,7 +98,7 @@ export class SupportConversationController {
             direction = 'OUTBOUND';
             viewed = true;
           } else {
-            const adAccountUrl = `${this.EMPLOYEE_SERVICE}/${municipalityId}/portalpersondata/PERSONAL/${msg?.createdBy?.value}`;
+            const adAccountUrl = `${this.EMPLOYEE_SERVICE}/${MUNICIPALITY_ID}/portalpersondata/PERSONAL/${msg?.createdBy?.value}`;
             const res = await this.apiService.get<PortalPersonData>({ url: adAccountUrl }, req.user);
             sender = res.data.givenname + ' ' + res.data.lastname;
             direction = 'INBOUND';
@@ -111,7 +106,7 @@ export class SupportConversationController {
         }
 
         if (msg?.createdBy?.type === 'partyId') {
-          const adAccountUrl = `${this.CITIZEN_SERVICE}/${municipalityId}/${msg?.createdBy?.value}`;
+          const adAccountUrl = `${this.CITIZEN_SERVICE}/${MUNICIPALITY_ID}/${msg?.createdBy?.value}`;
           const res = await this.apiService.get<any>({ url: adAccountUrl }, req.user);
           sender = res.data.givenname + ' ' + res.data.lastname;
           direction = 'INBOUND';
@@ -142,33 +137,31 @@ export class SupportConversationController {
     return { data: mappedMessages, message: 'success' } as ResponseData;
   }
 
-  @Post('/supportmanagement/:municipalityId/namespace/errands/:errandId/communication/conversations/:conversationId/messages/mark-as-read')
+  @Post('/supportmanagement/namespace/errands/:errandId/communication/conversations/:conversationId/messages/mark-as-read')
   @HttpCode(204)
   @OpenAPI({ summary: 'Mark specified messages as read for the errand' })
   @UseBefore(authMiddleware, validationMiddleware(MarkConversationMessagesAsReadDto, 'body'))
   async markConversationMessagesAsRead(
     @Req() req: RequestWithUser,
     @Param('errandId') errandId: string,
-    @Param('municipalityId') municipalityId: string,
     @Param('conversationId') conversationId: string,
     @Body() request: MarkConversationMessagesAsReadDto,
   ): Promise<void> {
-    const url = `${municipalityId}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations/${conversationId}/messages/mark-as-read`;
+    const url = `${MUNICIPALITY_ID}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations/${conversationId}/messages/mark-as-read`;
     const baseURL = apiURL(this.SERVICE);
     // Reading is not news to anyone following the errand.
     await this.apiService.post<void, MarkAsReadRequest>({ url, baseURL, data: request, notifySubscribers: false }, req.user);
   }
 
-  @Post('/supportmanagement/:municipalityId/namespace/errand/:errandId/communication/conversations')
+  @Post('/supportmanagement/namespace/errand/:errandId/communication/conversations')
   @OpenAPI({ summary: 'Create new conversation' })
   @UseBefore(authMiddleware)
   async createConversation(
     @Req() req: RequestWithUser,
     @Param('errandId') errandId: string,
-    @Param('municipalityId') municipalityId: string,
     @Body() conversation: Conversation,
   ): Promise<{ data: any; message: string }> {
-    const url = `${municipalityId}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations`;
+    const url = `${MUNICIPALITY_ID}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations`;
     const baseURL = apiURL(this.SERVICE);
     const response = await this.apiService.post<any, any>({ url, baseURL, data: conversation }, req.user).catch(e => {
       console.error('Something went wrong when creating conversation: ' + e);
@@ -177,13 +170,12 @@ export class SupportConversationController {
     return { data: response.data, message: `Conversation created` };
   }
 
-  @Post('/supportmanagement/:municipalityId/namespace/errand/:errandId/communication/conversations/:conversationId/messages')
+  @Post('/supportmanagement/namespace/errand/:errandId/communication/conversations/:conversationId/messages')
   @OpenAPI({ summary: 'Create new message' })
   @UseBefore(authMiddleware)
   async sendInternalMessage(
     @Req() req: RequestWithUser,
     @Param('errandId') errandId: string,
-    @Param('municipalityId') municipalityId: string,
     @Param('conversationId') conversationId: string,
     @UploadedFiles('attachments', { options: fileUploadOptions, required: false }) files: Express.Multer.File[],
     @Body() body: any,
@@ -199,7 +191,7 @@ export class SupportConversationController {
 
     const attachments = (files || []).map(file => file.buffer);
 
-    const url = `${municipalityId}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations/${conversationId}/messages`;
+    const url = `${MUNICIPALITY_ID}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations/${conversationId}/messages`;
     const baseURL = apiURL(this.SERVICE);
 
     const response = await this.apiService
@@ -211,20 +203,17 @@ export class SupportConversationController {
     return { data: { response, attachments }, message: 'Message created' };
   }
 
-  @Get(
-    '/supportmanagement/:municipalityId/:namespace/errands/:errandId/communication/conversations/:conversationId/messages/:messageId/attachments/:attachmentId',
-  )
+  @Get('/supportmanagement/:namespace/errands/:errandId/communication/conversations/:conversationId/messages/:messageId/attachments/:attachmentId')
   @OpenAPI({ summary: 'Get an attachment' })
   @UseBefore(authMiddleware)
   async getAttachment(
     @Req() req: RequestWithUser,
     @Param('errandId') errandId: string,
-    @Param('municipalityId') municipalityId: string,
     @Param('conversationId') conversationId: string,
     @Param('messageId') messageId: string,
     @Param('attachmentId') attachmentId: string,
   ): Promise<{ data: any; message: string }> {
-    const url = `${municipalityId}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations/${conversationId}/messages/${messageId}/attachments/${attachmentId}`;
+    const url = `${MUNICIPALITY_ID}/${process.env.SUPPORTMANAGEMENT_NAMESPACE}/errands/${errandId}/communication/conversations/${conversationId}/messages/${messageId}/attachments/${attachmentId}`;
     const baseURL = apiURL(this.SERVICE);
     const response = await this.apiService.get<any>({ url, baseURL, responseType: 'arraybuffer' }, req.user).catch(e => {
       console.error('Something went wrong when getting conversation attachment: ' + e);

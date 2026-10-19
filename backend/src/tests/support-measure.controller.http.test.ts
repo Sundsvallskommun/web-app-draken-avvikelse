@@ -56,7 +56,7 @@ const measure = {
 
 describe('measure write handlers (over HTTP)', () => {
   let server: import('express').Application;
-  const measuresUrl = '/supporterrands/2281/errand-1/measures';
+  const measuresUrl = '/supporterrands/errand-1/measures';
 
   beforeAll(async () => {
     process.env.HEALTHCAREDEVIATION_HANDLER_ROLES = handlerRoles;
@@ -254,7 +254,7 @@ describe('measure write handlers (over HTTP)', () => {
       }
       throw new HttpException(404, `Unexpected read ${config.url}`);
     });
-    const response = await request(server).get('/supportmeasures/2281/planned');
+    const response = await request(server).get('/supportmeasures/planned');
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       // The errand's title is left out: the overview does not show it.

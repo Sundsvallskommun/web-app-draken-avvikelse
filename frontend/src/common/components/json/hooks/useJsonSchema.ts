@@ -9,24 +9,24 @@ interface UseJsonSchemaResult {
   error: string | null;
 }
 
-export function useJsonSchema(municipalityId: string, schemaId: string): UseJsonSchemaResult {
+export function useJsonSchema(schemaId: string): UseJsonSchemaResult {
   const [schema, setSchema] = useState<RJSFSchema | null>(null);
   const [uiSchema, setUiSchema] = useState<UiSchema | null>(null);
-  const [loading, setLoading] = useState(Boolean(municipalityId && schemaId));
+  const [loading, setLoading] = useState(Boolean(schemaId));
   const [error, setError] = useState<string | null>(null);
 
   const fetchSchemas = useCallback(async () => {
-    if (!municipalityId || !schemaId) return;
+    if (!schemaId) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const rjsfSchema = await getRjsfSchema(municipalityId, schemaId);
+      const rjsfSchema = await getRjsfSchema(schemaId);
       setSchema(rjsfSchema);
 
       try {
-        const ui = await getUiSchemaForSchema(municipalityId, schemaId);
+        const ui = await getUiSchemaForSchema(schemaId);
         setUiSchema(ui);
       } catch {
         // No UI schema available, SchemaForm will auto-generate one
@@ -38,7 +38,7 @@ export function useJsonSchema(municipalityId: string, schemaId: string): UseJson
     } finally {
       setLoading(false);
     }
-  }, [municipalityId, schemaId]);
+  }, [schemaId]);
 
   useEffect(() => {
     fetchSchemas();

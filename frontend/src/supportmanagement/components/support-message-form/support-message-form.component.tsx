@@ -33,7 +33,7 @@ import {
   useConfirm,
   useSnackbar,
 } from '@sk-web-gui/react';
-import { useConfigStore, useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
+import { useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
 import {
   ACCEPTED_UPLOAD_FILETYPES,
   getSupportAttachment,
@@ -151,7 +151,6 @@ export const SupportMessageForm: FC<{
   setUnsaved?: (unsaved: boolean) => void;
   update?: () => void;
 }> = (props) => {
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const user = useUserStore((s) => s.user);
   const _supportErrand = useSupportStore((s) => s.supportErrand);
   const _supportAttachments = useSupportStore((s) => s.supportAttachments);
@@ -278,7 +277,7 @@ export const SupportMessageForm: FC<{
   });
 
   const getSingleSupportAttachment = (attachment: SupportAttachment) => {
-    getSupportAttachment(supportErrand?.id!, municipalityId, attachment).then((res) => {
+    getSupportAttachment(supportErrand?.id!, attachment).then((res) => {
       appendExistingAttachment(res);
     });
   };
@@ -292,7 +291,6 @@ export const SupportMessageForm: FC<{
 
     if (contactMeans === 'draken' || contactMeans === 'minasidor' || contactMeans === 'katla') {
       const conversationId = await getOrCreateSupportConversationId(
-        municipalityId,
         supportErrand,
         contactMeans,
         selectedRelationId,
@@ -301,7 +299,6 @@ export const SupportMessageForm: FC<{
       );
 
       sendPromise = sendSupportConversationMessage(
-        municipalityId,
         supportErrand.id!,
         conversationId,
         data.messageBody,
@@ -310,7 +307,6 @@ export const SupportMessageForm: FC<{
       );
     } else {
       const messageData: MessageRequest = {
-        municipalityId: municipalityId,
         errandId: supportErrand.id!,
         contactMeans: data.contactMeans,
         emails: data.emails,
@@ -343,7 +339,7 @@ export const SupportMessageForm: FC<{
 
         if (typeOfMessage === 'infoCompletion' || typeOfMessage === 'internalCompletion') {
           // The send above is ours, so the version this form was opened with may already be stale.
-          const afterMessage = await readSupportErrandWriteSnapshot(supportErrand.id!, municipalityId);
+          const afterMessage = await readSupportErrandWriteSnapshot(supportErrand.id!);
           // A workflow namespace waits for any completion in its phase's AWAITING_RESPONSE; the others keep
           // their customer and internal waiting statuses.
           const nextStatus = resolveAwaitingResponseStatus(
@@ -351,10 +347,10 @@ export const SupportMessageForm: FC<{
             supportErrand.phases,
             useMetadataStore.getState().supportMetadata?.phases
           );
-          await setSupportErrandStatus(supportErrand.id!, municipalityId, nextStatus, afterMessage);
+          await setSupportErrandStatus(supportErrand.id!, nextStatus, afterMessage);
         }
 
-        const updated = await getSupportErrandById(supportErrand.id!, municipalityId);
+        const updated = await getSupportErrandById(supportErrand.id!);
         setSupportErrand(updated.errand);
 
         toastMessage(
@@ -468,7 +464,7 @@ export const SupportMessageForm: FC<{
   }, [contactMeans, props.message, templates]);
 
   useEffect(() => {
-    getAllRelatedErrands(municipalityId, supportErrand.id!).then(setRelationErrands);
+    getAllRelatedErrands(supportErrand.id!).then(setRelationErrands);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.showMessageForm]);
 

@@ -14,12 +14,9 @@ interface ActionPlanResponseBody {
  * Asks the BFF to render every stored measure of the errand as one PDF and attach it. The plan is
  * built from what Support Management holds, not from the list on screen, so nothing is sent along.
  */
-export async function createMeasureActionPlan(
-  municipalityId: string,
-  errandId: string
-): Promise<CreatedMeasureActionPlan> {
+export async function createMeasureActionPlan(errandId: string): Promise<CreatedMeasureActionPlan> {
   const response = await apiService.post<ActionPlanResponseBody, Record<string, never>>(
-    `supporterrands/${encodeURIComponent(municipalityId)}/${encodeURIComponent(errandId)}/measures/action-plan`,
+    `supporterrands/${encodeURIComponent(errandId)}/measures/action-plan`,
     {}
   );
   const fileName = response.data?.data?.fileName;
@@ -38,10 +35,10 @@ export async function createMeasureActionPlan(
  * an import cycle with casedata's attachment service, and loading that with the measures tab makes
  * the cycle resolve in the wrong order under test. Nothing here needs it before a plan exists.
  */
-export async function refreshSupportAttachments(municipalityId: string, errandId: string): Promise<void> {
+export async function refreshSupportAttachments(errandId: string): Promise<void> {
   try {
     const { getSupportAttachments } = await import('@supportmanagement/services/support-attachment-service');
-    const attachments = await getSupportAttachments(errandId, municipalityId);
+    const attachments = await getSupportAttachments(errandId);
     useSupportStore.getState().setSupportAttachments(attachments);
   } catch {
     // Left to the Bilagor tab's own reload.

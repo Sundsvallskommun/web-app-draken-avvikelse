@@ -21,25 +21,24 @@ const DescriptionSection: FC<{ description: string; open: boolean }> = ({ descri
 };
 
 interface Props {
-  municipalityId: string;
   errandId: string;
 }
 
-export const ReferredFromErrandInformation: FC<Props> = ({ municipalityId, errandId }) => {
+export const ReferredFromErrandInformation: FC<Props> = ({ errandId }) => {
   const [referredFromErrands, setReferredFromErrands] = useState<ReferredFromErrandResponse[]>([]);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!municipalityId || !errandId) return;
+    if (!errandId) return;
 
-    getReferredFromErrands(municipalityId, errandId)
+    getReferredFromErrands(errandId)
       .then((data) => {
         setReferredFromErrands(data);
       })
       .catch((error) => {
         console.error('Error fetching referred from errands:', error);
       });
-  }, [municipalityId, errandId]);
+  }, [errandId]);
 
   if (referredFromErrands.length === 0) {
     return null;

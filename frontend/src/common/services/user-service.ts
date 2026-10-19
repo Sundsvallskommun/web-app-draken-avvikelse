@@ -155,10 +155,7 @@ export const getUserInfo: (adAccount: string) => Promise<EmployeeInfo> = (adAcco
  * no longer reach the one in front of you. This asks per errand instead, and a deployment with
  * nothing to filter by simply gets the same list back.
  */
-export const getAssignableHandlers: (municipalityId: string, errandId: string) => Promise<HandlerDirectory> = (
-  municipalityId,
-  errandId
-) =>
+export const getAssignableHandlers: (errandId: string) => Promise<HandlerDirectory> = (errandId) =>
   apiService
-    .get<HandlerDirectoryResponse>(`supporterrands/${municipalityId}/${errandId}/assignable-handlers`)
+    .get<HandlerDirectoryResponse>(`supporterrands/${errandId}/assignable-handlers`)
     .then((res) => toHandlerDirectory(res.data));

@@ -1,14 +1,13 @@
 'use client';
 
 import { apiService } from '@common/services/api-service';
-import { useConfigStore, useSupportStore, useUserStore } from '@stores/index';
+import { useSupportStore, useUserStore } from '@stores/index';
 import axios from 'axios';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { type InvestigationAccessState, parseInvestigationAccess } from './investigation-access';
 
 interface AccessContext {
-  readonly municipalityId: string;
   readonly errandId: string | undefined;
   readonly username: string;
   readonly enabled: boolean;
@@ -33,7 +32,6 @@ export function useInvestigationAccess(enabled: boolean): {
   readonly access: InvestigationAccessState;
   readonly refresh: () => void;
 } {
-  const municipalityId = useConfigStore((state) => state.municipalityId);
   const errandId = useSupportStore((state) => state.supportErrand?.id);
   const username = useUserStore((state) => state.user.username);
   const revision = useSupportStore((state) =>
@@ -43,23 +41,20 @@ export function useInvestigationAccess(enabled: boolean): {
   const refresh = useCallback(() => setAttempt((current) => current + 1), []);
   // Identity changes on every navigation, including A → B → A, so an old A response cannot
   // briefly restore old grants before the effect starts the new request.
-  const context = useMemo(
-    () => ({ municipalityId, errandId, username, enabled }),
-    [municipalityId, errandId, username, enabled]
-  );
+  const context = useMemo(() => ({ errandId, username, enabled }), [errandId, username, enabled]);
   const [result, setResult] = useState<ScopedAccess>();
 
   useEffect(() => {
-    if (!enabled || !municipalityId || !errandId || !username) return;
+    if (!enabled || !errandId || !username) return;
     let disposed = false;
     const abort = new AbortController();
     const readAccess = async () => {
       try {
         const response = await apiService.get<unknown>(
-          `supporterrands/${encodeURIComponent(municipalityId)}/${encodeURIComponent(errandId)}/investigation-access`,
+          `supporterrands/${encodeURIComponent(errandId)}/investigation-access`,
           { timeout: 10_000, signal: abort.signal }
         );
-        const access = parseInvestigationAccess(response.data, municipalityId, errandId);
+        const access = parseInvestigationAccess(response.data, errandId);
         if (!disposed) setResult({ context, revision, attempt, state: { status: 'ready', access } });
       } catch (error) {
         if (disposed) return;
@@ -72,7 +67,7 @@ export function useInvestigationAccess(enabled: boolean): {
       disposed = true;
       abort.abort();
     };
-  }, [context, enabled, errandId, municipalityId, username, revision, attempt]);
+  }, [context, enabled, errandId, username, revision, attempt]);
 
   useEffect(() => {
     if (!enabled) return;

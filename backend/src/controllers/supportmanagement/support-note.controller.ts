@@ -2,7 +2,7 @@ import { IsOptional, IsString } from 'class-validator';
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
-import { SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
+import { MUNICIPALITY_ID, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
 import { apiServiceName } from '@/config/api-config';
 import type { Errand, ErrandNote } from '@/data-contracts/supportmanagement/data-contracts';
 import { CreateSupportServiceNoteDto } from '@/dtos/support-note.dto';
@@ -103,44 +103,33 @@ export class SupportNoteController {
     return (await this.apiService.get<ErrandNote>({ url, propagateClientError: true, mapUnauthorizedToForbidden: true }, req.user)).data;
   }
 
-  @Get('/supportnotes/:municipalityId/:id')
+  @Get('/supportnotes/:id')
   @OpenAPI({ summary: 'Get notes for errand' })
   @UseBefore(authMiddleware)
-  async fetchSupportNotes(
-    @Req() req: RequestWithUser,
-    @Param('id') id: string,
-    @Param('municipalityId') municipalityId: string,
-    @Res() response: any,
-  ): Promise<SupportNoteData> {
-    const res = await this.listNotes(req, municipalityId, id, { context: SUPPORT_COMMENT.context, role: SUPPORT_COMMENT.role });
+  async fetchSupportNotes(@Req() req: RequestWithUser, @Param('id') id: string, @Res() response: any): Promise<SupportNoteData> {
+    const res = await this.listNotes(req, MUNICIPALITY_ID, id, { context: SUPPORT_COMMENT.context, role: SUPPORT_COMMENT.role });
     return response.status(200).send(res.data);
   }
 
-  @Get('/supportnotes/:municipalityId/:id/service-notes')
+  @Get('/supportnotes/:id/service-notes')
   @OpenAPI({ summary: 'Get service notes for errand' })
   @UseBefore(authMiddleware)
-  async fetchSupportServiceNotes(
-    @Req() req: RequestWithUser,
-    @Param('id') id: string,
-    @Param('municipalityId') municipalityId: string,
-    @Res() response: any,
-  ): Promise<SupportNoteData> {
-    const res = await this.listNotes(req, municipalityId, id, { context: SUPPORT_SERVICE_NOTE.context });
+  async fetchSupportServiceNotes(@Req() req: RequestWithUser, @Param('id') id: string, @Res() response: any): Promise<SupportNoteData> {
+    const res = await this.listNotes(req, MUNICIPALITY_ID, id, { context: SUPPORT_SERVICE_NOTE.context });
     return response.status(200).send(res.data);
   }
 
-  @Post('/supportnotes/:municipalityId/:id')
+  @Post('/supportnotes/:id')
   @HttpCode(201)
   @OpenAPI({ summary: 'Create a support note' })
   @UseBefore(authMiddleware, validationMiddleware(SupportNoteDto, 'body'))
   async createSupportNote(
     @Req() req: RequestWithUser,
     @Param('id') id: string,
-    @Param('municipalityId') municipalityId: string,
     @Body() noteDto: Partial<SupportNoteDto>,
     @Res() response: any,
   ): Promise<{ data: any; message: string }> {
-    const url = `${this.errandUrl(municipalityId, id)}/notes`;
+    const url = `${this.errandUrl(MUNICIPALITY_ID, id)}/notes`;
     let data: SupportNote;
     if (noteDto.body) {
       data = {
@@ -163,18 +152,17 @@ export class SupportNoteController {
     return response.status(201).send(res.data);
   }
 
-  @Post('/supportnotes/:municipalityId/:id/service-notes')
+  @Post('/supportnotes/:id/service-notes')
   @HttpCode(201)
   @OpenAPI({ summary: 'Create a service note as the errand handler' })
   @UseBefore(authMiddleware, validationMiddleware(CreateSupportServiceNoteDto, 'body'))
   async createSupportServiceNote(
     @Req() req: RequestWithUser,
     @Param('id') id: string,
-    @Param('municipalityId') municipalityId: string,
     @Body() noteDto: CreateSupportServiceNoteDto,
     @Res() response: any,
   ): Promise<{ data: any; message: string }> {
-    const errandUrl = this.errandUrl(municipalityId, id);
+    const errandUrl = this.errandUrl(MUNICIPALITY_ID, id);
     const errand = await this.apiService.get<Errand>({ url: errandUrl, propagateClientError: true, mapUnauthorizedToForbidden: true }, req.user);
     assertCanWriteSupportServiceNote(errand.data, req.user);
     const data: SupportNote = buildSupportServiceNote(noteDto.body, req.user, noteDto.partyId);
@@ -188,19 +176,18 @@ export class SupportNoteController {
     return response.status(201).send(res.data);
   }
 
-  @Patch('/supportnotes/:municipalityId/:errandId/notes/:noteId')
+  @Patch('/supportnotes/:errandId/notes/:noteId')
   @HttpCode(201)
   @OpenAPI({ summary: 'Update a support note' })
   @UseBefore(authMiddleware, validationMiddleware(SupportNoteUpdateDto, 'body'))
   async updateSupportNote(
     @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
     @Param('errandId') errandId: string,
     @Param('noteId') noteId: string,
     @Body() noteDto: Partial<SupportNoteUpdateDto>,
     @Res() response: any,
   ): Promise<{ data: any; message: string }> {
-    const url = `${this.errandUrl(municipalityId, errandId)}/notes/${noteId}`;
+    const url = `${this.errandUrl(MUNICIPALITY_ID, errandId)}/notes/${noteId}`;
     let data: SupportNoteUpdateDto;
     if (noteDto.body) {
       data = {
@@ -212,7 +199,7 @@ export class SupportNoteController {
       logger.error('Trying to save note without body');
       throw new Error('Note body missing');
     }
-    assertSupportNoteIsChangeable(await this.readNote(req, municipalityId, errandId, noteId), 'ändras');
+    assertSupportNoteIsChangeable(await this.readNote(req, MUNICIPALITY_ID, errandId, noteId), 'ändras');
     const res = await this.apiService.patch<any, SupportNoteUpdateDto>({ url, data }, req.user).catch(e => {
       logger.error('Error when updaiing note');
       logger.error(e);
@@ -221,18 +208,17 @@ export class SupportNoteController {
     return response.status(200).send(res.data);
   }
 
-  @Delete('/supportnotes/:municipalityId/:errandId/notes/:noteId')
+  @Delete('/supportnotes/:errandId/notes/:noteId')
   @OpenAPI({ summary: 'Get notes for errand' })
   @UseBefore(authMiddleware)
   async deleteSupportNote(
     @Req() req: RequestWithUser,
-    @Param('municipalityId') municipalityId: string,
     @Param('errandId') errandId: string,
     @Param('noteId') noteId: string,
     @Res() response: any,
   ): Promise<SupportNoteData> {
-    assertSupportNoteIsChangeable(await this.readNote(req, municipalityId, errandId, noteId), 'tas bort');
-    const url = `${this.errandUrl(municipalityId, errandId)}/notes/${noteId}`;
+    assertSupportNoteIsChangeable(await this.readNote(req, MUNICIPALITY_ID, errandId, noteId), 'tas bort');
+    const url = `${this.errandUrl(MUNICIPALITY_ID, errandId)}/notes/${noteId}`;
     const res = await this.apiService.delete<SupportNoteData>({ url }, req.user);
     return response.status(204).send(res.data);
   }

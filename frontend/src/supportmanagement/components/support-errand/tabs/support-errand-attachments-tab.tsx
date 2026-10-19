@@ -17,7 +17,7 @@ import {
   useConfirm,
   useSnackbar,
 } from '@sk-web-gui/react';
-import { useConfigStore, useSupportStore } from '@stores/index';
+import { useSupportStore } from '@stores/index';
 import { getInvestigationChannelLabel } from '@supportmanagement/investigation/investigation-variant-registry';
 import {
   ACCEPTED_UPLOAD_FILETYPES,
@@ -62,7 +62,6 @@ export const SupportErrandAttachmentsTab: FC<{
   const supportErrand = useSupportStore((s) => s.supportErrand);
   const setSupportErrand = useSupportStore((s) => s.setSupportErrand);
   const supportAttachments = useSupportStore((s) => s.supportAttachments);
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const [modalAttachment, setModalAttachment] = useState<SingleSupportAttachment>();
   const [addNewAttachment, setAddNewAttachment] = useState(false);
   const [modalFetching, setModalFetching] = useState(false);
@@ -87,7 +86,7 @@ export const SupportErrandAttachmentsTab: FC<{
   };
 
   const closeModal = async () => {
-    await getSupportErrandById(supportErrand!.id!.toString(), municipalityId)
+    await getSupportErrandById(supportErrand!.id!.toString())
       .then((data) => setSupportErrand(data.errand))
       .catch((e) => {
         toastMessage({
@@ -143,7 +142,7 @@ export const SupportErrandAttachmentsTab: FC<{
   const attachments = watch('attachments');
 
   const downloadDocument = (a: SupportAttachment) => {
-    getSupportAttachment(supportErrand!.id!.toString(), municipalityId, a)
+    getSupportAttachment(supportErrand!.id!.toString(), a)
       .then((att) => {
         const uri = `data:${a.mimeType};base64,${att.base64EncodedString}`;
         const link = document.createElement('a');
@@ -183,7 +182,7 @@ export const SupportErrandAttachmentsTab: FC<{
     let isCancelled = false;
 
     const fetchAttachmentThumbnail = async (att: SupportAttachment) => {
-      const res = await getSupportAttachment(errandId, municipalityId, att);
+      const res = await getSupportAttachment(errandId, att);
       return {
         id: att.id,
         dataUrl: `data:${att.mimeType};base64,${res.base64EncodedString}`,
@@ -219,7 +218,7 @@ export const SupportErrandAttachmentsTab: FC<{
       isCancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supportErrand?.id, supportAttachments, municipalityId]);
+  }, [supportErrand?.id, supportAttachments]);
 
   const openHandler = () => {
     setDragDrop(true);
@@ -234,7 +233,7 @@ export const SupportErrandAttachmentsTab: FC<{
   const clickHandler = (attachment: SupportAttachment) => {
     if (imageMimeTypes.includes(attachment.mimeType)) {
       setModalFetching(true);
-      getSupportAttachment(supportErrand!.id!.toString(), municipalityId, attachment)
+      getSupportAttachment(supportErrand!.id!.toString(), attachment)
         .then((res) => setModalAttachment(res))
         .then(() => {
           setModalFetching(false);
@@ -248,7 +247,7 @@ export const SupportErrandAttachmentsTab: FC<{
   const onDelete = () => {
     removeConfirm.showConfirmation('Ta bort?', 'Vill du ta bort denna bilaga?').then((confirmed) => {
       if (confirmed) {
-        return deleteSupportAttachment(supportErrand!.id!.toString(), municipalityId, selectedAttachment!.id!)
+        return deleteSupportAttachment(supportErrand!.id!.toString(), selectedAttachment!.id!)
           ?.then(() => {
             props.update();
             reset();
@@ -364,7 +363,7 @@ export const SupportErrandAttachmentsTab: FC<{
                       file: a.file!,
                     }));
                     setIsLoading(true);
-                    saveSupportAttachments(supportErrand!.id!.toString(), municipalityId, attachmentsData)
+                    saveSupportAttachments(supportErrand!.id!.toString(), attachmentsData)
                       .then(() => props.update())
                       .then(() => setAddNewAttachment(false))
                       .then(() => setSelectedAttachment(undefined))

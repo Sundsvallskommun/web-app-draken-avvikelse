@@ -44,7 +44,6 @@ jobs:
           DOMAIN_NAME: localhost
           BASE_PATH: ""
           NEXT_PUBLIC_BASEPATH: /iaf
-          NEXT_PUBLIC_MUNICIPALITY_ID: 2281
           NEXT_PUBLIC_ENVIRONMENT: TEST
           HEALTH_AUTH: false
           HEALTH_USERNAME: ""

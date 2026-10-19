@@ -25,12 +25,10 @@ const failureMessage = (cause: unknown): string => {
  */
 export function MeasureActionPlanButton({
   errand,
-  municipalityId,
   measureCount,
   onCreated,
 }: {
   errand: SupportErrand;
-  municipalityId: string;
   measureCount: number;
   /** The plan is an attachment on the errand, which moves its version: the tab takes that in as its own write. */
   onCreated?: () => Promise<unknown>;
@@ -44,12 +42,12 @@ export function MeasureActionPlanButton({
     if (busy || empty || !errand.id) return;
     setBusy(true);
     try {
-      const created = await createMeasureActionPlan(municipalityId, errand.id);
+      const created = await createMeasureActionPlan(errand.id);
       snackbar({
         message: `Handlingsplanen ${created.fileName} har skapats och lagts som en bilaga på ärendet.`,
         status: 'success',
       });
-      await Promise.all([refreshSupportAttachments(municipalityId, errand.id), onCreated?.()]);
+      await Promise.all([refreshSupportAttachments(errand.id), onCreated?.()]);
     } catch (cause) {
       snackbar({ message: failureMessage(cause), status: 'error' });
     } finally {

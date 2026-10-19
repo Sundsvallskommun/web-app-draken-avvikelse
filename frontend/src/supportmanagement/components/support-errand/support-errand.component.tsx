@@ -2,7 +2,7 @@ import { ReferredFromErrandInformation } from '@common/components/referred-from-
 import { getMe } from '@common/services/user-service';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { Alert, Spinner, useGui, useSnackbar } from '@sk-web-gui/react';
-import { useBadgeStore, useConfigStore, useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
+import { useBadgeStore, useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
 import { isSupportRegistrationEnabled } from '@supportmanagement/investigation/investigation-profile';
 import { useInvestigationProfileStore } from '@supportmanagement/investigation/investigation-profile-store';
 import { getInvestigationLimitedAccessNotice } from '@supportmanagement/investigation/investigation-variant-registry';
@@ -34,7 +34,6 @@ export const SupportErrandComponent: FC = () => {
   const errandNumber = params?.errandNumber;
   const [isLoading, setIsLoading] = useState(!!errandNumber);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const municipalityId = useConfigStore((s) => s.municipalityId);
   const { supportErrand, setSupportErrand } = useSupportStore();
   const { setNotesCount, setServiceNotesCount } = useBadgeStore();
   const supportMetadata = useMetadataStore((s) => s.supportMetadata);
@@ -73,8 +72,6 @@ export const SupportErrandComponent: FC = () => {
       .catch((e) => {});
     if (errandNumber) {
       setIsLoading(true);
-      // The errand number route reads the municipality on the server; the store may not have it yet.
-      const errandMunicipalityId = municipalityId || process.env.NEXT_PUBLIC_MUNICIPALITY_ID || '';
       getSupportErrandByErrandNumber(errandNumber)
         .then(async (res) => {
           if (res.error) {
@@ -85,10 +82,7 @@ export const SupportErrandComponent: FC = () => {
               status: 'error',
             });
           }
-          const errand =
-            limitedAccessNotice && errandMunicipalityId
-              ? await markLimitedSupportErrandAccess(errandMunicipalityId, res.errand)
-              : res.errand;
+          const errand = limitedAccessNotice ? await markLimitedSupportErrandAccess(res.errand) : res.errand;
           setSupportErrand(errand);
           methods.reset(errand);
           setIsLoading(false);
@@ -103,17 +97,17 @@ export const SupportErrandComponent: FC = () => {
         });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [municipalityId, errandNumber]);
+  }, [errandNumber]);
 
   useEffect(() => {
     if (supportErrand && !supportErrandIsEmpty(supportErrand)) {
-      getSupportNotesCount(supportErrand!.id!, municipalityId!).then((res) => {
+      getSupportNotesCount(supportErrand!.id!).then((res) => {
         setNotesCount(res);
       });
       // Answers 0 on failure; it never rejects.
-      void getSupportServiceNotesCount(supportErrand.id!, municipalityId!).then(setServiceNotesCount);
+      void getSupportServiceNotesCount(supportErrand.id!).then(setServiceNotesCount);
     }
-  }, [supportErrand, municipalityId, setNotesCount, setServiceNotesCount]);
+  }, [supportErrand, setNotesCount, setServiceNotesCount]);
 
   const isReady = !isLoading && !!supportErrand?.id && !!supportMetadata;
   // No heading rather than a placeholder: an errand the investigation classifies has no type yet, and that is
@@ -139,7 +133,7 @@ export const SupportErrandComponent: FC = () => {
 
   // A new errand is registered through the form, which asks what happened and where before the errand exists.
   if (!errandNumber) {
-    return <SupportErrandRegistrationForm municipalityId={municipalityId!} />;
+    return <SupportErrandRegistrationForm />;
   }
 
   if (!isReady) {
@@ -199,7 +193,7 @@ export const SupportErrandComponent: FC = () => {
                     </div>
                     {!supportErrandIsEmpty(supportErrand!) && (
                       <div className="mt-16">
-                        <ReferredFromErrandInformation municipalityId={municipalityId} errandId={supportErrand!.id!} />
+                        <ReferredFromErrandInformation errandId={supportErrand!.id!} />
                       </div>
                     )}
                   </div>
