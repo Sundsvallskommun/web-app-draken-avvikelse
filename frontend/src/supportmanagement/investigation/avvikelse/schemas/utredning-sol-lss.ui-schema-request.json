@@ -1,0 +1,310 @@
+{
+  "value": {
+    "ui:options": {
+      "showSectionCompletion": false
+    },
+    "ui:order": [
+      "legalBases",
+      "investigator",
+      "reportedEventDescription",
+      "reportSummary",
+      "reportReceivedDate",
+      "reportedMisconduct",
+      "occurrenceTime",
+      "discovery",
+      "occurrenceOperation",
+      "affectedPersons",
+      "consequences",
+      "gatheredInformation",
+      "courseOfEvents",
+      "timeline",
+      "previousOccurrences",
+      "eventAnalysis",
+      "causeAreas",
+      "recurrenceRisk",
+      "immediateActions",
+      "preventiveActions",
+      "otherFindings",
+      "individualNotified",
+      "representativeNotified",
+      "documentedInRecord",
+      "feedbackGiven",
+      "requiresPoliceReport",
+      "proposedMisconductDegree",
+      "proposalMotivation",
+      "completed",
+      "reports"
+    ],
+    "ui:sections": [
+      {
+        "id": "background",
+        "title": "Bakgrund",
+        "icon": "info",
+        "defaultOpen": true,
+        "fields": ["investigator", "reportedEventDescription", "reportSummary", "reportReceivedDate"]
+      },
+      {
+        "id": "what-happened",
+        "title": "Vad har hänt?",
+        "icon": "history",
+        "defaultOpen": true,
+        "fields": [
+          "reportedMisconduct",
+          "occurrenceTime",
+          "discovery",
+          "occurrenceOperation",
+          "affectedPersons",
+          "consequences",
+          "gatheredInformation",
+          "courseOfEvents",
+          "timeline",
+          "previousOccurrences",
+          "eventAnalysis"
+        ]
+      },
+      {
+        "id": "why",
+        "title": "Varför har det hänt?",
+        "icon": "circle-alert",
+        "defaultOpen": true,
+        "description": "När händelser inträffar och bedömningen är att nämnden avvikit från aktuella kvalitetskrav ska bakomliggande orsaker till det inträffade identifieras.",
+        "footnote": "Utredarens förslag på åtgärder för att förhindra att liknande inträffar igen registreras i fliken Åtgärder.",
+        "fields": [
+          "causeAreas",
+          "recurrenceRisk",
+          "immediateActions",
+          "preventiveActions",
+          "otherFindings",
+          "individualNotified",
+          "representativeNotified",
+          "documentedInRecord",
+          "feedbackGiven",
+          "requiresPoliceReport"
+        ]
+      },
+      {
+        "id": "decision-proposal",
+        "title": "Förslag till beslut",
+        "icon": "gavel",
+        "defaultOpen": true,
+        "fields": ["proposedMisconductDegree", "proposalMotivation"]
+      },
+      {
+        "id": "categorization",
+        "title": "Kategorisering",
+        "icon": "menu",
+        "defaultOpen": true,
+        "fields": ["legalBases", "$external:errandClassification"]
+      },
+      {
+        "id": "report",
+        "title": "Avsluta utredning och skapa rapport",
+        "icon": "file-text",
+        "defaultOpen": true,
+        "fields": ["completed", "$external:investigationReport", "reports"]
+      }
+    ],
+    "legalBases": {
+      "ui:widget": "checkboxes",
+      "ui:options": {
+        "multiple": true,
+        "className": "w-full max-w-[48rem]",
+        "showRequiredIndicator": true
+      }
+    },
+    "investigator": {
+      "ui:widget": "TextWidget",
+      "ui:readonly": true,
+      "ui:options": {
+        "className": "w-full max-w-[40rem]"
+      }
+    },
+    "reportedEventDescription": {
+      "ui:widget": "TexteditorWidget",
+      "ui:readonly": true,
+      "ui:options": {
+        "className": "w-full",
+        "size": "medium",
+        "disableToolbar": true
+      }
+    },
+    "reportSummary": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "medium",
+        "disableToolbar": false,
+        "showRequiredIndicator": true
+      }
+    },
+    "reportReceivedDate": {
+      "ui:widget": "DateWidget",
+      "ui:readonly": true
+    },
+    "reportedMisconduct": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "large",
+        "disableToolbar": false
+      }
+    },
+    "occurrenceTime": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "medium",
+        "disableToolbar": false
+      }
+    },
+    "discovery": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "large",
+        "disableToolbar": false
+      }
+    },
+    "occurrenceOperation": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "medium",
+        "disableToolbar": false
+      }
+    },
+    "affectedPersons": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "medium",
+        "disableToolbar": false
+      }
+    },
+    "consequences": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "large",
+        "disableToolbar": false
+      }
+    },
+    "gatheredInformation": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "large",
+        "disableToolbar": false
+      }
+    },
+    "courseOfEvents": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "large",
+        "disableToolbar": false
+      }
+    },
+    "timeline": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "large",
+        "disableToolbar": false
+      }
+    },
+    "previousOccurrences": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "large",
+        "disableToolbar": false
+      }
+    },
+    "eventAnalysis": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "large",
+        "disableToolbar": false
+      }
+    },
+    "causeAreas": {
+      "ui:widget": "checkboxes",
+      "ui:options": {
+        "multiple": true,
+        "placeholder": "Välj en eller flera orsaker",
+        "className": "w-full max-w-[48rem]"
+      }
+    },
+    "recurrenceRisk": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "medium",
+        "disableToolbar": false
+      }
+    },
+    "immediateActions": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "medium",
+        "disableToolbar": false
+      }
+    },
+    "preventiveActions": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "medium",
+        "disableToolbar": false
+      }
+    },
+    "otherFindings": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "medium",
+        "disableToolbar": false
+      }
+    },
+    "individualNotified": {
+      "ui:widget": "RadiobuttonWidget"
+    },
+    "representativeNotified": {
+      "ui:widget": "RadiobuttonWidget"
+    },
+    "documentedInRecord": {
+      "ui:widget": "RadiobuttonWidget"
+    },
+    "feedbackGiven": {
+      "ui:widget": "RadiobuttonWidget"
+    },
+    "requiresPoliceReport": {
+      "ui:widget": "RadiobuttonWidget"
+    },
+    "proposedMisconductDegree": {
+      "ui:widget": "select",
+      "ui:placeholder": "Välj beslut",
+      "ui:options": {
+        "className": "w-full max-w-[48rem]"
+      }
+    },
+    "proposalMotivation": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full",
+        "size": "medium",
+        "disableToolbar": false
+      }
+    },
+    "completed": {
+      "ui:widget": "RadiobuttonWidget"
+    },
+    "reports": {
+      "ui:widget": "hidden"
+    }
+  },
+  "description": "UI schema for version 2.4 of Utredning Lex Sarah in Draken"
+}

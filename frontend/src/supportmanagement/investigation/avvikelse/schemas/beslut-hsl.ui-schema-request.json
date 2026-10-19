@@ -1,0 +1,44 @@
+{
+  "value": {
+    "ui:options": {
+      "showSectionCompletion": false
+    },
+    "ui:order": ["decidedAt", "updatedAt", "revisions", "ivoNotification", "ivoCaseNumber", "public360CaseNumber"],
+    "ui:sections": [
+      {
+        "id": "decision",
+        "title": "Beslut",
+        "icon": "gavel",
+        "defaultOpen": true,
+        "fields": ["decidedAt", "updatedAt", "revisions", "ivoNotification", "ivoCaseNumber", "public360CaseNumber"]
+      }
+    ],
+    "decidedAt": {
+      "ui:widget": "hidden"
+    },
+    "updatedAt": {
+      "ui:widget": "hidden"
+    },
+    "revisions": {
+      "ui:widget": "hidden"
+    },
+    "ivoNotification": {
+      "ui:widget": "RadiobuttonWidget"
+    },
+    "ivoCaseNumber": {
+      "ui:widget": "TextWidget",
+      "ui:placeholder": "Ange IVO ärendenummer",
+      "ui:options": {
+        "className": "w-full max-w-[24rem]"
+      }
+    },
+    "public360CaseNumber": {
+      "ui:widget": "TextWidget",
+      "ui:placeholder": "Ange Public 360 ärendenummer",
+      "ui:options": {
+        "className": "w-full max-w-[24rem]"
+      }
+    }
+  },
+  "description": "UI schema for version 1.2 of Beslut HSL in Draken"
+}

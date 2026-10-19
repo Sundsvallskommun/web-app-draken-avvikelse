@@ -1,0 +1,136 @@
+{
+  "value": {
+    "ui:options": {
+      "showSectionCompletion": false
+    },
+    "ui:order": [
+      "legalBases",
+      "investigationText",
+      "causeAreas",
+      "riskAssessmentHsl",
+      "requiresPoliceReport",
+      "riskAssessmentSolLss",
+      "suspectedMisconduct",
+      "reportedMisconduct",
+      "completed",
+      "reports"
+    ],
+    "ui:sections": [
+      {
+        "id": "categorization-and-documentation",
+        "title": "Kategorisering och dokumentation",
+        "icon": "menu",
+        "defaultOpen": true,
+        "fields": [
+          "legalBases",
+          "$external:errandClassification",
+          "investigationText",
+          "causeAreas",
+          "riskAssessmentHsl",
+          "requiresPoliceReport",
+          "riskAssessmentSolLss",
+          "suspectedMisconduct",
+          "reportedMisconduct"
+        ]
+      },
+      {
+        "id": "report",
+        "title": "Utredningen klar och rapport",
+        "icon": "file-text",
+        "defaultOpen": true,
+        "fields": ["completed", "$external:investigationReport", "reports"]
+      }
+    ],
+    "legalBases": {
+      "ui:widget": "checkboxes",
+      "ui:options": {
+        "multiple": true,
+        "placeholder": "Välj lagrum",
+        "className": "w-full max-w-[48rem]",
+        "showRequiredIndicator": true
+      }
+    },
+    "investigationText": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full min-h-[22rem]",
+        "disableToolbar": false
+      }
+    },
+    "causeAreas": {
+      "ui:widget": "checkboxes",
+      "ui:options": {
+        "multiple": true,
+        "placeholder": "Välj en eller flera orsaker",
+        "className": "w-full max-w-[48rem]"
+      }
+    },
+    "requiresPoliceReport": {
+      "ui:widget": "RadiobuttonWidget"
+    },
+    "riskAssessmentHsl": {
+      "ui:options": {
+        "showObjectFieldset": true
+      },
+      "ui:order": ["assessedWith", "probability", "severity", "calculatedRiskValue"],
+      "assessedWith": {
+        "ui:widget": "TextWidget",
+        "ui:placeholder": "Ange för- och efternamn",
+        "ui:options": {
+          "showRequiredIndicator": true
+        }
+      },
+      "probability": {
+        "ui:widget": "RadiobuttonWidget",
+        "ui:options": {
+          "showRequiredIndicator": true
+        }
+      },
+      "severity": {
+        "ui:widget": "RadiobuttonWidget",
+        "ui:options": {
+          "showRequiredIndicator": true
+        }
+      },
+      "calculatedRiskValue": {
+        "ui:widget": "TextWidget",
+        "ui:readonly": true,
+        "ui:options": {
+          "showRequiredIndicator": true
+        }
+      }
+    },
+    "riskAssessmentSolLss": {
+      "ui:options": {
+        "showObjectFieldset": true
+      },
+      "ui:order": ["probability", "severity", "calculatedRiskValue"],
+      "probability": {
+        "ui:widget": "RadiobuttonWidget",
+        "ui:options": {
+          "showRequiredIndicator": true
+        }
+      },
+      "severity": {
+        "ui:widget": "RadiobuttonWidget",
+        "ui:options": {
+          "showRequiredIndicator": true
+        }
+      },
+      "calculatedRiskValue": {
+        "ui:widget": "TextWidget",
+        "ui:readonly": true,
+        "ui:options": {
+          "showRequiredIndicator": true
+        }
+      }
+    },
+    "suspectedMisconduct": {
+      "ui:widget": "RadiobuttonWidget"
+    },
+    "completed": { "ui:widget": "RadiobuttonWidget" },
+    "reportedMisconduct": { "ui:widget": "hidden" },
+    "reports": { "ui:widget": "hidden" }
+  },
+  "description": "UI schema for version 1.11 of Utredning enhetschef in Draken"
+}

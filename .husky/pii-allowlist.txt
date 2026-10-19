@@ -1,0 +1,33 @@
+# PII-allowlist för pre-commit-grinden (se .husky/pre-commit).
+#
+# Kända, ofarliga värden som förekommer i e2e-testfixtures (frontend/e2e/**):
+#   - fejkade personnummer i mockdata
+#   - publika organisationsnummer (t.ex. Sundsvalls kommun, aktiebolag)
+#   - fejkade/partiella telefonnummer
+#   - falska träffar: substrängar av test-ärendenummer/datum som regexen råkar matcha
+#
+# Auto-genererade API-klienter under **/data-contracts/** undantas redan per sökväg
+# i hooken (de regenereras, handredigeras aldrig), så deras exempelvärden listas inte här.
+#
+# Format: ett token per rad, exakt som scannern fångar det (se regexar i .husky/pre-commit).
+# Rader som börjar med # och tomma rader ignoreras. Lägg till nya testnummer här
+# när fixtures utökas — då slipper du --no-verify.
+
+# --- Personnummer- / organisationsnummer-träffar ---
+000000-0000
+111111-2222
+199001012385
+199001012386
+199909092380
+# Publika organisationsnummer
+556026-9986
+556026-9987
+# Falsk träff: test-ärendenummer (…-2026-000001) som matchar telefonnummer-regexen
+026-000001
+
+# --- Telefonnummer-träffar ---
+0701740605
+0701740635
+0701740636
++46701740605
++46701740635

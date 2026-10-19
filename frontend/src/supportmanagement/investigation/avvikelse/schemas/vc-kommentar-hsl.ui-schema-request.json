@@ -1,0 +1,25 @@
+{
+  "value": {
+    "ui:options": {
+      "showSectionCompletion": false
+    },
+    "ui:order": ["commissionerComment"],
+    "ui:sections": [
+      {
+        "id": "commissioner-comment",
+        "defaultOpen": true,
+        "title": "Uppdragsgivarens kommentar",
+        "icon": "pen",
+        "fields": ["commissionerComment"]
+      }
+    ],
+    "commissionerComment": {
+      "ui:widget": "TextareaWidget",
+      "ui:placeholder": "Skriv uppdragsgivarens kommentar",
+      "ui:options": {
+        "className": "w-full min-h-[10rem]"
+      }
+    }
+  },
+  "description": "UI schema for version 1.0 of VC kommentar HSL in Draken"
+}

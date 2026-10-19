@@ -1,0 +1,34 @@
+[
+  {
+    "identifier": "avvikelse.investigation.sol-lss",
+    "contentFile": "avvikelse.investigation.sol-lss.html",
+    "name": "Utredningsmall enhetschef - SOL/LSS",
+    "description": "Utredningstextens startinnehåll när enhetschefen väljer SOL/LSS utredning i IAF och VOF.",
+    "metadata": [
+      { "key": "application", "value": "draken" },
+      { "key": "templateType", "value": "Investigation" },
+      { "key": "templateRole", "value": "skeleton" },
+      { "key": "editor", "value": "richtexteditor" },
+      { "key": "schemaName", "value": "utredning-enhetschef" },
+      { "key": "investigationTemplate", "value": "sol_lss" },
+      { "key": "namespace", "value": "HEALTHCAREDEVIATIONIAF" },
+      { "key": "namespace", "value": "HEALTHCAREDEVIATIONVOF" }
+    ]
+  },
+  {
+    "identifier": "avvikelse.investigation.sol-lss-hsl",
+    "contentFile": "avvikelse.investigation.sol-lss-hsl.html",
+    "name": "Utredningsmall enhetschef - SOL/LSS/HSL",
+    "description": "Utredningstextens startinnehåll när enhetschefen väljer SOL/LSS/HSL utredning i IAF och VOF.",
+    "metadata": [
+      { "key": "application", "value": "draken" },
+      { "key": "templateType", "value": "Investigation" },
+      { "key": "templateRole", "value": "skeleton" },
+      { "key": "editor", "value": "richtexteditor" },
+      { "key": "schemaName", "value": "utredning-enhetschef" },
+      { "key": "investigationTemplate", "value": "sol_lss_hsl" },
+      { "key": "namespace", "value": "HEALTHCAREDEVIATIONIAF" },
+      { "key": "namespace", "value": "HEALTHCAREDEVIATIONVOF" }
+    ]
+  }
+]

@@ -1,0 +1,14 @@
+# Strict, repo-wide code-quality gates before pushing.
+# Mirrors CI lint, formatting, and dead-code checks so failures surface locally first.
+# Bypass (discouraged): git push --no-verify
+
+echo "→ frontend: strict lint + format check"
+yarn --cwd frontend lint:strict || exit 1
+yarn --cwd frontend format:check || exit 1
+
+echo "→ backend: strict lint + format check"
+yarn --cwd backend lint:strict || exit 1
+yarn --cwd backend format:check || exit 1
+
+echo "→ repository: dead-code and dependency check"
+yarn knip || exit 1

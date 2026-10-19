@@ -1,0 +1,437 @@
+{
+  "utredning-enhetschef": {
+    "valid": {
+      "legalBases": ["HSL", "SOL"],
+      "investigationText": "<p>Enhetschefens samlade utredning.</p>",
+      "requiresPoliceReport": "not_applicable",
+      "causeAreas": ["communication_information", "procedures_routines_guidelines"],
+      "riskAssessmentHsl": {
+        "assessedWith": "Anna Andersson",
+        "probability": 2,
+        "severity": 3,
+        "calculatedRiskValue": 6
+      },
+      "riskAssessmentSolLss": {
+        "probability": 3,
+        "severity": 2,
+        "calculatedRiskValue": 6
+      },
+      "suspectedMisconduct": "no",
+      "completed": "no",
+      "reports": [
+        {
+          "generatedAt": "2026-09-11T12:30:00.000Z",
+          "generatedBy": "iaf.test",
+          "fileName": "Utredning enhetschef_1.pdf",
+          "attachmentId": "attachment-1"
+        }
+      ]
+    },
+    "invalid": [
+      {
+        "description": "riskvärden utanför skalan 1–4 avvisas",
+        "value": {
+          "legalBases": ["HSL"],
+          "riskAssessmentHsl": {
+            "assessedWith": "Anna Andersson",
+            "probability": 5,
+            "severity": 3,
+            "calculatedRiskValue": 15
+          }
+        }
+      },
+      {
+        "description": "En rapportpost måste ange tidpunkt, användare och filnamn",
+        "value": {
+          "reports": [
+            {
+              "generatedAt": "2026-09-11T12:30:00.000Z"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "utredning-sol-lss": {
+    "valid": {
+      "legalBases": ["SOL", "LSS"],
+      "investigator": "Lisa Utredare",
+      "reportedEventDescription": "<p>Den enskilde fick inte sitt stöd vid kvällsbesöket.</p>",
+      "reportSummary": "<p>Ett kvällsbesök i hemtjänsten uteblev utan att någon underrättades.</p>",
+      "reportReceivedDate": "2026-08-02",
+      "reportedMisconduct": "<p>Kvällsbesöket uteblev utan att någon underrättades.</p>",
+      "occurrenceTime": "<p>Den 1 augusti på kvällen.</p>",
+      "discovery": "<p>Upptäcktes av nattpersonalen vid nästa besök.</p>",
+      "occurrenceOperation": "<p>Hemtjänst Norr.</p>",
+      "affectedPersons": "<p>Den enskilde.</p>",
+      "consequences": "<p>Den enskilde blev utan mat och tillsyn under kvällen.</p>",
+      "gatheredInformation": "<p>Samtal med personal och genomgång av planeringen.</p>",
+      "courseOfEvents": "<p>Besöket föll bort vid en omplanering.</p>",
+      "timeline": "<p>17.00 omplanering, 22.00 upptäckt.</p>",
+      "previousOccurrences": "<p>Nej.</p>",
+      "eventAnalysis": "<p>Det inträffade utgör ett missförhållande.</p>",
+      "causeAreas": ["communication_information", "procedures_routines_guidelines"],
+      "recurrenceRisk": "<p>Ja, om planeringen inte ändras.</p>",
+      "immediateActions": "<p>Extra besök samma kväll.</p>",
+      "preventiveActions": "<p>Ny rutin för omplanering.</p>",
+      "otherFindings": "<p>Inget.</p>",
+      "individualNotified": "yes",
+      "representativeNotified": "not_applicable",
+      "documentedInRecord": "yes",
+      "feedbackGiven": "not_applicable",
+      "requiresPoliceReport": "not_applicable",
+      "proposedMisconductDegree": "misconduct",
+      "proposalMotivation": "<p>Utredarens samlade motivering.</p>",
+      "completed": "no",
+      "reports": [
+        {
+          "generatedAt": "2026-09-11T12:30:00.000Z",
+          "generatedBy": "iaf.test",
+          "fileName": "Utredning SoL-LSS_1.pdf",
+          "attachmentId": "attachment-1"
+        }
+      ]
+    },
+    "invalid": [
+      {
+        "description": "samma orsak får inte förekomma två gånger",
+        "value": {
+          "legalBases": ["SOL", "LSS"],
+          "causeAreas": ["communication_information", "communication_information"]
+        }
+      },
+      {
+        "description": "En rapportpost måste ange tidpunkt, användare och filnamn",
+        "value": {
+          "reports": [
+            {
+              "generatedAt": "2026-09-11T12:30:00.000Z"
+            }
+          ]
+        }
+      },
+      {
+        "description": "ett ställningstagande har ingen motivering",
+        "value": {
+          "legalBases": ["SOL", "LSS"],
+          "individualNotified": "yes",
+          "individualNotifiedMotivation": "<p>Behövs inte.</p>"
+        }
+      },
+      {
+        "description": "ett ställningstagande är Ja eller Ej aktuellt",
+        "value": {
+          "legalBases": ["SOL", "LSS"],
+          "feedbackGiven": "kanske"
+        }
+      },
+      {
+        "description": "en klar utredning sammanfattar rapporten",
+        "value": {
+          "legalBases": ["SOL", "LSS"],
+          "completed": "yes"
+        }
+      }
+    ]
+  },
+  "utredning-hsl": {
+    "valid": {
+      "analysisDecision": "analyze",
+      "assignment": "<p>Uppdrag, uppdragsgivare och startdatum.</p>",
+      "analysisTeamParticipants": [
+        {
+          "name": "Anna Andersson",
+          "role": "nurse"
+        }
+      ],
+      "methodology": "<p>Händelseanalys med journalgranskning och intervjuer.</p>",
+      "eventDescription": "<p>Händelsebeskrivning och händelseförlopp.</p>",
+      "identifiedCauses": ["communication_information", "technology_equipment"],
+      "underlyingCauses": ["communication_failure", "technical_fault"],
+      "contributingFactorsAndRisks": "<p>Bidragande faktorer, bifynd och kostnader.</p>",
+      "analysisEvaluation": "<p>Analysteamets utvärdering.</p>",
+      "completed": "no",
+      "reports": [
+        {
+          "generatedAt": "2026-09-11T12:30:00.000Z",
+          "generatedBy": "iaf.test",
+          "fileName": "Utredning HSL_1.pdf",
+          "attachmentId": "attachment-1"
+        }
+      ]
+    },
+    "invalid": [
+      {
+        "description": "Beslutet om IVO-anmälan hör till beslutsdokumentet, inte utredningen",
+        "value": {
+          "ivoNotification": "yes",
+          "public360CaseNumber": "P360-2026-5678"
+        }
+      },
+      {
+        "description": "Motivering hör inte till ett ärende som ska händelseanalyseras",
+        "value": {
+          "analysisDecision": "analyze",
+          "notAnalyzedMotivation": "Text"
+        }
+      },
+      {
+        "description": "Okänt beslut avvisas",
+        "value": {
+          "analysisDecision": "later"
+        }
+      },
+      {
+        "description": "En deltagares roll är en av de fyra i listan",
+        "value": {
+          "analysisTeamParticipants": [{ "name": "Anna Andersson", "role": "Analysledare" }]
+        }
+      },
+      {
+        "description": "En deltagare har ingen enhet längre",
+        "value": {
+          "analysisTeamParticipants": [{ "name": "Anna Andersson", "role": "nurse", "unit": "Hemtjänst Norr" }]
+        }
+      },
+      {
+        "description": "Uppdragsgivarens kommentar hör till sitt eget dokument, inte utredningen",
+        "value": {
+          "commissionerComment": "<p>Uppdragsgivaren har tagit del av analysen.</p>"
+        }
+      },
+      {
+        "description": "En rapportpost måste ange tidpunkt, användare och filnamn",
+        "value": {
+          "reports": [
+            {
+              "generatedAt": "2026-09-11T12:30:00.000Z"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "vc-kommentar-hsl": {
+    "valid": {
+      "commissionerComment": "<p>Uppdragsgivaren har tagit del av analysen.</p>"
+    },
+    "invalid": [
+      {
+        "description": "Kommentaren är text",
+        "value": {
+          "commissionerComment": ["Uppdragsgivaren har tagit del av analysen."]
+        }
+      },
+      {
+        "description": "Händelseanalysen hör till HSL-utredningen, inte kommentaren",
+        "value": {
+          "commissionerComment": "<p>Uppdragsgivaren har tagit del av analysen.</p>",
+          "eventDescription": "<p>Händelsebeskrivning och händelseförlopp.</p>"
+        }
+      }
+    ]
+  },
+  "beslut-hsl": {
+    "valid": {
+      "decidedAt": "2026-09-11T12:30:00.000Z",
+      "updatedAt": "2026-09-12T08:00:00.000Z",
+      "revisions": [
+        {
+          "savedAt": "2026-09-11T12:30:00.000Z",
+          "savedBy": "iaf.test"
+        },
+        {
+          "savedAt": "2026-09-12T08:00:00.000Z",
+          "savedBy": "iaf.test"
+        }
+      ],
+      "ivoNotification": "yes",
+      "ivoCaseNumber": "IVO-2026-1234",
+      "public360CaseNumber": "P360-2026-5678"
+    },
+    "invalid": [
+      {
+        "description": "Ställningstagandet till IVO-anmälan krävs",
+        "value": {
+          "public360CaseNumber": "P360-2026-5678"
+        }
+      },
+      {
+        "description": "Public 360-ärendenummer krävs när ärendet ska anmälas till IVO",
+        "value": {
+          "ivoNotification": "yes",
+          "ivoCaseNumber": "IVO-2026-1234"
+        }
+      },
+      {
+        "description": "IVO-ärendenummer får inte anges när ärendet inte ska anmälas till IVO",
+        "value": {
+          "ivoNotification": "no",
+          "ivoCaseNumber": "IVO-2026-1234"
+        }
+      },
+      {
+        "description": "Public 360-ärendenummer får inte anges när ärendet inte ska anmälas till IVO",
+        "value": {
+          "ivoNotification": "no",
+          "public360CaseNumber": "P360-2026-5678"
+        }
+      },
+      {
+        "description": "Beslutstidpunkten måste vara en tidpunkt",
+        "value": {
+          "decidedAt": "2026-09-11",
+          "ivoNotification": "no"
+        }
+      },
+      {
+        "description": "En sparning måste ange både tidpunkt och användare",
+        "value": {
+          "revisions": [
+            {
+              "savedAt": "2026-09-11T12:30:00.000Z"
+            }
+          ],
+          "ivoNotification": "no"
+        }
+      }
+    ]
+  },
+  "beslut-sol-lss": {
+    "valid": {
+      "decidedAt": "2026-09-11T12:30:00.000Z",
+      "updatedAt": "2026-09-12T08:00:00.000Z",
+      "revisions": [
+        {
+          "savedAt": "2026-09-11T12:30:00.000Z",
+          "savedBy": "iaf.test"
+        },
+        {
+          "savedAt": "2026-09-12T08:00:00.000Z",
+          "savedBy": "iaf.test"
+        }
+      ],
+      "decisionMaker": {
+        "name": "Lena Lexberg",
+        "role": "LEX-ansvarig"
+      },
+      "decidedMisconductDegree": "serious_misconduct",
+      "decisionLegalBases": ["sol_27_5", "lss_24e"],
+      "decisionMotivation": "<p>Rapporten utgjorde ett allvarligt missförhållande.</p>",
+      "ivoNotification": "yes",
+      "ivoCaseNumber": "IVO-2026-4321",
+      "public360CaseNumber": "P360-2026-8765"
+    },
+    "invalid": [
+      {
+        "description": "Klassificering och motivering krävs",
+        "value": {
+          "ivoNotification": "no"
+        }
+      },
+      {
+        "description": "Motiveringen får inte vara tom",
+        "value": {
+          "decidedMisconductDegree": "no_misconduct",
+          "decisionMotivation": "",
+          "ivoNotification": "no"
+        }
+      },
+      {
+        "description": "Public 360-ärendenummer krävs när ärendet ska anmälas till IVO",
+        "value": {
+          "decidedMisconductDegree": "serious_misconduct",
+          "decisionMotivation": "<p>Allvarligt.</p>",
+          "ivoNotification": "yes"
+        }
+      },
+      {
+        "description": "IVO-ärendenummer får inte anges när ärendet inte ska anmälas till IVO",
+        "value": {
+          "decidedMisconductDegree": "misconduct",
+          "decisionMotivation": "<p>Missförhållande.</p>",
+          "ivoNotification": "no",
+          "ivoCaseNumber": "IVO-2026-0001"
+        }
+      },
+      {
+        "description": "Okänd klassificering avvisas",
+        "value": {
+          "decidedMisconductDegree": "unknown",
+          "decisionMotivation": "<p>-</p>",
+          "ivoNotification": "no"
+        }
+      },
+      {
+        "description": "Okänt lagrum avvisas",
+        "value": {
+          "decidedMisconductDegree": "misconduct",
+          "decisionLegalBases": ["hsl"],
+          "decisionMotivation": "<p>Missförhållande.</p>",
+          "ivoNotification": "no"
+        }
+      }
+    ]
+  },
+  "bedomning-sol-lss": {
+    "valid": {
+      "assessedAt": "2026-10-06T09:00:00.000Z",
+      "updatedAt": "2026-10-06T09:00:00.000Z",
+      "revisions": [
+        {
+          "savedAt": "2026-10-06T09:00:00.000Z",
+          "savedBy": "iaf.test"
+        }
+      ],
+      "ivoNotification": "yes",
+      "ivoCaseNumber": "IVO 3.5.1-12345/2026",
+      "public360CaseNumber": "2026-1234",
+      "lexInvestigationDecision": "not_investigate",
+      "notInvestigatedMotivation": "Händelsen gäller inte omsorgen om den enskilde och ska hanteras som en avvikelse."
+    },
+    "invalid": [
+      {
+        "description": "IVO-frågan och beslutet krävs",
+        "value": {}
+      },
+      {
+        "description": "Motivering krävs när ärendet inte ska lex-utredas",
+        "value": {
+          "ivoNotification": "no",
+          "lexInvestigationDecision": "not_investigate"
+        }
+      },
+      {
+        "description": "Motiveringen får inte vara tom",
+        "value": {
+          "ivoNotification": "no",
+          "lexInvestigationDecision": "not_investigate",
+          "notInvestigatedMotivation": ""
+        }
+      },
+      {
+        "description": "Motivering hör inte till ett ärende som ska utredas",
+        "value": {
+          "ivoNotification": "no",
+          "lexInvestigationDecision": "investigate",
+          "notInvestigatedMotivation": "Text"
+        }
+      },
+      {
+        "description": "IVO-ärendenummer får inte anges när ärendet inte ska anmälas till IVO",
+        "value": {
+          "ivoNotification": "no",
+          "ivoCaseNumber": "IVO 1",
+          "lexInvestigationDecision": "investigate"
+        }
+      },
+      {
+        "description": "Okänt beslut avvisas",
+        "value": {
+          "ivoNotification": "no",
+          "lexInvestigationDecision": "later"
+        }
+      }
+    ]
+  }
+}

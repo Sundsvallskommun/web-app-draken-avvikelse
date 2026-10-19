@@ -1,0 +1,9 @@
+# Auto-generated API clients (swagger-typescript-api). Never hand-edited and
+# already opt out of eslint/tsc via their header banner — so they are excluded
+# from formatting too. Mirrors the eslint ignore in eslint.config.mjs.
+src/**/data-contracts/**
+
+# Build output & dependencies
+.next/
+node_modules/
+coverage/

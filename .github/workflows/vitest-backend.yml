@@ -1,0 +1,41 @@
+name: Backend Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+      - main
+
+jobs:
+  test-backend:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    name: Vitest unit tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: backend/yarn.lock
+
+      - name: Install dependencies
+        # --ignore-scripts disables dependency lifecycle (postinstall) scripts, a
+        # supply-chain hardening measure. Safe here: the only postinstall scripts in
+        # the tree are @swc/core's (native binary comes from optionalDependencies; the
+        # script is just a load-check/WASM fallback) and @scarf/scarf's (telemetry).
+        run: yarn --frozen-lockfile --silent --ignore-scripts
+
+      - name: Type check tests
+        run: yarn type-check:test
+
+      - name: Run tests
+        run: yarn test

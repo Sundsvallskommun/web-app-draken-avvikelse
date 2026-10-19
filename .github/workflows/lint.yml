@@ -1,0 +1,69 @@
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+      - main
+
+jobs:
+  lint-backend:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    name: Lint Backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: backend/yarn.lock
+
+      - name: Install dependencies
+        # --ignore-scripts: skip dependency lifecycle scripts (supply-chain hardening).
+        # Safe here: this job only lints/format-checks; no script-installed binaries needed.
+        run: yarn --frozen-lockfile --silent --ignore-scripts
+
+      - name: Run eslint (strict)
+        run: yarn lint:strict
+
+      - name: Check formatting
+        run: yarn format:check
+
+  lint-frontend:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    name: Lint Frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Install dependencies
+        # --ignore-scripts: skip dependency lifecycle scripts (supply-chain hardening).
+        # Safe here: this job only lints/format-checks; no script-installed binaries needed.
+        run: yarn --frozen-lockfile --silent --ignore-scripts
+
+      - name: Run eslint (strict)
+        run: yarn lint:strict
+
+      - name: Check formatting
+        run: yarn format:check

@@ -1,0 +1,166 @@
+{
+  "value": {
+    "ui:options": {
+      "showSectionCompletion": false
+    },
+    "ui:order": [
+      "analysisDecision",
+      "notAnalyzedMotivation",
+      "assignment",
+      "analysisTeamParticipants",
+      "methodology",
+      "eventDescription",
+      "identifiedCauses",
+      "underlyingCauses",
+      "contributingFactorsAndRisks",
+      "analysisEvaluation",
+      "completed",
+      "reports"
+    ],
+    "ui:sections": [
+      {
+        "id": "initial-assessment",
+        "title": "Initial bedömning",
+        "icon": "gavel",
+        "defaultOpen": true,
+        "fields": ["analysisDecision", "notAnalyzedMotivation"]
+      },
+      {
+        "id": "assignment",
+        "title": "Uppdrag",
+        "icon": "file-text",
+        "defaultOpen": true,
+        "fields": ["assignment"]
+      },
+      {
+        "id": "analysis-team-participants",
+        "defaultOpen": true,
+        "title": "Deltagare i analysteam",
+        "icon": "users",
+        "fields": ["analysisTeamParticipants"]
+      },
+      {
+        "id": "methodology",
+        "defaultOpen": true,
+        "title": "Metodik",
+        "icon": "file-text",
+        "fields": ["methodology"]
+      },
+      {
+        "id": "result",
+        "defaultOpen": true,
+        "title": "Resultat",
+        "icon": "info",
+        "fields": [
+          "eventDescription",
+          "identifiedCauses",
+          "underlyingCauses",
+          "contributingFactorsAndRisks",
+          "analysisEvaluation",
+          "$external:vcCommentRequest"
+        ]
+      },
+      {
+        "id": "report",
+        "title": "Utredningen klar och rapport",
+        "icon": "file-text",
+        "defaultOpen": true,
+        "fields": ["completed", "$external:investigationReport", "reports"]
+      }
+    ],
+    "analysisDecision": {
+      "ui:widget": "RadiobuttonWidget"
+    },
+    "notAnalyzedMotivation": {
+      "ui:widget": "PlainTextareaWidget",
+      "ui:placeholder": "Motivera varför ärendet inte ska händelseanalyseras",
+      "ui:options": {
+        "className": "w-full min-h-[10rem]"
+      }
+    },
+    "assignment": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full min-h-[28rem]",
+        "disableToolbar": false
+      }
+    },
+    "analysisTeamParticipants": {
+      "ui:options": {
+        "addable": true,
+        "orderable": false,
+        "itemTitle": "Deltagare",
+        "addButtonLabel": "Lägg till deltagare"
+      },
+      "items": {
+        "ui:order": ["name", "role"],
+        "ui:rows": [
+          {
+            "fields": ["name", "role"],
+            "gap": "gap-24"
+          }
+        ],
+        "name": {
+          "ui:placeholder": "Skriv namn",
+          "ui:options": {
+            "showRequiredIndicator": true
+          }
+        },
+        "role": {
+          "ui:widget": "select",
+          "ui:placeholder": "Välj roll",
+          "ui:options": {
+            "showRequiredIndicator": true
+          }
+        }
+      }
+    },
+    "methodology": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full min-h-[18rem]",
+        "disableToolbar": false
+      }
+    },
+    "eventDescription": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full min-h-[24rem]",
+        "disableToolbar": false
+      }
+    },
+    "identifiedCauses": {
+      "ui:widget": "checkboxes",
+      "ui:options": {
+        "multiple": true,
+        "placeholder": "Välj en eller flera identifierade orsaker",
+        "className": "w-full max-w-[48rem]"
+      }
+    },
+    "underlyingCauses": {
+      "ui:widget": "ComboboxWidget",
+      "ui:options": {
+        "multiple": true,
+        "placeholder": "Välj en eller flera bakomliggande orsaker",
+        "className": "w-full max-w-[48rem]"
+      }
+    },
+    "contributingFactorsAndRisks": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full min-h-[20rem]",
+        "disableToolbar": false
+      }
+    },
+    "analysisEvaluation": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full min-h-[20rem]",
+        "disableToolbar": false
+      }
+    },
+    "completed": { "ui:widget": "RadiobuttonWidget" },
+    "reports": { "ui:widget": "hidden" }
+  },
+  "description": "UI schema for version 1.5 of Utredning HSL in Draken"
+}

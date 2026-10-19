@@ -1,0 +1,150 @@
+{
+  "name": "beslut-sol-lss",
+  "version": "1.4",
+  "value": {
+    "$id": "https://schemas.sundsvall.se/2281/beslut-sol-lss/1.4",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Beslut SoL/LSS",
+    "description": "Beslut enligt lex Sarah för IAF- och VOF-ärenden med rapporttyp missförhållande. Utredarens förslag till beslut ligger i SoL/LSS-utredningen och kopieras inte hit.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["decidedMisconductDegree", "decisionMotivation", "ivoNotification"],
+    "properties": {
+      "decidedAt": {
+        "title": "Beslutat",
+        "description": "Tidpunkten då beslutet fattades, det vill säga första gången det sparades. Sätts av servern och kan inte anges eller ändras av användaren.",
+        "type": "string",
+        "format": "date-time",
+        "readOnly": true,
+        "x-draken-server-timestamp": "created"
+      },
+      "updatedAt": {
+        "title": "Senast ändrat",
+        "description": "Tidpunkten då beslutet senast sparades, till exempel när IVO:s ärendenummer fylldes i efteråt. Sätts av servern vid varje sparning.",
+        "type": "string",
+        "format": "date-time",
+        "readOnly": true,
+        "x-draken-server-timestamp": "updated"
+      },
+      "revisions": {
+        "title": "Sparningar",
+        "description": "En post per sparning av beslutet, med tidpunkt och användare. Servern lägger till posterna; de kan inte anges av användaren.",
+        "type": "array",
+        "readOnly": true,
+        "x-draken-server-revisions": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["savedAt", "savedBy"],
+          "properties": {
+            "savedAt": {
+              "title": "Sparat",
+              "type": "string",
+              "format": "date-time"
+            },
+            "savedBy": {
+              "title": "Sparat av",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "decisionMaker": {
+        "title": "Beslutsfattare",
+        "description": "Den som fattade beslutet, det vill säga sparade det första gången, och i vilken roll. Sätts av servern och kan inte anges eller ändras av användaren.",
+        "type": "object",
+        "readOnly": true,
+        "x-draken-server-author": "created",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "title": "Namn",
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "title": "Roll",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "decidedMisconductDegree": {
+        "title": "LEX-ansvarig beslutar att rapporten utgjorde",
+        "type": "string",
+        "oneOf": [
+          { "const": "no_misconduct", "title": "Inget missförhållande" },
+          { "const": "tangible_risk_of_misconduct", "title": "Påtaglig risk för missförhållande" },
+          { "const": "misconduct", "title": "Missförhållande" },
+          {
+            "const": "tangible_risk_of_serious_misconduct",
+            "title": "Påtaglig risk för allvarligt missförhållande – anmäls till IVO"
+          },
+          { "const": "serious_misconduct", "title": "Allvarligt missförhållande – anmäls till IVO" }
+        ]
+      },
+      "decisionLegalBases": {
+        "title": "Ange lagrum",
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "oneOf": [
+            { "const": "sol_27_5", "title": "27 kap 5 § SoL" },
+            { "const": "lss_24e", "title": "24 e § LSS" }
+          ]
+        }
+      },
+      "decisionMotivation": {
+        "title": "Motivering",
+        "type": "string",
+        "minLength": 1,
+        "contentMediaType": "text/html"
+      },
+      "ivoNotification": {
+        "title": "Ska ärendet anmälas till IVO?",
+        "$ref": "#/$defs/yesNo"
+      },
+      "ivoCaseNumber": {
+        "title": "IVO ärendenummer",
+        "description": "Frivilligt. Fyll i när IVO har lämnat ett ärendenummer.",
+        "type": "string",
+        "minLength": 1
+      },
+      "public360CaseNumber": {
+        "title": "Public 360 ärendenummer",
+        "description": "Obligatoriskt när ärendet ska anmälas till IVO. Finns inte när ärendet inte anmäls.",
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "$defs": {
+      "yesNo": {
+        "type": "string",
+        "oneOf": [
+          { "const": "yes", "title": "Ja" },
+          { "const": "no", "title": "Nej" }
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": { "ivoNotification": { "const": "no" } },
+          "required": ["ivoNotification"]
+        },
+        "then": {
+          "not": {
+            "anyOf": [{ "required": ["ivoCaseNumber"] }, { "required": ["public360CaseNumber"] }]
+          }
+        },
+        "else": {
+          "required": ["public360CaseNumber"]
+        }
+      }
+    ]
+  },
+  "description": "WSO2 request body for version 1.4 of the SoL/LSS (lex Sarah) decision schema"
+}

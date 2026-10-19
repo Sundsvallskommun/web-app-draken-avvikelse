@@ -1,0 +1,96 @@
+{
+  "value": {
+    "ui:options": {
+      "showSectionCompletion": false
+    },
+    "ui:order": [
+      "decidedAt",
+      "updatedAt",
+      "revisions",
+      "decisionMaker",
+      "decidedMisconductDegree",
+      "decisionLegalBases",
+      "decisionMotivation",
+      "ivoNotification",
+      "ivoCaseNumber",
+      "public360CaseNumber"
+    ],
+    "ui:sections": [
+      {
+        "id": "decision",
+        "title": "Beslut om missförhållande",
+        "icon": "gavel",
+        "defaultOpen": true,
+        "fields": [
+          "decidedAt",
+          "updatedAt",
+          "revisions",
+          "decisionMaker",
+          "decidedMisconductDegree",
+          "decisionLegalBases",
+          "decisionMotivation",
+          "$external:decisionMaker"
+        ]
+      },
+      {
+        "id": "ivo-report",
+        "title": "Anmälan till IVO",
+        "icon": "send",
+        "defaultOpen": true,
+        "fields": ["ivoNotification", "ivoCaseNumber", "public360CaseNumber"]
+      }
+    ],
+    "decidedAt": {
+      "ui:widget": "hidden"
+    },
+    "updatedAt": {
+      "ui:widget": "hidden"
+    },
+    "revisions": {
+      "ui:widget": "hidden"
+    },
+    "decisionMaker": {
+      "ui:widget": "hidden"
+    },
+    "decisionLegalBases": {
+      "ui:widget": "checkboxes",
+      "ui:options": {
+        "multiple": true,
+        "placeholder": "Välj lagrum",
+        "className": "w-full max-w-[48rem]"
+      }
+    },
+    "decidedMisconductDegree": {
+      "ui:widget": "select",
+      "ui:placeholder": "Välj klassificering",
+      "ui:options": {
+        "className": "w-full"
+      }
+    },
+    "decisionMotivation": {
+      "ui:widget": "TexteditorWidget",
+      "ui:options": {
+        "className": "w-full min-h-[18rem]",
+        "disableToolbar": false
+      }
+    },
+    "ivoNotification": {
+      "ui:widget": "RadiobuttonWidget"
+    },
+    "ivoCaseNumber": {
+      "ui:widget": "TextWidget",
+      "ui:placeholder": "Ange IVO ärendenummer",
+      "ui:options": {
+        "className": "w-full max-w-[24rem]"
+      }
+    },
+    "public360CaseNumber": {
+      "ui:widget": "TextWidget",
+      "ui:placeholder": "Ange Public 360 ärendenummer",
+      "ui:options": {
+        "className": "w-full max-w-[24rem]"
+      }
+    }
+  },
+  "description": "UI schema for version 1.4 of Beslut SoL/LSS in Draken"
+}

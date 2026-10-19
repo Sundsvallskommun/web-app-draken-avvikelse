@@ -1,0 +1,322 @@
+{
+  "name": "utredning-sol-lss",
+  "version": "2.4",
+  "value": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://schemas.sundsvall.se/2281/utredning-sol-lss/2.4",
+    "title": "Utredning Lex Sarah",
+    "type": "object",
+    "additionalProperties": false,
+    "x-draken-completion": {
+      "field": "completed",
+      "reportsField": "reports"
+    },
+    "x-draken-external-fields": {
+      "errandClassification": {
+        "kind": "supportManagementLabelClassification",
+        "legalBasesPointer": "/legalBases",
+        "required": true
+      }
+    },
+    "$defs": {
+      "yesNo": {
+        "type": "string",
+        "oneOf": [
+          {
+            "const": "yes",
+            "title": "Ja"
+          },
+          {
+            "const": "no",
+            "title": "Nej"
+          }
+        ]
+      },
+      "yesOrNotApplicable": {
+        "type": "string",
+        "oneOf": [
+          {
+            "const": "yes",
+            "title": "Ja"
+          },
+          {
+            "const": "not_applicable",
+            "title": "Ej aktuellt"
+          }
+        ]
+      }
+    },
+    "properties": {
+      "legalBases": {
+        "title": "Vilket eller vilka lagrum gäller för missförhållandet?",
+        "description": "Välj ett eller båda. Lex Sarah gäller SoL och LSS, inte HSL. Lagrummen styr kategoriseringen och statistiken.",
+        "type": "array",
+        "maxItems": 2,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "oneOf": [
+            {
+              "const": "SOL",
+              "title": "SoL – Socialtjänstlagen"
+            },
+            {
+              "const": "LSS",
+              "title": "LSS – Lagen om stöd och service till vissa funktionshindrade"
+            }
+          ]
+        }
+      },
+      "investigator": {
+        "title": "Ansvarig för utredning",
+        "description": "LEX-utredaren som utreder ärendet. Fylls i av Draken.",
+        "type": "string",
+        "readOnly": true
+      },
+      "reportedEventDescription": {
+        "title": "Typ av beskrivet missförhållande/risk",
+        "description": "Händelsebeskrivningen i rapporten. Fylls i av Draken.",
+        "type": "string",
+        "contentMediaType": "text/html",
+        "readOnly": true
+      },
+      "reportSummary": {
+        "title": "Sammanfattning av rapporten",
+        "description": "Vad rapporten gäller, med utredarens ord. Fältet börjar som en kopia av händelsebeskrivningen och kan skrivas om; den inrapporterade texten ovan ändras inte.",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "reportReceivedDate": {
+        "title": "När togs den muntliga eller skriftliga rapporten emot?",
+        "description": "Dagen då LEX-utredaren återupptog ärendet efter tilldelningen. Fylls i av Draken.",
+        "type": "string",
+        "format": "date",
+        "readOnly": true
+      },
+      "reportedMisconduct": {
+        "title": "Vad har rapporterats som ett missförhållande?",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "occurrenceTime": {
+        "title": "När inträffade missförhållandet?",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "discovery": {
+        "title": "När och hur upptäcktes missförhållandet?",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "occurrenceOperation": {
+        "title": "I vilken verksamhet skedde missförhållandet?",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "affectedPersons": {
+        "title": "Vem/vilka är berörda av händelsen?",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "consequences": {
+        "title": "Vilka konsekvenser har det fått eller kunde ha fått för den enskilde?",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "gatheredInformation": {
+        "title": "Inhämtad information",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "courseOfEvents": {
+        "title": "Utredning av händelseförlopp",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "timeline": {
+        "title": "Tidslinje",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "previousOccurrences": {
+        "title": "Har något liknande inträffat i verksamheten tidigare och i så fall hur kommer det sig att det har inträffat igen?",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "eventAnalysis": {
+        "title": "Händelseanalys",
+        "description": "Utgör det inträffade ett missförhållande eller påtaglig risk för ett missförhållande?",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "causeAreas": {
+        "title": "Vilka orsaker till missförhållandet har identifierats?",
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "oneOf": [
+            {
+              "const": "communication_information",
+              "title": "Kommunikation och information"
+            },
+            {
+              "const": "people_knowledge_competence",
+              "title": "Utbildning och kompetens"
+            },
+            {
+              "const": "procedures_routines_guidelines",
+              "title": "Processer, rutiner och riktlinjer"
+            },
+            {
+              "const": "environment_organization",
+              "title": "Omgivning och organisation"
+            },
+            {
+              "const": "technology_equipment",
+              "title": "Teknik, utrustning och apparatur"
+            }
+          ]
+        }
+      },
+      "recurrenceRisk": {
+        "title": "Finns det risk för att något liknande kan inträffa igen?",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "immediateActions": {
+        "title": "Vilka omedelbara åtgärder har vidtagits för att undanröja/avhjälpa missförhållandet?",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "preventiveActions": {
+        "title": "Vad har redan gjorts eller planeras för att förhindra liknande missförhållanden?",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "otherFindings": {
+        "title": "Övrigt som framkommit under utredningen",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "individualNotified": {
+        "title": "Har den enskilde som berörs underrättats om att ett missförhållande har rapporterats?",
+        "$ref": "#/$defs/yesOrNotApplicable"
+      },
+      "representativeNotified": {
+        "title": "Har god man, förvaltare eller närstående underrättats om att ett missförhållande har rapporterats?",
+        "$ref": "#/$defs/yesOrNotApplicable"
+      },
+      "documentedInRecord": {
+        "title": "Finns information om att en lex Sarah-rapportering har skett i den enskildes personakt?",
+        "$ref": "#/$defs/yesOrNotApplicable"
+      },
+      "feedbackGiven": {
+        "title": "Har den enskilde fått återkoppling om de åtgärder som har vidtagits?",
+        "$ref": "#/$defs/yesOrNotApplicable"
+      },
+      "requiresPoliceReport": {
+        "title": "Ska ärendet polisanmälas?",
+        "$ref": "#/$defs/yesOrNotApplicable"
+      },
+      "proposedMisconductDegree": {
+        "title": "Utredningen avslutas med följande beslut",
+        "description": "Utredarens förslag till beslut om graden av missförhållande.",
+        "type": "string",
+        "oneOf": [
+          {
+            "const": "no_misconduct",
+            "title": "Inget missförhållande"
+          },
+          {
+            "const": "tangible_risk_of_misconduct",
+            "title": "Påtaglig risk för missförhållande"
+          },
+          {
+            "const": "misconduct",
+            "title": "Missförhållande"
+          },
+          {
+            "const": "tangible_risk_of_serious_misconduct",
+            "title": "Påtaglig risk för allvarligt missförhållande – anmäls till IVO"
+          },
+          {
+            "const": "serious_misconduct",
+            "title": "Allvarligt missförhållande – anmäls till IVO"
+          }
+        ]
+      },
+      "proposalMotivation": {
+        "title": "Motivering till bedömning",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "completed": {
+        "title": "Är utredningen klar?",
+        "description": "Ja låser utredningen för ändringar och gör det möjligt att skapa en rapport. Lås upp utredningen för att ändra den igen.",
+        "$ref": "#/$defs/yesNo"
+      },
+      "reports": {
+        "title": "Rapporter",
+        "description": "En post per rapport som skapats från utredningen, med tidpunkt, användare och bilagans filnamn. Servern lägger till posterna; de kan inte anges av användaren.",
+        "type": "array",
+        "readOnly": true,
+        "x-draken-server-owned": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["generatedAt", "generatedBy", "fileName"],
+          "properties": {
+            "generatedAt": {
+              "title": "Skapad",
+              "type": "string",
+              "format": "date-time"
+            },
+            "generatedBy": {
+              "title": "Skapad av",
+              "type": "string",
+              "minLength": 1
+            },
+            "fileName": {
+              "title": "Filnamn",
+              "type": "string",
+              "minLength": 1
+            },
+            "attachmentId": {
+              "title": "Bilaga",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "allOf": [
+      {
+        "$comment": "Utkast får vara ofullständiga. Kraven på vad utredningen ska innehålla gäller först när utredaren markerar den som klar: lagrummen och sammanfattningen av rapporten. Motiveringarna till ett Nej är frivilliga.",
+        "if": {
+          "properties": {
+            "completed": {
+              "const": "yes"
+            }
+          },
+          "required": ["completed"]
+        },
+        "then": {
+          "$comment": "Kraven ligger under then.allOf: sektionsmallen läser then.properties och then.required i rot-allOf som en synlighetsregel, och ett fält får inte försvinna ur formuläret före klarmarkeringen.",
+          "allOf": [
+            {
+              "required": ["legalBases", "reportSummary"],
+              "properties": {
+                "legalBases": {
+                  "minItems": 1
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "description": "WSO2 request body for version 2.4 of the lex Sarah investigation schema"
+}

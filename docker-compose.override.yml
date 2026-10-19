@@ -1,0 +1,47 @@
+version: '3'
+services:
+  backend:
+    environment:
+      # Groups that are allowed to login
+      AUTHORIZED_GROUPS: ${AUTHORIZED_GROUPS:?err}
+      ADMIN_GROUP: ${ADMIN_GROUP:?err}
+      # Handler roles and the AD group behind each; the backend refuses to start without them
+      HEALTHCAREDEVIATION_HANDLER_ROLES: ${HEALTHCAREDEVIATION_HANDLER_ROLES:?err}
+      # Sender information when sending support messages
+      SUPPORTMANAGEMENT_SENDER_EMAIL: ${SUPPORTMANAGEMENT_SENDER_EMAIL:?err}
+      SUPPORTMANAGEMENT_SENDER_SMS: ${SUPPORTMANAGEMENT_SENDER_SMS:?err}
+      # prefix for routes
+      BASE_URL_PREFIX: ${BASE_URL_PREFIX:?err}
+      # URL to the Sundsvalls Kommun API
+      API_BASE_URL: ${API_BASE_URL:?err}
+      # Used for API auth
+      CLIENT_KEY: ${CLIENT_KEY:?err}
+      CLIENT_SECRET: ${CLIENT_SECRET:?err}
+      # SAML
+      SAML_CALLBACK_URL: ${SAML_CALLBACK_URL:?err}
+      SAML_LOGOUT_CALLBACK_URL: ${SAML_LOGOUT_CALLBACK_URL:?err}
+      SAML_FAILURE_REDIRECT: ${SAML_FAILURE_REDIRECT:?err}
+      SAML_SUCCESS_REDIRECT: ${SAML_SUCCESS_REDIRECT:?err}
+      # IDP entry and cert
+      SAML_ENTRY_SSO: ${SAML_ENTRY_SSO:?err}
+      SAML_IDP_PUBLIC_CERT: ${SAML_IDP_PUBLIC_CERT:?err}
+      # SP issuer and certs, issuer is usually the base URL
+      SAML_ISSUER: ${SAML_ISSUER:?err}
+      SAML_PRIVATE_KEY: ${SAML_PRIVATE_KEY:?err}
+      SAML_PUBLIC_KEY: ${SAML_PUBLIC_KEY:?err}
+      # Used for session encrpytion
+      SECRET_KEY: ${SECRET_KEY:?err}
+      # Used for CORS - should contain the domain of frontend
+      ORIGIN: ${ORIGIN:?err}
+      # Optionals
+      NODE_ENV: ${NODE_ENV-production}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED-false}
+      LOG_FORMAT: ${LOG_FORMAT-dev}
+      LOG_DIR: ${LOG_DIR-../../data/logs}
+      CREDENTIALS: ${CREDENTIALS-true}
+  frontend:
+    environment:
+      # URL to backend
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?err}
+      NEXT_PUBLIC_APPLICATION_NAME: ${NEXT_PUBLIC_APPLICATION_NAME:?err}
+      NEXT_PUBLIC_BASEPATH: ${NEXT_PUBLIC_BASEPATH:?err}

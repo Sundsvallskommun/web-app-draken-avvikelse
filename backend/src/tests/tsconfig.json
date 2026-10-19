@@ -1,0 +1,15 @@
+{
+  // Editor + CLI type-check config for tests. VS Code auto-discovers this as the
+  // closest tsconfig for files under src/tests, so the Vitest globals shim and the
+  // path aliases apply here. The production build uses ../../tsconfig.json (which
+  // excludes src/tests), so test files never land in dist.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  // Override the inherited exclude (base excludes src/tests) and scope includes to the
+  // tests plus the project's ambient declarations (Vitest globals, the Express/session
+  // augmentations that the middlewares and controllers under test depend on).
+  "include": ["./**/*.ts", "../types/*.d.ts"],
+  "exclude": []
+}

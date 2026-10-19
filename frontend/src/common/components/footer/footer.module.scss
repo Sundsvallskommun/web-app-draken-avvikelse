@@ -1,0 +1,20 @@
+.footer {
+    @apply
+        p-10
+        grid
+        grid-cols-3
+        container
+        mx-auto
+        mt-4;
+}
+
+.footerCol {
+    @apply
+        flex
+        flex-col;
+}
+
+.footerHeader {
+    @apply
+        opacity-80;
+}

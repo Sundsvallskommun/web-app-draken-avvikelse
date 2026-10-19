@@ -1,0 +1,16 @@
+{
+  "login": "Logga in",
+  "overview": {
+    "status": "Status",
+    "lastActivity": "Senaste aktivitet",
+    "reportType": "Rapporttyp",
+    "orderType": "Avvikelsetyp",
+    "errandType": "Underkategori",
+    "incomingVia": "Inkom via",
+    "registered": "Registrerades",
+    "registeredBy": "Registrerad av",
+    "priority": "Prioritet",
+    "reminder": "Påminnelse",
+    "responsible": "Ansvarig"
+  }
+}

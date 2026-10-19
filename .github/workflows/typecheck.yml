@@ -1,0 +1,63 @@
+name: Type Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+      - main
+
+jobs:
+  typecheck-backend:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    name: Type Check Backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: backend/yarn.lock
+
+      - name: Install dependencies
+        # --ignore-scripts: skip dependency lifecycle scripts (supply-chain hardening).
+        # Safe here: this job only type-checks; no script-installed binaries are needed.
+        run: yarn --frozen-lockfile --silent --ignore-scripts
+
+      - name: Run type check
+        run: yarn type-check
+
+  typecheck-frontend:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    name: Type Check Frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Install dependencies
+        # --ignore-scripts: skip dependency lifecycle scripts (supply-chain hardening).
+        # Safe here: this job only type-checks; no script-installed binaries are needed.
+        run: yarn --frozen-lockfile --silent --ignore-scripts
+
+      - name: Run type check
+        run: yarn type-check

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/server.ts",
+    "src/types/**/*.d.ts"
+  ],
+  "project": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "enumMembers"
+  ],
+  "ignore": [
+    "src/data-contracts/**",
+    "src/tests/helpers/mock-data.ts"
+  ],
+  "tags": [
+    "-openapi"
+  ],
+  "ignoreDependencies": [
+    "cors",
+    "swagger-typescript-api",
+    "tsconfig-paths",
+    "@types/express-serve-static-core"
+  ]
+}

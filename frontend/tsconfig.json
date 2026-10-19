@@ -1,0 +1,92 @@
+{
+  "compilerOptions": {
+    "types": [
+      "node"
+    ],
+    "target": "es6",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": false,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@config/*": [
+        "src/config/*"
+      ],
+      "@supportmanagement/*": [
+        "src/supportmanagement/*"
+      ],
+      "@common/*": [
+        "src/common/*"
+      ],
+      "@styles/*": [
+        "src/styles/*"
+      ],
+      "@stores/*": [
+        "src/stores/*"
+      ]
+      // "@services/*": ["src/services/*"],
+      // "@common/components/*": ["src/components/*"],
+      // "@interfaces/*": ["src/interfaces/*"],
+      // "@utils/*": ["src/utils/*"],
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "src/**/*.{ts,tsx}",
+    "e2e/**/*.{ts,tsx}",
+    "next-env.d.ts",
+    "node_modules/dayjs/plugin/utc.d.ts",
+    "src/common/components/localization-provider",
+    ".next-IK/types/**/*.ts",
+    ".next-KA/types/**/*.ts",
+    ".next-KC/types/**/*.ts",
+    ".next-LOP/types/**/*.ts",
+    ".next-MEX/types/**/*.ts",
+    ".next-MSVA/types/**/*.ts",
+    ".next-PT/types/**/*.ts",
+    ".next-ROB/types/**/*.ts",
+    ".next-IAF/types/**/*.ts",
+    ".next/types/**/*.ts",
+    ".next-SE/types/**/*.ts",
+    ".next-IK/dev/types/**/*.ts",
+    ".next-KA/dev/types/**/*.ts",
+    ".next-KC/dev/types/**/*.ts",
+    ".next-LOP/dev/types/**/*.ts",
+    ".next-MEX/dev/types/**/*.ts",
+    ".next-MSVA/dev/types/**/*.ts",
+    ".next-PT/dev/types/**/*.ts",
+    ".next-ROB/dev/types/**/*.ts",
+    ".next-IAF/dev/types/**/*.ts",
+    ".next-SE/dev/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    ".next-BOU/types/**/*.ts",
+    ".next-BOU/dev/types/**/*.ts",
+    ".next-LOK/types/**/*.ts",
+    ".next-LOK/dev/types/**/*.ts",
+    ".next-VOF/types/**/*.ts",
+    ".next-VOF/dev/types/**/*.ts",
+    ".next-AOT/types/**/*.ts",
+    ".next-AOT/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

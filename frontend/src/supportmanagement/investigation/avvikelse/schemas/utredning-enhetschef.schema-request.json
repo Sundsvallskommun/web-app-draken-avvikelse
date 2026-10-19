@@ -1,0 +1,779 @@
+{
+  "name": "utredning-enhetschef",
+  "version": "1.11",
+  "value": {
+    "$id": "https://schemas.sundsvall.se/2281/utredning-enhetschef/1.11",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Utredning enhetschef",
+    "description": "Utredningsuppgifter som dokumenteras av enhetschef för IAF- och VOF-ärenden.",
+    "type": "object",
+    "additionalProperties": false,
+    "x-draken-completion": { "field": "completed", "reportsField": "reports" },
+    "x-draken-external-fields": {
+      "errandClassification": {
+        "kind": "supportManagementLabelClassification",
+        "legalBasesPointer": "/legalBases",
+        "required": true
+      }
+    },
+    "properties": {
+      "legalBases": {
+        "title": "Vilket eller vilka lagrum gäller för avvikelsen?",
+        "description": "Ange vilket eller vilka lagrum som gäller för avvikelsen",
+        "type": "array",
+        "maxItems": 3,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "oneOf": [
+            {
+              "const": "HSL",
+              "title": "HSL – Hälso- och sjukvårdslagen"
+            },
+            {
+              "const": "LSS",
+              "title": "LSS – Lagen om stöd och service till vissa funktionshindrade"
+            },
+            {
+              "const": "SOL",
+              "title": "SoL – Socialtjänstlagen"
+            }
+          ]
+        }
+      },
+      "investigationText": {
+        "title": "Utredningstext",
+        "description": "Beskriv utredningens innehåll.",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "causeAreas": {
+        "title": "Orsak till det inträffade",
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "oneOf": [
+            {
+              "const": "communication_information",
+              "title": "Kommunikation och information"
+            },
+            {
+              "const": "environment_organization",
+              "title": "Omgivning och organisation"
+            },
+            {
+              "const": "procedures_routines_guidelines",
+              "title": "Processer, rutiner, arbetssätt, riktlinjer"
+            },
+            {
+              "const": "technology_equipment",
+              "title": "Teknik, utrustning och apparatur"
+            }
+          ]
+        }
+      },
+      "riskAssessmentHsl": {
+        "title": "Riskbedömning HSL",
+        "type": "object",
+        "additionalProperties": false,
+        "x-calculation": {
+          "formula": "probability * severity",
+          "inputs": ["probability", "severity"],
+          "result": "calculatedRiskValue",
+          "minimum": 1,
+          "maximum": 16,
+          "analysisThreshold": 4
+        },
+        "properties": {
+          "assessedWith": {
+            "title": "Legitimerad personal som medverkat i bedömningen",
+            "description": "Ange för- och efternamn.",
+            "type": "string"
+          },
+          "probability": {
+            "$ref": "#/$defs/probability"
+          },
+          "severity": {
+            "$ref": "#/$defs/severity"
+          },
+          "calculatedRiskValue": {
+            "title": "Uträknat riskvärde",
+            "description": "Beräknas som sannolikhet multiplicerat med allvarlighetsgrad.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16,
+            "readOnly": true
+          }
+        },
+        "$ref": "#/$defs/riskValueConsistency"
+      },
+      "requiresPoliceReport": {
+        "title": "Ska ärendet polisanmälas?",
+        "$ref": "#/$defs/yesOrNotApplicable"
+      },
+      "riskAssessmentSolLss": {
+        "title": "Riskbedömning SOL/LSS",
+        "type": "object",
+        "additionalProperties": false,
+        "x-calculation": {
+          "formula": "probability * severity",
+          "inputs": ["probability", "severity"],
+          "result": "calculatedRiskValue",
+          "minimum": 1,
+          "maximum": 16
+        },
+        "properties": {
+          "probability": {
+            "$ref": "#/$defs/probability"
+          },
+          "severity": {
+            "$ref": "#/$defs/severity"
+          },
+          "calculatedRiskValue": {
+            "title": "Uträknat riskvärde",
+            "description": "Beräknas som sannolikhet multiplicerat med allvarlighetsgrad.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16,
+            "readOnly": true
+          }
+        },
+        "$ref": "#/$defs/riskValueConsistency"
+      },
+      "suspectedMisconduct": {
+        "title": "Jag som enhetschef anser att det inträffade är ett misstänkt missförhållande",
+        "type": "string",
+        "oneOf": [
+          {
+            "const": "yes",
+            "title": "Ja"
+          },
+          {
+            "const": "no",
+            "title": "Nej"
+          }
+        ]
+      },
+      "completed": {
+        "title": "Är utredningen klar?",
+        "description": "Ja låser utredningen för ändringar och gör det möjligt att skapa en rapport. Lås upp utredningen för att ändra den igen.",
+        "$ref": "#/$defs/yesNo"
+      },
+      "reportedMisconduct": {
+        "title": "Ärendet är ett missförhållande",
+        "description": "Sätts av Draken efter ärendets rapporttyp varje gång utredningen sparas, aldrig av den som utreder. Enhetschefen riskbedömer avvikelser: för ett missförhållande varken visas eller krävs riskbedömningen SOL/LSS.",
+        "type": "boolean",
+        "readOnly": true,
+        "x-draken-server-owned": true
+      },
+      "reports": {
+        "title": "Rapporter",
+        "description": "En post per rapport som skapats från utredningen, med tidpunkt, användare och bilagans filnamn. Servern lägger till posterna; de kan inte anges av användaren.",
+        "type": "array",
+        "readOnly": true,
+        "x-draken-server-owned": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["generatedAt", "generatedBy", "fileName"],
+          "properties": {
+            "generatedAt": {
+              "title": "Skapad",
+              "type": "string",
+              "format": "date-time"
+            },
+            "generatedBy": {
+              "title": "Skapad av",
+              "type": "string",
+              "minLength": 1
+            },
+            "fileName": {
+              "title": "Filnamn",
+              "type": "string",
+              "minLength": 1
+            },
+            "attachmentId": {
+              "title": "Bilaga",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "$defs": {
+      "yesNo": {
+        "type": "string",
+        "oneOf": [
+          { "const": "yes", "title": "Ja" },
+          { "const": "no", "title": "Nej" }
+        ]
+      },
+      "yesOrNotApplicable": {
+        "type": "string",
+        "oneOf": [
+          { "const": "yes", "title": "Ja" },
+          { "const": "not_applicable", "title": "Ej aktuellt" }
+        ]
+      },
+      "riskValueConsistency": {
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 1
+                },
+                "severity": {
+                  "const": 1
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 1
+                },
+                "severity": {
+                  "const": 2
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 2
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 1
+                },
+                "severity": {
+                  "const": 3
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 1
+                },
+                "severity": {
+                  "const": 4
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 4
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 2
+                },
+                "severity": {
+                  "const": 1
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 2
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 2
+                },
+                "severity": {
+                  "const": 2
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 4
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 2
+                },
+                "severity": {
+                  "const": 3
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 6
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 2
+                },
+                "severity": {
+                  "const": 4
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 8
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 3
+                },
+                "severity": {
+                  "const": 1
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 3
+                },
+                "severity": {
+                  "const": 2
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 6
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 3
+                },
+                "severity": {
+                  "const": 3
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 9
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 3
+                },
+                "severity": {
+                  "const": 4
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 12
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 4
+                },
+                "severity": {
+                  "const": 1
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 4
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 4
+                },
+                "severity": {
+                  "const": 2
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 8
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 4
+                },
+                "severity": {
+                  "const": 3
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 12
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "probability": {
+                  "const": 4
+                },
+                "severity": {
+                  "const": 4
+                }
+              },
+              "required": ["probability", "severity"]
+            },
+            "then": {
+              "properties": {
+                "calculatedRiskValue": {
+                  "const": 16
+                }
+              }
+            }
+          }
+        ]
+      },
+      "probability": {
+        "title": "Sannolikhet för inträffande",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 4,
+        "oneOf": [
+          {
+            "const": 1,
+            "title": "1 – Mycket liten, kan inträffa 1 gång/år"
+          },
+          {
+            "const": 2,
+            "title": "2 – Liten, kan inträffa varje månad"
+          },
+          {
+            "const": 3,
+            "title": "3 – Stor, kan inträffa varje vecka"
+          },
+          {
+            "const": 4,
+            "title": "4 – Mycket stor, kan inträffa dagligen"
+          }
+        ]
+      },
+      "severity": {
+        "title": "Händelsens allvarlighetsgrad",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 4,
+        "oneOf": [
+          {
+            "const": 1,
+            "title": "1 – Mindre: obehag eller obetydlig skada"
+          },
+          {
+            "const": 2,
+            "title": "2 – Måttlig: övergående skada eller funktionsnedsättning, ökat vårdbehov"
+          },
+          {
+            "const": 3,
+            "title": "3 – Betydande: bestående måttlig funktionsnedsättning"
+          },
+          {
+            "const": 4,
+            "title": "4 – Katastrofal: dödsfall, livshotande eller bestående stor funktionsnedsättning"
+          }
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "legalBases": {
+              "contains": {
+                "const": "HSL"
+              }
+            }
+          },
+          "required": ["legalBases"]
+        },
+        "then": {
+          "properties": {
+            "riskAssessmentHsl": true
+          }
+        },
+        "else": {
+          "not": {
+            "required": ["riskAssessmentHsl"]
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "legalBases": {
+              "contains": {
+                "const": "HSL"
+              }
+            }
+          },
+          "required": ["legalBases"]
+        },
+        "then": {
+          "properties": {
+            "requiresPoliceReport": true
+          }
+        },
+        "else": {
+          "not": {
+            "required": ["requiresPoliceReport"]
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "legalBases": {
+              "contains": {
+                "enum": ["SOL", "LSS"]
+              }
+            }
+          },
+          "required": ["legalBases"]
+        },
+        "then": {
+          "properties": {
+            "suspectedMisconduct": true
+          }
+        },
+        "else": {
+          "allOf": [
+            {
+              "not": {
+                "required": ["riskAssessmentSolLss"]
+              }
+            },
+            {
+              "not": {
+                "required": ["suspectedMisconduct"]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "$comment": "Enhetschefen riskbedömer avvikelser. För ett missförhållande visas riskbedömningen SOL/LSS inte, om den inte redan är gjord: en bedömning från tiden ärendet var en avvikelse finns kvar och syns.",
+        "if": {
+          "properties": {
+            "legalBases": {
+              "contains": {
+                "enum": ["SOL", "LSS"]
+              }
+            }
+          },
+          "required": ["legalBases"],
+          "anyOf": [
+            {
+              "not": {
+                "properties": {
+                  "reportedMisconduct": {
+                    "const": true
+                  }
+                },
+                "required": ["reportedMisconduct"]
+              }
+            },
+            {
+              "required": ["riskAssessmentSolLss"]
+            }
+          ]
+        },
+        "then": {
+          "properties": {
+            "riskAssessmentSolLss": true
+          }
+        }
+      },
+      {
+        "$comment": "Utkast får vara ofullständiga. Kraven på vad utredningen ska innehålla gäller först när utredaren markerar den som klar, lagrummen också: de väljs först av allt, men ett utkast utan lagrum går att spara.",
+        "if": {
+          "properties": {
+            "completed": {
+              "const": "yes"
+            }
+          },
+          "required": ["completed"]
+        },
+        "then": {
+          "$comment": "Kraven ligger under then.allOf: sektionsmallen läser then.properties och then.required i rot-allOf som en synlighetsregel, och ett fält får inte försvinna ur formuläret före klarmarkeringen.",
+          "allOf": [
+            {
+              "required": ["legalBases"],
+              "properties": {
+                "legalBases": {
+                  "minItems": 1
+                },
+                "riskAssessmentHsl": {
+                  "required": ["assessedWith", "probability", "severity", "calculatedRiskValue"],
+                  "properties": {
+                    "assessedWith": {
+                      "minLength": 1
+                    }
+                  }
+                },
+                "riskAssessmentSolLss": {
+                  "required": ["probability", "severity", "calculatedRiskValue"]
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "legalBases": {
+                    "contains": {
+                      "const": "HSL"
+                    }
+                  }
+                },
+                "required": ["legalBases"]
+              },
+              "then": {
+                "required": ["riskAssessmentHsl"]
+              }
+            },
+            {
+              "$comment": "Riskbedömningen SOL/LSS krävs för en avvikelse, inte för ett missförhållande.",
+              "if": {
+                "properties": {
+                  "legalBases": {
+                    "contains": {
+                      "enum": ["SOL", "LSS"]
+                    }
+                  }
+                },
+                "required": ["legalBases"],
+                "not": {
+                  "properties": {
+                    "reportedMisconduct": {
+                      "const": true
+                    }
+                  },
+                  "required": ["reportedMisconduct"]
+                }
+              },
+              "then": {
+                "required": ["riskAssessmentSolLss"]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "description": "WSO2 request body for version 1.11 of the unit manager investigation schema"
+}

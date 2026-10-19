@@ -1,0 +1,101 @@
+name: Playwright Tests
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - "develop"
+      - "main"
+      - "*"
+    paths:
+      - frontend/src/**
+      - frontend/e2e/**
+
+# En ny push gör tidigare körningar på samma ref inaktuella, men utan detta lever de kvar och
+# konkurrerar om jobbudgeten. develop och main undantas så att historiken där alltid körs färdigt.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_name != 'develop' && github.ref_name != 'main' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [avvikelse, schema-lab]
+        include:
+          - project: avvikelse
+            start_cmd: yarn start
+          - project: schema-lab
+            # Schema-labben är avsiktligt development-only och exponeras inte av produktionsservern.
+            start_cmd: yarn dev
+    # IAF och VOF är samma applikation och skiljer sig bara i backendens konfiguration, så sviten körs en gång.
+    env:
+          NEXT_PUBLIC_APPLICATION_NAME: "Avvikelse"
+          NEXT_PUBLIC_API_URL: http://localhost:3001/iaf
+          DOMAIN_NAME: localhost
+          BASE_PATH: ""
+          NEXT_PUBLIC_BASEPATH: /iaf
+          NEXT_PUBLIC_MUNICIPALITY_ID: 2281
+          NEXT_PUBLIC_ENVIRONMENT: TEST
+          HEALTH_AUTH: false
+          HEALTH_USERNAME: ""
+          HEALTH_PASSWORD: ""
+
+    name: E2E ${{ matrix.project }} on ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Install dependencies
+        run: yarn --frozen-lockfile --silent --network-timeout 1000000 --ignore-scripts
+
+      - name: Install Playwright browsers
+        # Invoke the local binary directly (not `npx`/`yarn`): `npx` would fetch on-demand,
+        # and `yarn … install` trips SonarCloud's "Yarn v2+ lifecycle scripts" rule. This is
+        # Playwright's browser installer (a CLI subcommand), not an npm dependency install.
+        #
+        # Utan `--with-deps`: samtliga bibliotek Chromium behöver finns redan på ubuntu-latest
+        # ("already the newest version" för varje paket). Det enda flaggan faktiskt hämtade var
+        # teckensnitt för CJK och liknande — 13,7 MB i 22 kB/s från Ubuntu-spegeln, tio minuter
+        # per jobb och fem jobb per körning. Sviten har inga visuella snapshots och ingen text
+        # utanför latinsk skrift, så de teckensnitten används inte. Skulle ett bibliotek någon
+        # gång saknas i runner-avbilden faller testerna på att webbläsaren inte startar, vilket
+        # syns direkt — då sätts flaggan tillbaka.
+        run: ./node_modules/.bin/playwright install chromium
+
+      - name: Build
+        run: yarn build
+
+      - name: Start server
+        run: ${{ matrix.start_cmd }} &
+
+      - name: Wait for server
+        # Dependency-free wait loop: npx would fetch an unpinned package at job time.
+        run: timeout 60 bash -c 'until curl -sfo /dev/null http://localhost:3000/iaf; do sleep 2; done'
+
+      - name: Run Playwright tests
+        run: ./node_modules/.bin/playwright test --project=${{ matrix.project }}
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: frontend/playwright-report/
+          retention-days: 30

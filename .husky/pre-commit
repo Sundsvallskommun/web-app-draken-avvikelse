@@ -1,0 +1,63 @@
+# Check for console.log in staged changes
+CONSOLE_LOGS=$(git diff --cached --diff-filter=ACM -- '*.ts' '*.tsx' '*.mjs' | grep -n '^\+.*console\.log' | grep -v '^\+.*//.*console\.log' || true)
+if [ -n "$CONSOLE_LOGS" ]; then
+  echo "Found console.log in staged changes:"
+  echo "$CONSOLE_LOGS"
+  echo ""
+  echo "Remove them or use console.warn/console.error instead."
+  echo "To bypass this check, use: git commit --no-verify"
+  exit 1
+fi
+
+# Known-safe test/fixture values (fake personnummer, public org numbers, fake/partial
+# phone numbers) live in .husky/pii-allowlist.txt so the guards below can run without
+# --no-verify on intentional mock data. Auto-generated API clients under
+# **/data-contracts/** are excluded by path (regenerated, never hand-edited).
+# Test fixtures are exactly where identifiers get pasted, so the frontend's colocated
+# *.test.ts files are covered by the *.ts glob. *.mjs stays for the repo's ESM config
+# files and for any test that is still written as .mjs.
+REPO_ROOT=$(git rev-parse --show-toplevel)
+PII_ALLOWLIST="$REPO_ROOT/.husky/pii-allowlist.txt"
+
+# Drops allowlisted tokens (exact whole-line match) from stdin.
+filter_pii_allowlist() {
+  if [ -f "$PII_ALLOWLIST" ]; then
+    grep -vxF -f "$PII_ALLOWLIST" || true
+  else
+    cat
+  fi
+}
+
+# Check for Swedish personal identity numbers (personnummer): YYYYMMDD-XXXX or YYMMDD-XXXX
+PNR_HITS=$(git diff --cached --diff-filter=ACM -- '*.ts' '*.tsx' '*.mjs' '*.json' ':(exclude,glob)**/data-contracts/**' | grep -E '^\+' | grep -Eo '(19|20)[0-9]{6}[-]?[0-9]{4}|[0-9]{6}[-][0-9]{4}' | sort -u || true)
+PNR=""
+if [ -n "$PNR_HITS" ]; then
+  PNR=$(printf '%s\n' "$PNR_HITS" | filter_pii_allowlist)
+fi
+if [ -n "$PNR" ]; then
+  echo "Possible personnummer found in staged changes:"
+  echo "$PNR"
+  echo ""
+  echo "If these are known test/fixture values, add them to .husky/pii-allowlist.txt."
+  echo "Otherwise remove the sensitive data before committing."
+  echo "To bypass this check, use: git commit --no-verify"
+  exit 1
+fi
+
+# Check for phone numbers: Swedish format (+46, 07x, 0x-xxx etc.)
+PHONE_HITS=$(git diff --cached --diff-filter=ACM -- '*.ts' '*.tsx' '*.mjs' '*.json' ':(exclude,glob)**/data-contracts/**' | grep -E '^\+' | grep -Eo '\+46[ ]?[0-9]{6,10}|07[0-9][-]?[0-9]{3}[-]?[0-9]{2}[-]?[0-9]{2}|0[1-9][0-9][-]?[0-9]{2,3}[-]?[0-9]{2}[-]?[0-9]{2}' | sort -u || true)
+PHONE=""
+if [ -n "$PHONE_HITS" ]; then
+  PHONE=$(printf '%s\n' "$PHONE_HITS" | filter_pii_allowlist)
+fi
+if [ -n "$PHONE" ]; then
+  echo "Possible phone number found in staged changes:"
+  echo "$PHONE"
+  echo ""
+  echo "If these are known test/fixture values, add them to .husky/pii-allowlist.txt."
+  echo "Otherwise remove the sensitive data before committing."
+  echo "To bypass this check, use: git commit --no-verify"
+  exit 1
+fi
+
+yarn lint-staged

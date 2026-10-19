@@ -1,0 +1,121 @@
+{
+  "name": "bedomning-sol-lss",
+  "version": "1.0",
+  "value": {
+    "$id": "https://schemas.sundsvall.se/2281/bedomning-sol-lss/1.0",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Lex Sarah-ansvarigs initiala bedömning",
+    "description": "LEX-ansvarigs första bedömning av ett IAF- eller VOF-ärende som lämnats över till LEX: om ärendet ska anmälas till IVO och om det ska lex-utredas. Svaret om IVO förifyller lex Sarah-beslutet.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["ivoNotification", "lexInvestigationDecision"],
+    "properties": {
+      "assessedAt": {
+        "title": "Bedömt",
+        "description": "Tidpunkten då bedömningen först sparades. Sätts av servern och kan inte anges eller ändras av användaren.",
+        "type": "string",
+        "format": "date-time",
+        "readOnly": true,
+        "x-draken-server-timestamp": "created"
+      },
+      "updatedAt": {
+        "title": "Senast ändrat",
+        "description": "Tidpunkten då bedömningen senast sparades. Sätts av servern vid varje sparning.",
+        "type": "string",
+        "format": "date-time",
+        "readOnly": true,
+        "x-draken-server-timestamp": "updated"
+      },
+      "revisions": {
+        "title": "Sparningar",
+        "description": "En post per sparning av bedömningen, med tidpunkt och användare. Servern lägger till posterna; de kan inte anges av användaren.",
+        "type": "array",
+        "readOnly": true,
+        "x-draken-server-revisions": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["savedAt", "savedBy"],
+          "properties": {
+            "savedAt": {
+              "title": "Sparat",
+              "type": "string",
+              "format": "date-time"
+            },
+            "savedBy": {
+              "title": "Sparat av",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "ivoNotification": {
+        "title": "Ska ärendet anmälas till IVO?",
+        "$ref": "#/$defs/yesNo"
+      },
+      "ivoCaseNumber": {
+        "title": "IVO ärendenummer",
+        "description": "Om en anmälan har skickats till IVO, fyll i ärendenummer här.",
+        "type": "string",
+        "minLength": 1
+      },
+      "public360CaseNumber": {
+        "title": "Public 360 ärendenummer",
+        "description": "Frivilligt här. Lex Sarah-beslutet kräver det när ärendet ska anmälas till IVO.",
+        "type": "string",
+        "minLength": 1
+      },
+      "lexInvestigationDecision": {
+        "title": "Jag beslutar att ärendet",
+        "type": "string",
+        "oneOf": [
+          { "const": "investigate", "title": "Ska utredas/tilldelas för utredning" },
+          { "const": "not_investigate", "title": "Inte ska lex utredas" }
+        ]
+      },
+      "notInvestigatedMotivation": {
+        "title": "Motivera beslut om att inte lex-utreda",
+        "description": "Motiveringen blir en tjänsteanteckning på ärendet när det lämnas tillbaka till enhetschefen.",
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "$defs": {
+      "yesNo": {
+        "type": "string",
+        "oneOf": [
+          { "const": "yes", "title": "Ja" },
+          { "const": "no", "title": "Nej" }
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": { "ivoNotification": { "const": "yes" } },
+          "required": ["ivoNotification"]
+        },
+        "then": {
+          "properties": { "ivoCaseNumber": true, "public360CaseNumber": true }
+        },
+        "else": {
+          "allOf": [{ "not": { "required": ["ivoCaseNumber"] } }, { "not": { "required": ["public360CaseNumber"] } }]
+        }
+      },
+      {
+        "if": {
+          "properties": { "lexInvestigationDecision": { "const": "not_investigate" } },
+          "required": ["lexInvestigationDecision"]
+        },
+        "then": {
+          "required": ["notInvestigatedMotivation"]
+        },
+        "else": {
+          "not": { "required": ["notInvestigatedMotivation"] }
+        }
+      }
+    ]
+  },
+  "description": "WSO2 request body for version 1.0 of the lex Sarah manager's initial assessment schema"
+}

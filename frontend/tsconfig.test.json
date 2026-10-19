@@ -1,0 +1,13 @@
+{
+  // The root tsconfig's `include` does not match the colocated `*.test.ts` files, so they
+  // would otherwise go unchecked. This config type-checks them (and, transitively, the
+  // modules they exercise). Run it with `yarn type-check:test`; the backend has the same
+  // split for the same reason.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "noEmit": true,
+    "types": ["node", "next", "next/image-types/global"]
+  },
+  "include": ["src/**/*.test.ts", "src/**/*.test.tsx", "vitest.config.mts"]
+}

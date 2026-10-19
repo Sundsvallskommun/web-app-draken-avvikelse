@@ -1,0 +1,224 @@
+{
+  "name": "utredning-hsl",
+  "version": "1.5",
+  "value": {
+    "$id": "https://schemas.sundsvall.se/2281/utredning-hsl/1.5",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Utredning HSL",
+    "description": "HSL-utredning för IAF- och VOF-ärenden. Beslutet om anmälan till IVO, uppdragsgivarens kommentar, åtgärder och handlingsplan lagras inte i detta dokument.",
+    "type": "object",
+    "additionalProperties": false,
+    "x-draken-completion": { "field": "completed", "reportsField": "reports" },
+    "properties": {
+      "analysisDecision": {
+        "title": "Jag beslutar att ärendet",
+        "description": "MAS/MAR:s initiala bedömning. Ett ärende som inte ska händelseanalyseras kan markeras som klart med enbart motiveringen.",
+        "type": "string",
+        "oneOf": [
+          { "const": "analyze", "title": "Ska händelseanalyseras" },
+          { "const": "not_analyze", "title": "Inte ska händelseanalyseras" }
+        ]
+      },
+      "notAnalyzedMotivation": {
+        "title": "Motivera beslut om att inte händelseanalysera",
+        "type": "string",
+        "minLength": 1
+      },
+      "assignment": {
+        "title": "Uppdrag",
+        "description": "Beskriv syftet med analysen, uppdragsgivaren, uppdragsdatum och startdatum.",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "analysisTeamParticipants": {
+        "title": "Deltagare i analysteam",
+        "description": "Personer som deltagit i analysteamet eller medverkat på annat sätt.",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "title": "Namn",
+              "type": "string"
+            },
+            "role": {
+              "title": "Roll",
+              "description": "Specialistundersköterskor och liknande anges som omvårdnadspersonal.",
+              "type": "string",
+              "oneOf": [
+                { "const": "nurse", "title": "Sjuksköterska" },
+                { "const": "physiotherapist", "title": "Fysioterapeut" },
+                { "const": "occupational_therapist", "title": "Arbetsterapeut" },
+                { "const": "care_staff", "title": "Omvårdnadspersonal" }
+              ]
+            }
+          }
+        }
+      },
+      "methodology": {
+        "title": "Beskrivning av metodik",
+        "description": "Beskriv analysmetod, källor och avgränsningar.",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "eventDescription": {
+        "title": "Händelsebeskrivning",
+        "description": "Presentera händelsen och händelseförloppet på ett sätt som kan förstås utan medicinsk specialkunskap.",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "identifiedCauses": {
+        "title": "Vilka orsaker till händelsen har identifierats?",
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "oneOf": [
+            { "const": "communication_information", "title": "Kommunikation och information" },
+            { "const": "education_competence", "title": "Utbildning och kompetens" },
+            { "const": "processes_routines_guidelines", "title": "Processer, rutiner och riktlinjer" },
+            { "const": "environment_organization", "title": "Omgivning och organisation" },
+            { "const": "technology_equipment", "title": "Teknik, utrustning och apparatur" }
+          ]
+        }
+      },
+      "underlyingCauses": {
+        "title": "Bakomliggande orsak",
+        "description": "Flerval enligt utredningsskissen.",
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "oneOf": [
+            { "const": "communication_failure", "title": "Brist i kommunikation" },
+            { "const": "time_pressure_workload", "title": "Tidsbrist / arbetsbelastning" },
+            { "const": "knowledge_gap", "title": "Kunskapsbrist" },
+            { "const": "routine_missing_not_followed", "title": "Rutin saknas eller följs inte" },
+            { "const": "technical_fault", "title": "Tekniskt fel" },
+            { "const": "other", "title": "Övrigt" }
+          ]
+        }
+      },
+      "contributingFactorsAndRisks": {
+        "title": "Bidragande faktorer och andra upptäckta risker",
+        "description": "Beskriv bakomliggande orsaker, bifynd, andra upptäckta risker samt vårdskade- eller kvalitetsbristkostnader.",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "analysisEvaluation": {
+        "title": "Analysutvärdering",
+        "description": "Bedöm robusthet, relevans, resursbehov, resultatmått och om föreslagna insatser riktar sig mot bakomliggande orsaker.",
+        "type": "string",
+        "contentMediaType": "text/html"
+      },
+      "completed": {
+        "title": "Är utredningen klar?",
+        "description": "Ja låser utredningen för ändringar och gör det möjligt att skapa en rapport. Lås upp utredningen för att ändra den igen.",
+        "$ref": "#/$defs/yesNo"
+      },
+      "reports": {
+        "title": "Rapporter",
+        "description": "En post per rapport som skapats från utredningen, med tidpunkt, användare och bilagans filnamn. Servern lägger till posterna; de kan inte anges av användaren.",
+        "type": "array",
+        "readOnly": true,
+        "x-draken-server-owned": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["generatedAt", "generatedBy", "fileName"],
+          "properties": {
+            "generatedAt": {
+              "title": "Skapad",
+              "type": "string",
+              "format": "date-time"
+            },
+            "generatedBy": {
+              "title": "Skapad av",
+              "type": "string",
+              "minLength": 1
+            },
+            "fileName": {
+              "title": "Filnamn",
+              "type": "string",
+              "minLength": 1
+            },
+            "attachmentId": {
+              "title": "Bilaga",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "$defs": {
+      "yesNo": {
+        "type": "string",
+        "oneOf": [
+          { "const": "yes", "title": "Ja" },
+          { "const": "no", "title": "Nej" }
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "$comment": "Motiveringen hör bara till beslutet att inte händelseanalysera, och visas bara med det.",
+        "if": {
+          "properties": { "analysisDecision": { "const": "not_analyze" } },
+          "required": ["analysisDecision"]
+        },
+        "then": {
+          "properties": { "notAnalyzedMotivation": true }
+        },
+        "else": {
+          "not": { "required": ["notAnalyzedMotivation"] }
+        }
+      },
+      {
+        "$comment": "Utkast får vara ofullständiga. Kraven på vad utredningen ska innehålla gäller först när utredaren markerar den som klar.",
+        "if": {
+          "properties": {
+            "completed": {
+              "const": "yes"
+            }
+          },
+          "required": ["completed"]
+        },
+        "then": {
+          "$comment": "Kraven ligger under then.allOf: sektionsmallen läser then.properties och then.required i rot-allOf som en synlighetsregel, och ett fält får inte försvinna ur formuläret före klarmarkeringen.",
+          "allOf": [
+            {
+              "required": ["analysisDecision"]
+            },
+            {
+              "$comment": "En analys som inte ska göras är klar med motiveringen. Annars gäller analysens egna krav.",
+              "if": {
+                "properties": { "analysisDecision": { "const": "not_analyze" } },
+                "required": ["analysisDecision"]
+              },
+              "then": {
+                "required": ["notAnalyzedMotivation"]
+              },
+              "else": {
+                "properties": {
+                  "analysisTeamParticipants": {
+                    "items": {
+                      "required": ["name", "role"],
+                      "properties": {
+                        "name": {
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "description": "WSO2 request body for version 1.5 of the HSL investigation schema"
+}

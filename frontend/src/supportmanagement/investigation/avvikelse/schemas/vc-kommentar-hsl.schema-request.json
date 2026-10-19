@@ -1,0 +1,21 @@
+{
+  "name": "vc-kommentar-hsl",
+  "version": "1.0",
+  "value": {
+    "$id": "https://schemas.sundsvall.se/2281/vc-kommentar-hsl/1.0",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "VC kommentar HSL",
+    "description": "Uppdragsgivarens kommentar på händelseanalysen enligt HSL för IAF- och VOF-ärenden. Händelseanalysen ligger i HSL-utredningen och kopieras inte hit.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "commissionerComment": {
+        "title": "Uppdragsgivarens kommentar",
+        "description": "Uppdragsgivarens kommentar på händelseanalysen.",
+        "type": "string",
+        "contentMediaType": "text/html"
+      }
+    }
+  },
+  "description": "WSO2 request body for version 1.0 of the commissioner's comment on the HSL investigation"
+}
