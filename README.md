@@ -449,6 +449,8 @@ Notiserna kommer från Support Managements prenumerationsmodell.
 
 ## Mer dokumentation
 
+- [`docs/kvar-infor-prodsattning.md`](docs/kvar-infor-prodsattning.md) – det som återstår innan applikationen
+  driftsätts i produktion
 - [`CLAUDE.md`](CLAUDE.md) – arkitekturen, reglerna som håller IAF och VOF till en applikation och hur ett ärende
   skrivs till Support Management
 - [`frontend/src/supportmanagement/investigation/avvikelse/README.md`](frontend/src/supportmanagement/investigation/avvikelse/README.md)
