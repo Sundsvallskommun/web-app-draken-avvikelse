@@ -1,4 +1,10 @@
-import { APIS, apiServiceName, resolveSupportManagementApiTarget, resolveSupportManagementErrandSearch } from '@/config/api-config';
+import {
+  APIS,
+  apiServiceName,
+  hasSupportManagementErrandSearch,
+  resolveSupportManagementApiTarget,
+  resolveSupportManagementErrandSearch,
+} from '@/config/api-config';
 
 const configuredVersions = new Map(APIS.map(({ name, version }) => [name, version]));
 
@@ -36,6 +42,13 @@ describe('apiServiceName', () => {
   it('keeps regular configured and unknown service names unchanged', () => {
     expect(apiServiceName('citizen')).toBe(`citizen/${configuredVersions.get('citizen')}`);
     expect(apiServiceName('unknown-service')).toBe('unknown-service');
+  });
+});
+
+describe('hasSupportManagementErrandSearch', () => {
+  it('finds the search index, and the count that groups by status, on the sprint target alone', () => {
+    expect(hasSupportManagementErrandSearch('sprint')).toBe(true);
+    expect(hasSupportManagementErrandSearch('stable')).toBe(false);
   });
 });
 

@@ -79,10 +79,19 @@ export const resolveSupportManagementApiTarget = (configuredTarget = process.env
 const SUPPORT_MANAGEMENT_TARGETS_WITH_ERRAND_SEARCH: readonly SupportManagementApiTarget[] = ['sprint'];
 
 /**
- * Whether errand lists and counts are answered by Support Management's search index instead of its
- * filter endpoints. Off unless a deployment asks for it, because the index of a namespace has to be
- * rebuilt before it holds the errands created ahead of it. Asking for it on a target without the
- * index stops the backend at startup rather than failing every overview.
+ * Whether the target's Support Management has the errand search index. Its count is the one that divides over a
+ * column (`groupBy`), so the overview's status counts ask it wherever it exists; the filter endpoint's count has no
+ * grouping and answers one status group per request.
+ */
+export const hasSupportManagementErrandSearch = (target: SupportManagementApiTarget = resolveSupportManagementApiTarget()): boolean =>
+  SUPPORT_MANAGEMENT_TARGETS_WITH_ERRAND_SEARCH.includes(target);
+
+/**
+ * Whether errand lists are answered by Support Management's search index instead of its filter
+ * endpoint. Off unless a deployment asks for it, because the index of a namespace has to be rebuilt
+ * before it holds the errands created ahead of it. Asking for it on a target without the index stops
+ * the backend at startup rather than failing every overview. The status counts ask the index
+ * regardless, see `hasSupportManagementErrandSearch`.
  */
 export const resolveSupportManagementErrandSearch = (
   configuredValue = process.env.SUPPORTMANAGEMENT_ERRAND_SEARCH,
@@ -93,7 +102,7 @@ export const resolveSupportManagementErrandSearch = (
     throw new Error(`Unsupported SUPPORTMANAGEMENT_ERRAND_SEARCH "${configuredValue}". Expected true or false`);
   }
   if (value === 'false') return false;
-  if (!SUPPORT_MANAGEMENT_TARGETS_WITH_ERRAND_SEARCH.includes(target)) {
+  if (!hasSupportManagementErrandSearch(target)) {
     throw new Error(
       `SUPPORTMANAGEMENT_ERRAND_SEARCH requires SUPPORTMANAGEMENT_API_TARGET ${SUPPORT_MANAGEMENT_TARGETS_WITH_ERRAND_SEARCH.join(' or ')}, not "${target}"`,
     );

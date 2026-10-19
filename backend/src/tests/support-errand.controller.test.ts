@@ -275,8 +275,14 @@ const statusGroupCountArgs = (statusGroups: unknown, overrides: Partial<Record<s
 
 const upstreamSearchQuery = (url: string): string => new URL(url, 'http://draken.local').searchParams.get('query') ?? '';
 
+/** Puts the controller on the sprint target, whose index answers the status counts whatever lists the errands. */
+const onSprintTarget = (controller: SupportErrandController): void => {
+  (controller as unknown as { countSearch: boolean }).countSearch = true;
+};
+
 /** Points the controller at the search index, as a sprint deployment with SUPPORTMANAGEMENT_ERRAND_SEARCH=true does. */
 const enableErrandSearch = (controller: SupportErrandController): void => {
+  onSprintTarget(controller);
   (controller as unknown as { errandSearch: boolean }).errandSearch = true;
 };
 
@@ -604,7 +610,7 @@ describe('SupportErrandController', () => {
   });
 
   describe('countErrandsByStatusGroups', () => {
-    it('counts each group on the filter endpoint, the group standing in for the status', async () => {
+    it('counts each group on the filter endpoint on the stable target, the group standing in for the status', async () => {
       const { controller, api } = makeController();
       api.get.mockImplementation(async ({ url }: { url: string }) => ({ data: { count: url.includes('ONGOING') ? 5 : 2 }, message: 'success' }));
       const res = mockRes();
@@ -799,6 +805,25 @@ describe('SupportErrandController', () => {
         status: 403,
       });
       expect(api.get).toHaveBeenCalledTimes(1);
+    });
+
+    it('counts from the index on the sprint target while the list still asks the filter endpoint', async () => {
+      const { controller, api } = makeController();
+      onSprintTarget(controller);
+      api.get.mockResolvedValue({
+        data: { count: 5, group: { property: 'status', buckets: [{ value: 'NEW', count: 5 }], withoutValue: 0, withheld: 0 } },
+        message: 'success',
+      });
+      const res = mockRes();
+
+      await controller.countErrandsByStatusGroups(mockReq(), ...statusGroupCountArgs([['NEW'], ['SOLVED']]), MUNICIPALITY_ID, res);
+      await controller.errands(mockReq(), ...errandsArgs({ status: 'NEW' }), MUNICIPALITY_ID, mockRes());
+
+      const [countConfig, listConfig] = api.get.mock.calls.map(([config]) => config);
+      expect(countConfig.url.startsWith(`${SUPPORT_SERVICE}/${MUNICIPALITY_ID}/${NAMESPACE}/errands/search/count?`)).toBe(true);
+      expect(new URL(countConfig.url, 'http://draken.local').searchParams.get('groupBy')).toBe('status');
+      expect(res.body).toEqual({ counts: [5, 0] });
+      expect(listConfig.url.startsWith(FILTER_URL)).toBe(true);
     });
 
     it('counts every status group from one breakdown of the index', async () => {
@@ -2466,6 +2491,21 @@ describe('Mina ärenden for a MAS/MAR handler', () => {
       mockRes(),
     );
 
+    expect(upstreamFilter(firstUrl(api))).toContain(masMarClause);
+  });
+
+  it('counts them on the filter endpoint, which can match the parameter, on the sprint target too', async () => {
+    const { controller, api } = makeMasMarController();
+    onSprintTarget(controller);
+
+    await controller.countErrandsByStatusGroups(
+      mockReq(masMarUser()),
+      ...statusGroupCountArgs([['NEW']], { stakeholders: mockAdUsername }),
+      MUNICIPALITY_ID,
+      mockRes(),
+    );
+
+    expect(firstUrl(api)).not.toContain('/errands/search');
     expect(upstreamFilter(firstUrl(api))).toContain(masMarClause);
   });
 

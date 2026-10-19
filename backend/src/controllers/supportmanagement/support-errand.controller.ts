@@ -22,7 +22,7 @@ import { Body, Controller, Get, HeaderParam, HttpCode, Param, Patch, Post, Query
 import { OpenAPI } from 'routing-controllers-openapi';
 
 import { MUNICIPALITY_ID, SUPERADMIN_GROUP, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
-import { apiServiceName, resolveSupportManagementErrandSearch } from '@/config/api-config';
+import { apiServiceName, hasSupportManagementErrandSearch, resolveSupportManagementErrandSearch } from '@/config/api-config';
 import { resolveHandlerGroupRoles } from '@/config/handler-group-roles';
 import {
   preservesIafVofInvestigationClassificationOwnerParameter,
@@ -510,6 +510,7 @@ export class SupportErrandController {
   private newErrandDefaults: NewErrandDefaults = NEW_ERRAND_DEFAULTS;
   private namespace = SUPPORTMANAGEMENT_NAMESPACE;
   private errandSearch = resolveSupportManagementErrandSearch();
+  private countSearch = hasSupportManagementErrandSearch();
   SERVICE = apiServiceName('supportmanagement');
   CITIZEN_SERVICE = apiServiceName('citizen');
 
@@ -569,6 +570,7 @@ export class SupportErrandController {
       namespace: this.namespace,
       labelFilterProfile: this.investigationPolicyService.labelFilter,
       errandSearch: this.errandSearch,
+      countSearch: this.countSearch,
     });
   }
 

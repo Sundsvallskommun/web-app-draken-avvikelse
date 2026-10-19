@@ -479,7 +479,7 @@ som MAS/MAR. Profilen deklarerar parametern och rollen (`handlerParameters: [{ k
 `exists(parameters.key:'masMarHandler' and parameters.values:'<konto>')` när kryssrutan avser den inloggade och
 hen har rollen (`ownHandlerParameterKeys`). Listan och räknarna i sidomenyn byggs av samma kriterier. Alla andra,
 och alla drakar utan `handlerParameters`, får exakt samma filter som förut. Fritextsökindexet kan inte matcha en
-parameter, så en sådan fråga ställs till filterendpointen även där indexet är påslaget.
+parameter, så en sådan fråga ställs till filterendpointen även där indexet är påslaget, och räknarna med den.
 
 **Ta ärende** finns inte: handläggaren väljs i Ansvarig och MAS/MAR i sin egen väljare. Inte heller **Följ
 ärendet**: den som handlägger ärendet följer det, och ingen annan, eftersom BFF:en flyttar följandet med varje

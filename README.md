@@ -226,18 +226,23 @@ deploymentinställning inte tyst byter API-kontrakt. Utredningsprofilen kräver 
 stable-deployment annonserar därför utredningen och dess registrering som otillgängliga i stället för att
 försöka använda ett inkompatibelt API.
 
-Sprintkontraktet (`supportmanagement-sprint/17.0`) har ett sökindex för ärenden. En sprintdeployment kan låta
-översiktens lista och sidomenyns räknare svara därifrån i stället för från filter-endpointen:
+Sprintkontraktet (`supportmanagement-sprint/17.0`) har ett sökindex för ärenden. Bara indexets count kan dela upp
+antalet per status (`GET …/errands/search/count?groupBy=status`); filter-endpointens count (`…/errands/count`) svarar
+med ett enda antal. Sidomenyns räknare frågar därför alltid indexet på sprintmålet, med ett anrop för alla
+statusgrupper, medan stable-målet frågar filter-endpointen en gång per grupp.
+
+Översiktens lista svarar från indexet först när deploymenten slår på det:
 
 ```env
 SUPPORTMANAGEMENT_ERRAND_SEARCH=true
 ```
 
 Slå på flaggan först när API-teamet har byggt om indexet för namespacet; ärenden som skapades innan sök infördes finns
-annars inte i indexet. Flaggan kräver `SUPPORTMANAGEMENT_API_TARGET=sprint` och stoppar annars backend vid uppstart.
+annars inte i indexet. Tills dess räknar sidomenyn bara de ärenden som finns i indexet, så den kan visa färre än
+listan. Flaggan kräver `SUPPORTMANAGEMENT_API_TARGET=sprint` och stoppar annars backend vid uppstart.
 Söken matchar samma fält och på samma sätt (delsträng) som filtret gjorde. Filter-endpointen svarar fortfarande när
-indexet inte kan svara likadant: när sökklustret är nere (503), när frågan blir längre än indexets 2000 tecken och när
-en vald etikett saknas i metadatan. Ett sök som indexet ger upp efter tio sekunder (504) visas som ett fel.
+indexet inte kan svara likadant: när sökklustret är nere (503), när frågan blir längre än indexets 2000 tecken, när
+en vald etikett saknas i metadatan och för Mina ärenden hos MAS/MAR, vars handläggarparameter indexet inte kan matcha. Ett sök som indexet ger upp efter tio sekunder (504) visas som ett fel.
 
 Drakens ärende-, handläggar- och statuskommandon kräver en exakt stark `If-Match` och skickar samma
 version vidare till Support Management. Den 2 september 2026 verifierades de publicerade OpenAPI-kontrakten för både

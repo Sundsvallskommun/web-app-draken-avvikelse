@@ -33,8 +33,10 @@ interface SupportErrandListingDependencies {
   readonly service: string;
   readonly namespace: string | undefined;
   readonly labelFilterProfile: SupportManagementLabelFilterProfile | undefined;
-  /** Whether the deployment answers from the search index, see `resolveSupportManagementErrandSearch`. */
+  /** Whether the list answers from the search index, see `resolveSupportManagementErrandSearch`. */
   readonly errandSearch: boolean;
+  /** Whether the status counts answer from the search index, see `hasSupportManagementErrandSearch`. */
+  readonly countSearch: boolean;
 }
 
 /** What a request's label criteria ask for, read once and answered by either endpoint. */
@@ -87,17 +89,19 @@ export const parseStatusGroups = (statusGroups: string | undefined): string[][] 
 };
 
 /**
- * Lists and counts support errands for the overview. A deployment with the search index asks it; any
- * request the index cannot answer the way the filter endpoint would goes to the filter endpoint, which
- * stays the reference for what a list holds: a label the metadata no longer knows, a query too long
- * for the index, or a search cluster that is down.
+ * Lists and counts support errands for the overview. The list asks the search index where the deployment
+ * turned it on, and the status counts wherever the target has one, since only the index's count divides
+ * over the statuses. Any request the index cannot answer the way the filter endpoint would goes to the
+ * filter endpoint, which stays the reference for what a list holds: a handler parameter, a label the
+ * metadata no longer knows, a query too long for the index, or a search cluster that is down.
  */
 export class SupportErrandListingService {
   constructor(private readonly dependencies: SupportErrandListingDependencies) {}
 
   async list(municipalityId: string, criteria: ErrandFilterInput, paging: SupportErrandPaging, user: User): Promise<PageErrand> {
-    const labels = await this.readLabelCriteria(municipalityId, criteria, user);
-    const searchQuery = this.searchQueryFor(criteria, labels);
+    const { errandSearch } = this.dependencies;
+    const labels = await this.readLabelCriteria(municipalityId, criteria, user, errandSearch);
+    const searchQuery = this.searchQueryFor(criteria, labels, errandSearch);
     if (searchQuery !== undefined) {
       const parameters = new URLSearchParams({ page: String(paging.page), size: String(paging.size) });
       if (searchQuery) parameters.set('query', searchQuery);
@@ -117,7 +121,8 @@ export class SupportErrandListingService {
   /**
    * How many errands match the criteria in each group of statuses, in the order of the groups. The
    * criteria's own status is left out, since each group stands in for it. The index answers every group
-   * from one breakdown by status; the filter endpoint is asked once per group.
+   * from one breakdown by status, whichever endpoint lists the errands; where it cannot, the filter
+   * endpoint is asked once per group.
    */
   async countByStatusGroups(
     municipalityId: string,
@@ -126,8 +131,9 @@ export class SupportErrandListingService {
     user: User,
   ): Promise<number[]> {
     const criteriaWithoutStatus: ErrandFilterInput = { ...criteria, status: undefined };
-    const labels = await this.readLabelCriteria(municipalityId, criteriaWithoutStatus, user);
-    const searchQuery = this.searchQueryFor(criteriaWithoutStatus, labels);
+    const { countSearch } = this.dependencies;
+    const labels = await this.readLabelCriteria(municipalityId, criteriaWithoutStatus, user, countSearch);
+    const searchQuery = this.searchQueryFor(criteriaWithoutStatus, labels, countSearch);
     if (searchQuery !== undefined) {
       const parameters = new URLSearchParams({ groupBy: 'status' });
       if (searchQuery) parameters.set('query', searchQuery);
@@ -156,12 +162,13 @@ export class SupportErrandListingService {
     return `${this.dependencies.service}/${municipalityId}/${this.dependencies.namespace}/errands`;
   }
 
-  private async readLabelCriteria(municipalityId: string, criteria: ErrandFilterInput, user: User): Promise<LabelCriteria> {
+  /** `askIndex` says whether the index will be asked, which alone needs the labels' ids. */
+  private async readLabelCriteria(municipalityId: string, criteria: ErrandFilterInput, user: User, askIndex: boolean): Promise<LabelCriteria> {
     const categoryLeafPaths = selectCategoryLeafPaths(criteria);
     const categoryGroups = categoryLeafPaths.length > 0 ? [categoryLeafPaths] : [];
     if (!criteria.labelFilter) {
       // The filter endpoint matches the category paths as they are; only the index needs their ids.
-      const labels = this.dependencies.errandSearch && categoryGroups.length > 0 ? await this.readLabels(municipalityId, user) : undefined;
+      const labels = askIndex && categoryGroups.length > 0 ? await this.readLabels(municipalityId, user) : undefined;
       return { labelFilter: '', leafPathGroups: categoryGroups, labelStructure: labels?.labelStructure };
     }
 
@@ -201,8 +208,8 @@ export class SupportErrandListingService {
   }
 
   /** The query for the index, or undefined when the filter endpoint has to answer instead. */
-  private searchQueryFor(criteria: ErrandFilterInput, labels: LabelCriteria): string | undefined {
-    if (!this.dependencies.errandSearch) return undefined;
+  private searchQueryFor(criteria: ErrandFilterInput, labels: LabelCriteria, askIndex: boolean): string | undefined {
+    if (!askIndex) return undefined;
     if (criteria.stakeholderParameterKeys?.length) {
       logger.info('Support Management errand search: the index cannot match a handler parameter, asking the filter endpoint');
       return undefined;
