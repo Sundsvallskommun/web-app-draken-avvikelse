@@ -25,6 +25,7 @@
     "test:e2e": "dotenv -e .env.local -- playwright test --project=avvikelse",
     "test:e2e:ui": "dotenv -e .env.local -- playwright test --project=avvikelse --ui",
     "test:e2e:schema-lab": "dotenv -e .env.local -- playwright test --project=schema-lab",
+    "screenshots:readme": "dotenv -e .env.local -- playwright test --project=readme",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

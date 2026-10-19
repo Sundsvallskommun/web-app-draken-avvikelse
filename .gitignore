@@ -8,6 +8,8 @@ frontend/public/deploy-info.json
 .claude
 .playwright-mcp
 screenshots
+# The README's screenshots, taken by frontend/e2e/readme
+!/docs/screenshots/
 
 # Local generated artifacts
 /output/

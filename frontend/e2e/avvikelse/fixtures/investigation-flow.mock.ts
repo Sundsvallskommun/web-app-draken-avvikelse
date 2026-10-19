@@ -351,6 +351,8 @@ export interface IafApiScenario {
   errandAccessLevel?: 'LR' | 'R' | 'RW';
   /** The handler roles `/me` names for the signed-in user. Left out, the user holds none. */
   roleKeys?: string[];
+  /** The statuses the namespace's metadata names. Left out, Pågående and Avslutat. */
+  statuses?: Array<{ name: string; displayName: string }>;
   /** The person the report concerns, as the errand's PRIMARY stakeholder. Left out, the errand names none. */
   brukare?: { partyId: string; firstName: string; lastName: string };
   /** Another party the report names, as a CONTACT stakeholder. Left out, the errand names none. */
@@ -1296,6 +1298,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
     if (method === 'GET' && path.endsWith(`/supportmetadata/${municipalityId}`)) {
       await fulfillJson(route, {
         ...metadata,
+        ...(scenario.statuses ? { statuses: scenario.statuses } : {}),
         ...(scenarioPhases ? { phases: scenarioPhases } : {}),
         labels: {
           labelStructure:

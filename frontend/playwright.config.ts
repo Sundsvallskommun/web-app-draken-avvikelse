@@ -40,6 +40,12 @@ export default defineConfig({
       testDir: './e2e/schema-lab',
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      // Takes the README's screenshots into docs/screenshots; no assertions of its own, and not part of CI.
+      name: 'readme',
+      testDir: './e2e/readme',
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
   // No webServer config — start the dev server manually before running tests:
   //   yarn dev   (then yarn test:e2e or yarn test:e2e:schema-lab in another terminal)
