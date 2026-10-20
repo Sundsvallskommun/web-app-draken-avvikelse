@@ -59,7 +59,7 @@ export function AvvikelseMeasureDecisionDialog({
   const [saveError, setSaveError] = useState<string>();
   const [saving, setSaving] = useState(false);
   const busy = useRef(false);
-  const heading = useRef<HTMLHeadingElement>(null);
+  const heading = useRef<HTMLSpanElement>(null);
   const errorSummary = useRef<HTMLDivElement>(null);
   const confirm = useConfirm();
   const dirty = Boolean(
@@ -138,8 +138,17 @@ export function AvvikelseMeasureDecisionDialog({
   return (
     <Modal
       show
-      hideLabel
-      aria-label="Bedöm åtgärdsförslag"
+      // Titled in the modal's own header, which takes the focus so that the title is read first.
+      label={
+        <span
+          id={`${id}-heading`}
+          ref={heading}
+          tabIndex={-1}
+          className="focus-visible:outline focus-visible:outline-2"
+        >
+          Bedöm åtgärdsförslag
+        </span>
+      }
       closeLabel="Stäng"
       closeButtonProps={{ disabled: saving }}
       disableCloseOutside
@@ -155,19 +164,9 @@ export function AvvikelseMeasureDecisionDialog({
           aria-busy={saving}
           className="flex flex-col gap-24"
         >
-          <div className="flex flex-col gap-8">
-            <h3
-              id={`${id}-heading`}
-              ref={heading}
-              tabIndex={-1}
-              className="text-h3-sm focus-visible:outline focus-visible:outline-2"
-            >
-              Bedöm åtgärdsförslag
-            </h3>
-            <p>
-              Beslutet gäller förslaget nedan. Originalförslaget bevaras och kommentaren visas tillsammans med beslutet.
-            </p>
-          </div>
+          <p>
+            Beslutet gäller förslaget nedan. Originalförslaget bevaras och kommentaren visas tillsammans med beslutet.
+          </p>
           <section aria-label="Förslaget som bedöms" className="border-1 rounded-12 p-16 flex flex-col gap-8">
             <h4 className="font-bold">{title}</h4>
             <p className="whitespace-pre-wrap break-words">{measure.description}</p>

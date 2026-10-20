@@ -52,6 +52,7 @@ export function AvvikelseMeasureForm({
   errandIsInvestigated = false,
   onCancel,
   onDirtyChange,
+  titledBy,
 }: {
   measure?: Measure;
   measureTypes: readonly MeasureType[];
@@ -64,6 +65,11 @@ export function AvvikelseMeasureForm({
   /** Abandons the edit of an existing measure; a new measure's form has nothing to abandon. */
   onCancel?: () => void;
   onDirtyChange: (dirty: boolean) => void;
+  /**
+   * The id of the heading the container gives the form, as the edit modal does in its own header. The form then
+   * shows no heading of its own and leaves the focus to the container.
+   */
+  titledBy?: string;
 }) {
   const defaults = measureFormValues(measure, creationRoles);
 
@@ -147,7 +153,7 @@ export function AvvikelseMeasureForm({
   // The create form and the edit modal can be mounted at the same time, so ids are unique per instance.
   const uid = useId();
   const fieldId = (key: keyof MeasureForm) => `measure${uid}${key}`;
-  const headingId = `measure${uid}heading`;
+  const headingId = titledBy ?? `measure${uid}heading`;
   const detailsId = `measure${uid}details`;
   const errorText = (key: keyof MeasureForm) =>
     errors[key] ? <FormErrorMessage>{errors[key]}</FormErrorMessage> : null;
@@ -187,14 +193,16 @@ export function AvvikelseMeasureForm({
       className="flex flex-col gap-24 min-w-0 max-w-[76rem]"
     >
       <div className="flex flex-col gap-8">
-        <h3
-          id={headingId}
-          ref={heading}
-          tabIndex={-1}
-          className="text-h3-sm focus-visible:outline focus-visible:outline-2"
-        >
-          {measure ? 'Redigera åtgärd' : 'Lägg till åtgärder'}
-        </h3>
+        {!titledBy && (
+          <h3
+            id={headingId}
+            ref={heading}
+            tabIndex={-1}
+            className="text-h3-sm focus-visible:outline focus-visible:outline-2"
+          >
+            {measure ? 'Redigera åtgärd' : 'Lägg till åtgärder'}
+          </h3>
+        )}
         <p>
           {measure
             ? contentLocked

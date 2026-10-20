@@ -288,7 +288,8 @@ test('changes type using sorted metadata UUIDs and the measure ETag', async ({ p
   await openMeasures(page, dismissCookieConsent);
   await page.getByRole('button', { name: /^Redigera åtgärd/ }).click();
   const dialog = editDialog(page);
-  await expect(dialog.getByRole('heading', { name: 'Redigera åtgärd', exact: true })).toBeVisible();
+  // Titled in the modal's own header, which takes the focus so that the title is read first.
+  await expect(dialog.getByText('Redigera åtgärd', { exact: true })).toBeFocused();
   await expect(dialog).toContainText('Åtgärden är registrerad för rollen Enhetschef');
   const types = dialog.getByLabel('Åtgärd (Obligatoriskt)', { exact: true });
   await expect(types.locator('option')).toHaveText([
@@ -624,7 +625,7 @@ test('edits in a modal while the page form stays reserved for new measures', asy
   await openMeasures(page, dismissCookieConsent);
   await page.getByRole('button', { name: /^Redigera åtgärd/ }).click();
   const dialog = editDialog(page);
-  await expect(dialog.getByRole('heading', { name: 'Redigera åtgärd', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('form', { name: 'Redigera åtgärd' })).toBeVisible();
   await expect(page.getByRole('form', { name: 'Lägg till åtgärder' })).toHaveCount(1);
   await dialog.getByLabel('Beskriv syftet med åtgärden (Obligatoriskt)', { exact: true }).fill('Påbörjad ändring');
   await dialog.getByRole('button', { name: 'Stäng', exact: true }).click();
@@ -679,6 +680,7 @@ test('a manager can partially approve another author’s proposal without editin
   await expect(page.getByRole('button', { name: /^Redigera åtgärd/ })).toHaveCount(0);
   await page.getByRole('button', { name: /^Bedöm förslag/ }).click();
   const dialog = decisionDialog(page);
+  await expect(dialog.getByText('Bedöm åtgärdsförslag', { exact: true })).toBeFocused();
   await expect(dialog).toContainText('Befintlig beskrivning');
   await expect(dialog).toContainText('Befintligt mål');
   await dialog.getByRole('radio', { name: 'Godkänn delvis', exact: true }).check();

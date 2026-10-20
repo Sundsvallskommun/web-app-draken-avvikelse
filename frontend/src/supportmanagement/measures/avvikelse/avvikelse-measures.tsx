@@ -69,6 +69,8 @@ export function AvvikelseMeasures({
   const [dirty, setDirty] = useState(false);
   const listHeading = useRef<HTMLHeadingElement>(null);
   const listHeadingId = useId();
+  const editHeading = useRef<HTMLSpanElement>(null);
+  const editHeadingId = useId();
   const reportDirty = useCallback(
     (value: boolean) => {
       setDirty(value);
@@ -256,10 +258,21 @@ export function AvvikelseMeasures({
       {canEdit && editing && (
         <Modal
           show
-          hideLabel
-          aria-label="Redigera åtgärd"
+          // Titled in the modal's own header, which takes the focus so that the title is read first. The form
+          // names itself after it rather than showing a heading of its own.
+          label={
+            <span
+              id={editHeadingId}
+              ref={editHeading}
+              tabIndex={-1}
+              className="focus-visible:outline focus-visible:outline-2"
+            >
+              Redigera åtgärd
+            </span>
+          }
           closeLabel="Stäng"
           disableCloseOutside
+          initialFocus={editHeading}
           className="w-full max-w-[84rem]"
           onClose={() => void requestCloseEditing()}
           data-cy="measure-edit-modal"
@@ -277,6 +290,7 @@ export function AvvikelseMeasures({
                 errandIsInvestigated={errandIsInvestigated}
                 onCancel={closeEditing}
                 onDirtyChange={reportDirty}
+                titledBy={editHeadingId}
               />
             )}
           </Modal.Content>
