@@ -3,6 +3,10 @@
 import { ariaDescribedByIds, titleId, type WidgetProps } from '@rjsf/utils';
 import { Combobox, Input } from '@sk-web-gui/react';
 
+/** The same values chosen, whatever their order: a combobox offers no way to reorder a selection. */
+export const isSameSelection = (first: readonly unknown[], second: readonly unknown[]): boolean =>
+  first.length === second.length && first.every((value) => second.some((other) => Object.is(other, value)));
+
 export function ComboboxWidget(props: WidgetProps) {
   const {
     id,
@@ -36,13 +40,20 @@ export function ComboboxWidget(props: WidgetProps) {
         enumOptions.find((enumOption) => Object.is(enumOption.value, selectedValue))?.label ?? String(selectedValue)
     )
     .join(', ');
+  // The design system's Combobox reports its value when it mounts - twice under React's strict mode - which is no
+  // change. Passed on, it makes RJSF write the field back together with the form state it holds at that moment: a
+  // stale one while the form data is being replaced from outside, as when a locked investigation is unlocked and the
+  // field turns from a read-only input into this combobox.
   const handleChange = (e: any) => {
     const raw = e?.target?.value;
     if (multiple) {
-      const arr = Array.isArray(raw) ? raw : [raw];
-      onChange(arr.filter((x) => x !== undefined && x !== null && x !== ''));
+      const arr = (Array.isArray(raw) ? raw : [raw]).filter((x) => x !== undefined && x !== null && x !== '');
+      if (isSameSelection(arr, selectedValues)) return;
+      onChange(arr);
     } else {
-      onChange(raw ?? '');
+      const next = raw ?? '';
+      if (Object.is(next, currentValue)) return;
+      onChange(next);
     }
   };
 
