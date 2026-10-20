@@ -424,9 +424,17 @@ Notiserna kommer från Support Managements prenumerationsmodell.
 - **Vem får notiser.** Bara ärendets handläggare följer ärendet (profilens `assigneeFollowsErrand`). När
   ärendet tilldelas, lämnas över eller registreras prenumererar BFF:en den nya handläggaren och tar bort
   den förras prenumerationer på ärendet. Därför finns ingen Följ ärendet i sidopanelen.
-- **En notis per ärende.** Support Management samlar allt som hänt sedan användaren senast kvitterade
-  i en notis per ärende och användare (`GET /supportnotifications`). Klockan hämtar
-  listan en gång i minuten, pausar i en dold flik och hämtar direkt när användaren byter vy.
+- **En notis per ärende och utskick.** Support Management skickar ut notiser var femte minut och gör då en
+  notis per ärende och användare av det som hänt sedan förra utskicket (`GET /supportnotifications`). Ett
+  ärende kan alltså ha flera notiser. En handling tas med först när den har varit tyst i tio sekunder, så
+  notisen kommer mellan tio sekunder och drygt fem minuter efter händelsen. Notisens händelser bär tiden
+  för utskicket, inte för händelsen. Klockan hämtar listan en gång i minuten, pausar i en dold flik och
+  hämtar direkt när användaren byter vy.
+- **Notiserna i ärendeloggen.** Ärendeloggen markerar de händelser användaren har fått notis om, och en
+  länk från en notis lyfter fram händelsen den gäller. Support Management talar inte om vilken
+  logghändelse en notishändelse gäller, så de paras ihop: samma undertyp, logghändelsens text lika med
+  notishändelsens beskrivning och logghändelsen högst sex minuter före notishändelsen
+  (`matchEventToNotification`).
 - **Kvittens.** Ett ärendes notiser kvitteras när ärendet öppnas, hur användaren än kommer dit
   (`PUT /supportnotifications/:errandId/acknowledge-all`). I panelen går det också att
   markera notiser som lästa. En kvitterad notis ligger kvar tills Support Management låter den gå ut.

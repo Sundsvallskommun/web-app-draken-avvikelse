@@ -1,6 +1,9 @@
 /** One thing that happened on the errand. */
 export interface NotificationEventView {
-  /** When the event happened. */
+  /**
+   * When upstream wrote the notification that reports the event, not when it happened: between ten
+   * seconds and a little over five minutes later, and about the same for every event it carries.
+   */
   created: string;
   /** MESSAGE | ATTACHMENT | NOTE | ... — drives the icon. */
   subType?: string;
@@ -11,8 +14,9 @@ export interface NotificationEventView {
 }
 
 /**
- * The shape every notification component renders. Support Management aggregates everything that
- * happened on an errand since the user last acknowledged onto one notification.
+ * The shape every notification component renders. Support Management dispatches notifications every
+ * five minutes and writes one per errand on each run, holding every event on the errand that run
+ * picked up, so an errand can have several.
  */
 export interface NotificationView {
   id: string;

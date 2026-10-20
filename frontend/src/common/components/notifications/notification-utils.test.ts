@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 
 import { test } from 'vitest';
 
-import { latestUnacknowledgedEvent, notificationLabel, notificationSummary } from './notification-utils';
+import {
+  latestUnacknowledgedEvent,
+  matchEventToNotification,
+  notificationLabel,
+  notificationSummary,
+} from './notification-utils';
 import type { NotificationEventView, NotificationView } from './notification-view';
 
 const event = (created: string, description: string): NotificationEventView => ({
@@ -19,6 +24,34 @@ const notification = (overrides: Partial<NotificationView>): NotificationView =>
   errandNumber: 'KC-1',
   events: [],
   ...overrides,
+});
+
+// Upstream timestamps a notification event when its dispatch scheduler writes the notification, every
+// five minutes and once the operation has been quiet for ten seconds, not when the event happened.
+const notifiedMessage = notification({ events: [event('2026-10-01T09:02:00+02:00', 'Meddelande har skickats')] });
+
+const loggedMessage = (created: string, message = 'Meddelande har skickats') => ({
+  subType: 'MESSAGE',
+  message,
+  created,
+});
+
+test('matches a logged event to the notification written two minutes after it', () => {
+  assert.equal(matchEventToNotification(loggedMessage('2026-10-01T09:00:00+02:00'), notifiedMessage), true);
+});
+
+test('does not match a logged event whose message differs from the description', () => {
+  const otherMessage = loggedMessage('2026-10-01T09:00:00+02:00', 'Meddelande har tagits emot');
+
+  assert.equal(matchEventToNotification(otherMessage, notifiedMessage), false);
+});
+
+test('does not match a logged event that happened after the notification was written', () => {
+  assert.equal(matchEventToNotification(loggedMessage('2026-10-01T09:02:01+02:00'), notifiedMessage), false);
+});
+
+test('does not match a logged event more than six minutes before the notification', () => {
+  assert.equal(matchEventToNotification(loggedMessage('2026-10-01T08:55:00+02:00'), notifiedMessage), false);
 });
 
 test('picks the newest event across the unacknowledged notifications for the errand', () => {

@@ -60,34 +60,52 @@ export const getFilteredNotifications = (notifications: NotificationView[]): Not
   return kept;
 };
 
+/** An event in the errand's log, as far as matching it to a notification needs it. */
+interface LoggedEvent {
+  subType?: string;
+  message?: string;
+  created?: string;
+}
+
+/**
+ * How long before its notification event a logged event can have happened.
+ *
+ * Upstream does not timestamp a notification event when the event happened but when its dispatch
+ * scheduler writes the notification. That scheduler runs every five minutes and only takes a request
+ * group that has been quiet for ten seconds, so the notification event comes between ten seconds and
+ * a little over five minutes after the event it reports. Six minutes covers that with a margin.
+ */
+const NOTIFICATION_DISPATCH_WINDOW_MS = 6 * 60 * 1000;
+
 /**
  * Does a log event and a notification event describe the same thing?
  *
- * Still a heuristic: upstream timestamps every notification event but puts no id on it, so there is
- * nothing exact to compare. Matching per event rather than per notification is as close as the API
- * currently allows, and keeping the comparison in one place means it disappears in a single edit
- * once upstream exposes the reference.
+ * Still a heuristic: upstream records which logged event a notification event reports but does not
+ * expose it, so there is nothing exact to compare. What it does expose is the log's own message as
+ * the description, and a timestamp from when the notification was written, which always comes after
+ * the event. Keeping the comparison in one place means it disappears in a single edit once upstream
+ * exposes the reference.
  */
-const isSameEvent = (
-  event: { subType?: string; created?: string },
-  notificationEvent: NotificationEventView
-): boolean => {
+const isSameEvent = (event: LoggedEvent, notificationEvent: NotificationEventView): boolean => {
   if (!event.created || !notificationEvent.created) return false;
   // Both subtypes must be known. Treating "neither has one" as a match would let any event within
   // the time window claim any subtype-less notification event.
   if (!event.subType || !notificationEvent.subType) return false;
   if (event.subType.toUpperCase() !== notificationEvent.subType) return false;
-  return Math.abs(dayjs(event.created).diff(dayjs(notificationEvent.created), 'second')) <= 5;
+  if (!event.message || event.message !== notificationEvent.description) return false;
+  const dispatchDelay = dayjs(notificationEvent.created).diff(dayjs(event.created));
+  return dispatchDelay >= 0 && dispatchDelay <= NOTIFICATION_DISPATCH_WINDOW_MS;
 };
 
 /** Did this log event produce one of the events the notification is about? */
-export const matchEventToNotification = (
-  event: { subType?: string; created?: string },
-  notification: NotificationView
-): boolean => notification.events.some((notificationEvent) => isSameEvent(event, notificationEvent));
+export const matchEventToNotification = (event: LoggedEvent, notification: NotificationView): boolean =>
+  notification.events.some((notificationEvent) => isSameEvent(event, notificationEvent));
 
 /**
  * The newest event on an errand that the user has not acknowledged yet, from their own notifications.
+ *
+ * Newest by when it was notified, since that is the only time a notification event carries; events
+ * one notification carries share about the same time.
  *
  * Undefined when nothing has happened there since they last opened it, or when they get no
  * notifications for it at all.

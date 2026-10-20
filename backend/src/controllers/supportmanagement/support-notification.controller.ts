@@ -23,8 +23,10 @@ import { currentRequestGroupId } from '@/utils/request-group';
 /**
  * One thing that happened on an errand, as the frontend consumes it.
  *
- * Upstream aggregates every event since the last acknowledgement onto a single notification, so a
- * notification carries a list of these rather than one flat event of its own.
+ * Upstream writes one notification per errand on each run of its dispatch scheduler, holding every
+ * event on the errand that run picked up, so a notification carries a list of these rather than one
+ * flat event of its own. `created` is when the run wrote the notification, not when the event
+ * happened.
  */
 export class SupportNotificationEventDto {
   @IsString()
@@ -40,9 +42,9 @@ export class SupportNotificationEventDto {
 /**
  * A notification as the frontend consumes it.
  *
- * One notification per errand, holding everything that has happened on it since the user last
- * acknowledged. The panel renders a notification as a single row, so no grouping is needed on the
- * client any more.
+ * One notification per errand and dispatch run, holding what happened on the errand since the run
+ * before; an errand can have several. The panel renders a notification as a single row, so no
+ * grouping is needed on the client any more.
  */
 export class SupportNotificationDto {
   @IsString()
@@ -57,7 +59,7 @@ export class SupportNotificationDto {
   @IsString()
   errandNumber!: string;
   /**
-   * Events since the last acknowledgement, newest first. Can be empty — upstream does not guarantee
+   * The events the dispatch run picked up, newest first. Can be empty — upstream does not guarantee
    * an event for every notification, and consumers have to stay readable when it is.
    */
   @IsArray()
