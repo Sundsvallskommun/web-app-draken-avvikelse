@@ -30,7 +30,7 @@ import {
   SupportErrandStatusTransitionChanges,
   SupportErrandStatusTransitionRequest,
 } from './support-errand-status-transition';
-import { buildSupportErrandUpdateData } from './support-errand-update-data';
+import { buildSupportErrandUpdateData, changesSupportErrandBody } from './support-errand-update-data';
 import { SupportErrandStatusAfterAssignmentError, toStrongSupportErrandETag } from './support-errand-write-version';
 import { getMappedLabelSubType } from './support-label-classification-service';
 import { CATEGORIZATION_CLASSIFICATIONS } from './support-label-service';
@@ -696,10 +696,13 @@ interface UpdateResponse {
   notes: boolean;
   attachments: boolean;
   errand: ApiSupportErrand | boolean;
+  /** Something was written, so the errand's version has moved on from the one the form was loaded with. */
+  wrote: boolean;
 }
 
 /**
- * Writes the edited form back to the errand.
+ * Writes the edited form back to the errand - only what the draft changed: the errand itself when a field of its
+ * own is dirty (`changesSupportErrandBody`), and each parameter, note and attachment that changed or was added.
  *
  * `expectedVersion` is a required argument rather than a form field: form state is only reset
  * when the errand page loads, so any version carried in it is stale as soon as another action
@@ -708,8 +711,9 @@ interface UpdateResponse {
 export const updateSupportErrand: (
   formdata: Partial<RegisterSupportErrandFormModel>,
   expectedVersion: number | undefined,
-  currentParameters?: CParameter[]
-) => Promise<UpdateResponse> = async (formdata, expectedVersion, currentParameters) => {
+  currentParameters: CParameter[] | undefined,
+  dirtyFields: Record<string, unknown>
+) => Promise<UpdateResponse> = async (formdata, expectedVersion, currentParameters, dirtyFields) => {
   if (!formdata.id) {
     throw new Error('A support errand id is required before writing');
   }
@@ -721,23 +725,33 @@ export const updateSupportErrand: (
     notes: false,
     attachments: false,
     errand: false,
+    wrote: false,
   };
 
-  try {
-    await apiService.patch<ApiSupportErrand, Partial<SupportErrandDto>>(`supporterrands/${errandId}`, data, {
-      headers: { 'If-Match': ifMatch },
-    });
+  if (changesSupportErrandBody(dirtyFields)) {
+    try {
+      await apiService.patch<ApiSupportErrand, Partial<SupportErrandDto>>(`supporterrands/${errandId}`, data, {
+        headers: { 'If-Match': ifMatch },
+      });
+      responseObj.errand = true;
+      responseObj.wrote = true;
+    } catch (e) {
+      console.error('Something went wrong when patching errand');
+      throw e;
+    }
+  } else {
+    // Nothing of the errand itself changed, so there is nothing of it to write.
     responseObj.errand = true;
-  } catch (e) {
-    console.error('Something went wrong when patching errand');
-    throw e;
   }
 
   // Parameters live outside the errand body: each is versioned separately and only the ones whose
   // values changed are written, so this save leaves everybody else's parameter edits alone.
-  await saveChangedErrandParameters(errandId, currentParameters, formdata.parameters);
+  if ((await saveChangedErrandParameters(errandId, currentParameters, formdata.parameters)) > 0) {
+    responseObj.wrote = true;
+  }
 
   if (formdata.notes) {
+    responseObj.wrote = true;
     try {
       const noteRes = await saveSupportNote(errandId, formdata.notes);
       responseObj.notes = noteRes;
@@ -749,6 +763,7 @@ export const updateSupportErrand: (
   }
 
   if (formdata.attachments && formdata.attachments.length > 0) {
+    responseObj.wrote = true;
     try {
       const attachmentRes = await saveSupportAttachments(errandId, formdata.attachments as { file: File }[]);
       responseObj.attachments = attachmentRes.every((r) => r.status === 'fulfilled');
@@ -849,6 +864,8 @@ export const setSupportErrandAdmin: (
     try {
       // The assignment above is ours and succeeded, so it is the write that moved the version on.
       const afterAssignment = await readSupportErrandWriteSnapshot(errandId);
+      // Only what changed is written: an errand already in the status the assignment leaves it in has none to change.
+      if (afterAssignment.status === status) return true;
       return await transitionSupportErrandStatus(errandId, status, afterAssignment);
     } catch (e) {
       // Reported apart from the assignment: that one landed, and an errand left in Ny needs a

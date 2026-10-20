@@ -356,6 +356,20 @@ test('editing an approved measure leaves both dates alone, and the measures view
   expect(screen.getByText('Slutdatumet ändras med Ändra slutdatum, av den som följer upp åtgärden.')).toBeTruthy();
 });
 
+// Only what changed is written: spaces around the responsible person change nothing the measure holds.
+test('an edit that changes nothing the measure holds writes nothing', async () => {
+  render(<Harness followUp={false} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Redigera åtgärd Utbildning' }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText('Ansvarig för åtgärden'), { target: { value: 'Anna ' } });
+  const save = within(dialog).getByRole('button', { name: 'Spara ändringar' });
+  await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(save);
+
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(mocks.update).not.toHaveBeenCalled();
+});
+
 test('lists the latest added measure first, and gathers the measures per person when asked to', async () => {
   mocks.read.mockResolvedValue({
     ...snapshot,

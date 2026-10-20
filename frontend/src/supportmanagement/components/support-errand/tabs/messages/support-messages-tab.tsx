@@ -50,9 +50,12 @@ export const SupportMessagesTab: FC<{
 
   const onSelect = (message: Message) => {
     if (message.conversationId && message.messageId) {
-      markSupportConversationMessagesAsRead(supportErrand!.id!, message.conversationId, [message.messageId])
-        .then(() => props.update())
-        .catch((error) => console.error('Could not mark conversation message as read', error));
+      // Only a message the user has not read yet is marked; one they have read has nothing to mark.
+      if (!message.viewed) {
+        markSupportConversationMessagesAsRead(supportErrand!.id!, message.conversationId, [message.messageId])
+          .then(() => props.update())
+          .catch((error) => console.error('Could not mark conversation message as read', error));
+      }
     } else if (!message.viewed && supportErrand?.assignedUserId === user.username) {
       setMessageViewStatus(supportErrand!.id!, message.communicationID, true).then(() => {
         props.update();

@@ -127,13 +127,15 @@ export function AvvikelseMeasures({
     if (editing) {
       if (!editing.id) throw new Error('SupportMeasure is missing its identity');
       const measureId = editing.id;
+      const changes = measureFormChanges(values, editing, errandIsInvestigated);
+      // Only what changed is written; a draft that changed nothing the measure holds - a responsible person with
+      // only spaces added, say - has nothing to write.
+      if (Object.keys(changes).length === 0) {
+        closeEditing();
+        return;
+      }
       try {
-        await updateSupportMeasure(
-          errand.id,
-          measureId,
-          editing.version,
-          measureFormChanges(values, editing, errandIsInvestigated)
-        );
+        await updateSupportMeasure(errand.id, measureId, editing.version, changes);
       } catch (cause) {
         if (isSupportErrandWriteConflict(cause)) await rebaseOnCurrent(measureId, 'edit');
         throw cause;

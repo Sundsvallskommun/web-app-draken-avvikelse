@@ -245,13 +245,15 @@ export const SidebarInfo: FC<{
   /** Writes the errand's own fields; answers whether they were saved. A failure is told in a toast. */
   const saveErrandFields = async (): Promise<boolean> => {
     try {
-      // An errand taken over while it waits accepts nothing but its new handler, so nothing else of it is written.
-      if (!takesOverWaitingErrand) {
-        await updateSupportErrand(getValues(), supportErrand?.version, supportErrand?.parameters);
-      }
+      // Only what changed is written (`updateSupportErrand`), so a save that only chooses a new handler writes the
+      // assignment alone. An errand taken over while it waits accepts nothing else anyway.
+      const writesOwnFields = errandOwnFieldsDirty
+        ? (await updateSupportErrand(getValues(), supportErrand?.version, supportErrand?.parameters, otherDirtyFields))
+            .wrote
+        : false;
 
-      // Handle admin change. The update above is ours and moved the version on, so the version
-      // the form was loaded with can no longer be used as the precondition here - unless there was none.
+      // Handle admin change. The update above, when there was one, is ours and moved the version on, so
+      // the version the form was loaded with can no longer be used as the precondition here.
       const newAdmin = findChosenAdmin();
       const newAdminAccount = newAdmin?.adAccount;
       if (supportErrand?.assignedUserId !== newAdminAccount) {
@@ -262,9 +264,9 @@ export const SidebarInfo: FC<{
             newAdminAccount === assigner.adAccount
               ? resolveWorkingStatus(supportErrand?.phases, supportMetadata?.phases)
               : Status.ASSIGNED;
-          const expectedVersion = takesOverWaitingErrand
-            ? supportErrand?.version
-            : (await readSupportErrandWriteSnapshot(supportErrand!.id!)).version;
+          const expectedVersion = writesOwnFields
+            ? (await readSupportErrandWriteSnapshot(supportErrand!.id!)).version
+            : supportErrand?.version;
           await setSupportErrandAdmin(
             supportErrand!.id!,
             newAdminAccount,
@@ -325,6 +327,8 @@ export const SidebarInfo: FC<{
   const errandFieldsDirty = hasDirtyFields(formState.dirtyFields);
   const hasDirtyParticipant = useErrandSaveParticipantsStore(selectHasDirtyParticipant);
   const { admin: assigneeChanged, ...otherDirtyFields } = formState.dirtyFields ?? {};
+  /** The errand's own fields hold a draft; Ansvarig is written apart from them, as the assignment. */
+  const errandOwnFieldsDirty = hasDirtyFields(otherDirtyFields);
   /**
    * An errand that waits for its handler to resume it is shut to every change. Nobody takes an errand here, though:
    * Ansvarig is how another handler takes it over - a LEX manager from another, say - so a save that changes the
@@ -334,7 +338,7 @@ export const SidebarInfo: FC<{
     supportErrand?.status === Status.ASSIGNED &&
     !supportErrand?.limitedAccess &&
     Boolean(assigneeChanged) &&
-    !hasDirtyFields(otherDirtyFields) &&
+    !errandOwnFieldsDirty &&
     !hasDirtyParticipant;
 
   /**

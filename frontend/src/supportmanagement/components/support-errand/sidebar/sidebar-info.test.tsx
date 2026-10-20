@@ -133,7 +133,7 @@ function Harness() {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.assignable = { administrators: [], roles: [] };
-  mocks.save.mockReset().mockResolvedValue(undefined);
+  mocks.save.mockReset().mockResolvedValue({ wrote: true });
   mocks.read.mockReset().mockResolvedValue({ errand: { ...loaded, title: 'Someone else changed this', version: 2 } });
   useSupportStore.setState({ supportErrand: { ...loaded } });
   useUserStore.setState({
@@ -215,7 +215,12 @@ test('Starta handläggning saves a draft first, and starts the errand as saved',
     )
   );
   expect(mocks.save).toHaveBeenCalledOnce();
-  expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({ title: 'My draft' }), 1, undefined);
+  expect(mocks.save).toHaveBeenCalledWith(
+    expect.objectContaining({ title: 'My draft' }),
+    1,
+    undefined,
+    expect.objectContaining({ title: true })
+  );
   expect(mocks.status).toHaveBeenCalledOnce();
 });
 
@@ -239,8 +244,8 @@ const lexManager = {
   roleKeys: ['lex-ansvarig'],
 };
 
-/** Offers LEX-ansvarig as a handover, picks her and presses Spara ärende. */
-const handToLex = async () => {
+/** Offers LEX-ansvarig as a handover, picks her - with a draft of the title too, when asked - and presses Spara ärende. */
+const handToLex = async ({ editTitle = false } = {}) => {
   mocks.assignable = {
     administrators: [{ ...lexManager, handoverStep: 'assign-lex' }],
     roles: [{ key: 'lex-ansvarig', label: 'LEX-ansvarig' }],
@@ -264,6 +269,7 @@ const handToLex = async () => {
   const handlerSelect = await screen.findByLabelText('Tilldela handläggare');
   await waitFor(() => expect(screen.getByRole('option', { name: 'Lena LEX' })).toBeTruthy());
   fireEvent.change(handlerSelect, { target: { value: 'lex-ansvarig:lena.lex' } });
+  if (editTitle) fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'My draft' } });
   const save = screen.getByRole('button', { name: 'Spara ärende' });
   await waitFor(() => expect(save).toHaveProperty('disabled', false));
   fireEvent.click(save);
@@ -318,8 +324,57 @@ test('giving the errand to someone under their LEX heading is the handover, not 
 test('giving the errand to the same person under their manager heading is an ordinary assignment', async () => {
   await chooseManagerWhoIsAlsoLex('verksamhetschef');
 
-  await waitFor(() => expect(mocks.assign).toHaveBeenCalledWith('one', 'nora.chef', 3, 'ASSIGNED', 'handler'));
+  await waitFor(() => expect(mocks.assign).toHaveBeenCalledWith('one', 'nora.chef', 1, 'ASSIGNED', 'handler'));
   expect(mocks.handover).not.toHaveBeenCalled();
+});
+
+// Only what changed is written: Ansvarig is the assignment, and the errand itself holds no draft, so nothing of it
+// is written and the assignment is conditioned on the version the page loaded.
+test('choosing a new handler alone writes the assignment and nothing of the errand', async () => {
+  await chooseManagerWhoIsAlsoLex('verksamhetschef');
+
+  await waitFor(() => expect(mocks.assign).toHaveBeenCalledOnce());
+  expect(mocks.save).not.toHaveBeenCalled();
+  expect(mocks.assign).toHaveBeenCalledWith('one', 'nora.chef', loaded.version, 'ASSIGNED', 'handler');
+});
+
+test('a draft of the errand is written before the assignment, which follows the version it left', async () => {
+  const nora = { displayName: 'Nora Chef', firstName: 'Nora', lastName: 'Chef', adAccount: 'nora.chef', id: 'nora' };
+  mocks.assignable = {
+    administrators: [{ ...nora, roleKeys: ['verksamhetschef'] }],
+    roles: [{ key: 'verksamhetschef', label: 'Verksamhetschef' }],
+  };
+  mocks.read.mockResolvedValue({ errand: { ...loaded }, version: 3 });
+  useUserStore.setState({
+    administrators: [
+      {
+        displayName: 'Handläggare',
+        firstName: 'H',
+        lastName: 'L',
+        adAccount: 'handler',
+        id: 'h',
+        roleKeys: ['enhetschef'],
+      },
+    ],
+  });
+  render(<Harness />);
+
+  const handlerSelect = await screen.findByLabelText('Tilldela handläggare');
+  await waitFor(() => expect(screen.getByRole('option', { name: 'Nora Chef' })).toBeTruthy());
+  fireEvent.change(handlerSelect, { target: { value: 'verksamhetschef:nora.chef' } });
+  fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'My draft' } });
+  const save = screen.getByRole('button', { name: 'Spara ärende' });
+  await waitFor(() => expect(save).toHaveProperty('disabled', false));
+  fireEvent.click(save);
+
+  await waitFor(() => expect(mocks.assign).toHaveBeenCalledOnce());
+  expect(mocks.save).toHaveBeenCalledWith(
+    expect.objectContaining({ title: 'My draft' }),
+    loaded.version,
+    undefined,
+    expect.not.objectContaining({ admin: expect.anything() })
+  );
+  expect(mocks.assign).toHaveBeenCalledWith('one', 'nora.chef', 3, 'ASSIGNED', 'handler');
 });
 
 /** A part of the errand holding a draft, as the MAS/MAR select or an investigation document would. */
@@ -341,6 +396,7 @@ test('a handover is the last write of a save, since the errand is out of reach a
   const order: string[] = [];
   mocks.save.mockImplementation(async () => {
     order.push('errand');
+    return { wrote: true };
   });
   registerDraft(async () => {
     order.push('draft');
@@ -349,7 +405,7 @@ test('a handover is the last write of a save, since the errand is out of reach a
   mocks.handover.mockImplementation(async () => {
     order.push('handover');
   });
-  await handToLex();
+  await handToLex({ editTitle: true });
 
   await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/oversikt'));
   // The errand's own fields first: they are conditioned on the version the form was loaded with,

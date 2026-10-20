@@ -1,6 +1,33 @@
 import type { Stakeholder as SupportStakeholder } from '@common/data-contracts/supportmanagement/data-contracts';
+import { hasDirtyFields } from '@common/services/helper-service';
 import type { RegisterSupportErrandFormModel } from '@supportmanagement/interfaces/errand';
 import type { SupportErrandDto } from 'src/data-contracts/backend/data-contracts';
+
+/**
+ * The form fields `buildSupportErrandUpdateData` writes to the errand itself. Parameters, notes and attachments go
+ * to routes of their own, and Ansvarig is written as the assignment.
+ */
+const SUPPORT_ERRAND_BODY_FIELDS: readonly (keyof RegisterSupportErrandFormModel)[] = [
+  'title',
+  'priority',
+  'contactReason',
+  'contactReasonDescription',
+  'businessRelated',
+  'escalationEmail',
+  'channel',
+  'description',
+  'customer',
+  'contacts',
+  'externalTags',
+  'caseId',
+];
+
+/**
+ * Does the draft change anything the errand PATCH writes? Only then is there an errand to write: a PATCH of fields
+ * nobody touched is still an update to Support Management, logged and told to whoever follows the errand as one.
+ */
+export const changesSupportErrandBody = (dirtyFields: Record<string, unknown> | undefined): boolean =>
+  SUPPORT_ERRAND_BODY_FIELDS.some((field) => hasDirtyFields({ [field]: dirtyFields?.[field] }));
 
 export const buildSupportErrandUpdateData = (
   formdata: Partial<RegisterSupportErrandFormModel>,

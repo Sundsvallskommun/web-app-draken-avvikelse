@@ -62,6 +62,8 @@ export const SidebarGenericNotes: FC<{
   const [isLoading, setIsLoading] = useState(false);
   const [activePage, setActivePage] = useState(1);
   const [editNote, setEditNote] = useState(false);
+  /** The text of the note being edited, as it was saved. */
+  const [editedNoteBody, setEditedNoteBody] = useState<string>();
   const confirm = useConfirm();
   const toastMessage = useSnackbar();
   const pageSize = 8;
@@ -138,11 +140,20 @@ export const SidebarGenericNotes: FC<{
   const updateNote = (inNote: GenericNote) => {
     setValue('text', inNote.body);
     setValue('id', inNote.id);
+    setEditedNoteBody(inNote.body);
     setEditNote(true);
   };
 
+  /** The note's text is as it was saved, so there is nothing to write. */
+  const editedNoteUnchanged = text === editedNoteBody;
+
   const saveModifiedNote = () => {
     const note: ErrandNotesTabFormModel = getValues();
+    // Only what changed is written: saving the text it already has is still an update of the note.
+    if (note.text === editedNoteBody) {
+      setEditNote(false);
+      return Promise.resolve();
+    }
     return updateSupportNote(supportErrand!.id!, note.id!, note.text)
       .then(() => {
         toastMessage(
@@ -374,7 +385,13 @@ export const SidebarGenericNotes: FC<{
           <Textarea rows={4} data-cy="edit-notes-input" className="w-full" {...register('text')}></Textarea>
         </Modal.Content>
         <Modal.Footer>
-          <Button data-cy="save-updatedcomment" className="w-full" variant="primary" onClick={() => saveModifiedNote()}>
+          <Button
+            data-cy="save-updatedcomment"
+            className="w-full"
+            variant="primary"
+            disabled={editedNoteUnchanged}
+            onClick={() => saveModifiedNote()}
+          >
             Spara
           </Button>
         </Modal.Footer>

@@ -178,9 +178,10 @@ export const saveChangedErrandParameters = (
   errandId: string,
   currentParameters: Parameter[] | undefined,
   nextParameters: Parameter[] | undefined
-): Promise<void> =>
+): Promise<number> =>
   withRequestGroup(async () => {
     const current = new Map((currentParameters ?? []).map((parameter) => [parameter.key, parameter]));
+    let written = 0;
 
     for (const next of nextParameters ?? []) {
       if (!next.key) continue;
@@ -194,5 +195,8 @@ export const saveChangedErrandParameters = (
         group: next.group,
         ...(existing ? { version: existing.version } : {}),
       });
+      written += 1;
     }
+    // How many were written, so a caller can tell whether the errand's version moved.
+    return written;
   });

@@ -6,6 +6,7 @@ import {
   ApiSupportErrand,
   isSupportErrandOpenToHandover,
   mapApiSupportErrandToSupportErrand,
+  setSupportErrandAdmin,
   Status,
   SupportErrand,
   updateSupportErrand,
@@ -60,10 +61,40 @@ describe('classification', () => {
 
   // The classification is the investigation's to write; Grundinformation never sends it back.
   test('never sends the classification or the labels with the errand', async () => {
-    await updateSupportErrand({ id: 'errand-1', category: 'BOU', type: 'OTHER' }, loadedErrandVersion);
+    await updateSupportErrand(
+      { id: 'errand-1', title: 'Titel', category: 'BOU', type: 'OTHER' },
+      loadedErrandVersion,
+      undefined,
+      { title: true }
+    );
 
     expect(patchedBody().classification).toBeUndefined();
     expect(patchedBody().labels).toBeUndefined();
+  });
+});
+
+// Only what changed is written: a PATCH of fields nobody touched is still an update to Support Management, logged and
+// told to whoever follows the errand as one.
+describe('updateSupportErrand', () => {
+  test('writes the errand when one of its own fields changed', async () => {
+    const result = await updateSupportErrand({ id: 'errand-1', title: 'Ny titel' }, loadedErrandVersion, undefined, {
+      title: true,
+    });
+
+    expect(apiService.patch).toHaveBeenCalledOnce();
+    expect(result.wrote).toBe(true);
+  });
+
+  test('writes nothing of the errand when only fields it does not carry changed', async () => {
+    const result = await updateSupportErrand(
+      { id: 'errand-1', title: 'Titel', category: 'BOU' },
+      loadedErrandVersion,
+      undefined,
+      { admin: true, category: true, contacts: [{}] }
+    );
+
+    expect(apiService.patch).not.toHaveBeenCalled();
+    expect(result.wrote).toBe(false);
   });
 });
 
@@ -81,5 +112,28 @@ describe('isSupportErrandOpenToHandover', () => {
     expect(isSupportErrandOpenToHandover(errandIn(Status.SUSPENDED))).toBe(false);
     expect(isSupportErrandOpenToHandover(errandIn(Status.REOPENED))).toBe(false);
     expect(isSupportErrandOpenToHandover(errandIn(Status.ASSIGNED, true))).toBe(false);
+  });
+});
+
+describe('setSupportErrandAdmin', () => {
+  const statusWrites = () =>
+    vi.mocked(apiService.patch).mock.calls.filter(([url]) => String(url).endsWith('/status')).length;
+
+  test('moves the errand to the status the assignment leaves it in', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: { status: Status.ONGOING, version: 4 } } as never);
+
+    await setSupportErrandAdmin('errand-1', 'lex.utredare', loadedErrandVersion, Status.ASSIGNED);
+
+    expect(statusWrites()).toBe(1);
+  });
+
+  // Only what changed is written: an errand already in that status has no status to change.
+  test('writes no status for an errand already in the status the assignment leaves it in', async () => {
+    vi.mocked(apiService.get).mockResolvedValue({ data: { status: Status.ASSIGNED, version: 4 } } as never);
+
+    await setSupportErrandAdmin('errand-1', 'lex.utredare', loadedErrandVersion, Status.ASSIGNED);
+
+    expect(apiService.patch).toHaveBeenCalledOnce();
+    expect(statusWrites()).toBe(0);
   });
 });
