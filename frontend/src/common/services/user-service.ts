@@ -76,26 +76,9 @@ export interface HandlerDirectory {
   roles: HandlerRole[];
 }
 
-export interface EmployeeInfo {
-  personid: string;
-  givenname: string;
-  lastname: string;
-  fullname: string;
-  address: string;
-  postalCode: string;
-  city: string;
-  workPhone: string;
-  mobilePhone: string;
-  extraMobilePhone: string;
-  aboutMe: string;
-  email: string;
-  mailNickname: string;
-  company: string;
-  companyId: number;
-  orgTree: string;
-  referenceNumber: string;
-  isManager: true;
-  loginName: string;
+/** All the BFF tells about an employee. */
+interface EmployeeNameResponse {
+  name: string | null;
 }
 
 interface HandlerDirectoryResponse extends ApiResponse<AdUser[]> {
@@ -137,11 +120,12 @@ export const getInitialsFromADUsername: (username: string, admins: Admin[]) => s
   return admin ? `${admin.firstName[0]}${admin.lastName[0]}` : undefined;
 };
 
-export const getUserInfo: (adAccount: string) => Promise<EmployeeInfo> = (adAccount) => {
+/** An employee's name from the Employee API, or null when it holds none for the account. */
+export const getEmployeeName: (adAccount: string) => Promise<string | null> = (adAccount) => {
   return apiService
-    .get<ApiResponse<EmployeeInfo>>(`user/${adAccount}`)
+    .get<ApiResponse<EmployeeNameResponse>>(`user/${encodeURIComponent(adAccount)}`)
     .then((res) => {
-      return res.data.data;
+      return res.data.data?.name || null;
     })
     .catch((err) => {
       return Promise.reject(err.response?.data?.message);

@@ -4,6 +4,7 @@ import { useEmployeeNameStore, useSupportStore, useUserStore } from '@stores/ind
 import { useUiSettingsStore } from '@stores/ui-settings-store';
 import {
   getUnresolvedReporterAccounts,
+  showsRegistrarColumn,
   useSupportErrandTable,
 } from '@supportmanagement/components/support-errand/useSupportErrandTable';
 import { Status, SupportErrand } from '@supportmanagement/services/support-errand-service';
@@ -50,15 +51,17 @@ export const SupportErrandsTable: FC = () => {
 
   const errandTableObject = useSupportErrandTable(selectedSupportErrandStatuses as Status[]);
 
-  // Only the accounts the admin list cannot name need asking for. The store keeps answers and
-  // misses for the session, so paging back and forth costs nothing and a row that never resolves
-  // is not retried.
+  // Only while "Registrerad av" is shown, and only the accounts the admin list cannot name. The
+  // store keeps answers and misses for the session, so paging back and forth costs nothing and a
+  // row that never resolves is not retried.
   const administrators = useUserStore((s) => s.administrators);
   const resolveEmployeeNames = useEmployeeNameStore((s) => s.resolveNames);
+  const showsRegistrar = showsRegistrarColumn(errandTableObject);
 
   useEffect(() => {
+    if (!showsRegistrar) return;
     resolveEmployeeNames(getUnresolvedReporterAccounts(data.errands ?? [], administrators));
-  }, [data.errands, administrators, resolveEmployeeNames]);
+  }, [showsRegistrar, data.errands, administrators, resolveEmployeeNames]);
 
   const headers = errandTableObject.map((column, index) => (
     <Table.HeaderColumn key={`header-${index}`}>

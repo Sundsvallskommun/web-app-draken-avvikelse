@@ -1,4 +1,4 @@
-import { getUserInfo } from '@common/services/user-service';
+import { getEmployeeName } from '@common/services/user-service';
 import { create } from 'zustand';
 
 /**
@@ -32,9 +32,6 @@ const initialState: EmployeeNameState = { names: {} };
  */
 const inFlightAccounts = new Set<string>();
 
-const formatEmployeeName = (givenname: string | undefined, lastname: string | undefined): string =>
-  [givenname, lastname].filter(Boolean).join(' ').trim();
-
 export const useEmployeeNameStore = create<EmployeeNameStore>((set, get) => ({
   ...initialState,
 
@@ -52,10 +49,9 @@ export const useEmployeeNameStore = create<EmployeeNameStore>((set, get) => ({
 
     pending.forEach((account, key) => {
       inFlightAccounts.add(key);
-      getUserInfo(account)
-        .then((employee) => {
-          const name = formatEmployeeName(employee?.givenname, employee?.lastname) || employee?.fullname || '';
-          set((state) => ({ names: { ...state.names, [key]: name || null } }));
+      getEmployeeName(account)
+        .then((name) => {
+          set((state) => ({ names: { ...state.names, [key]: name } }));
         })
         .catch(() => {
           // A miss is a real answer: remember it so the row falls back to the raw account for good

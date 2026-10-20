@@ -25,6 +25,16 @@ interface UserData {
   superadmin: boolean;
 }
 
+/** All the BFF tells about an employee: the name, never the contact or organisation data Employee holds. */
+interface EmployeeName {
+  /** Null when Employee holds no name for the account. */
+  name: string | null;
+}
+
+/** Given name and surname, else the full name Employee keeps. */
+const toEmployeeName = (person: PortalPersonData | undefined): string | null =>
+  [person?.givenname, person?.lastname].filter(Boolean).join(' ').trim() || person?.fullname?.trim() || null;
+
 @Controller()
 export class UserController {
   private apiService = new ApiService();
@@ -108,22 +118,21 @@ export class UserController {
     return res.data;
   }
 
+  /**
+   * The name of an employee, for the overview's "Registrerad av" when the registrar is not in the handler
+   * directory. Employee answers with the person's whole portal profile; only the name leaves the BFF.
+   */
   @Get('/user/:adaccount')
-  @OpenAPI({ summary: 'Return employee info' })
+  @OpenAPI({ summary: 'Return the name of an employee' })
   @UseBefore(authMiddleware)
   @Header('Content-Type', 'application/json')
-  async getEmployeeInfo(@Req() req: RequestWithUser, @Param('adaccount') adaccount: string): Promise<any> {
+  async getEmployeeName(@Req() req: RequestWithUser, @Param('adaccount') adaccount: string): Promise<{ data: EmployeeName; message: string }> {
     if (!adaccount) {
       throw new HttpException(400, 'Bad Request');
     }
 
-    const url = `${this.EMPLOYEE_SERVICE}/${MUNICIPALITY_ID}/portalpersondata/PERSONAL/${adaccount}`;
-    const res = await this.apiService.get<PortalPersonData>(
-      {
-        url,
-      },
-      req.user,
-    );
-    return res;
+    const url = `${this.EMPLOYEE_SERVICE}/${MUNICIPALITY_ID}/portalpersondata/PERSONAL/${encodeURIComponent(adaccount)}`;
+    const res = await this.apiService.get<PortalPersonData>({ url }, req.user);
+    return { data: { name: toEmployeeName(res.data) }, message: 'success' };
   }
 }

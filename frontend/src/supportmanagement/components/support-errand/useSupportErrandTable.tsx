@@ -53,6 +53,16 @@ const getReporterDisplayName = (
   );
 };
 
+/** The sort field of "Registrerad av", which is also how the table tells whether that column is shown. */
+const REGISTRAR_SORT_KEY = 'reporterUserId';
+
+/**
+ * Does the table show "Registrerad av"? Only that column names the registrar, so the Employee
+ * lookups behind it are wasted while the selected statuses leave it out.
+ */
+export const showsRegistrarColumn = (columns: readonly { sortKey?: string }[]): boolean =>
+  columns.some((column) => column.sortKey === REGISTRAR_SORT_KEY);
+
 /** The accounts the admin list cannot name, so only those are asked of the Employee API. */
 export const getUnresolvedReporterAccounts = (
   errands: readonly SupportErrand[],
@@ -241,7 +251,7 @@ export const useSupportErrandTable = (statuses: Status[]) => {
       screenReaderOnly: false,
       sortable: true,
       // The errands are registered in Draken, so this column means the registrar.
-      sortKey: 'reporterUserId',
+      sortKey: REGISTRAR_SORT_KEY,
       shownForStatus: [Status.NEW],
       render: (errand: SupportErrand) => {
         return <>{getReporterDisplayName(administrators, employeeNames, errand?.reporterUserId)}</>;
