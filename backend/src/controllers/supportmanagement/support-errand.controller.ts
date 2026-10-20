@@ -101,7 +101,7 @@ import { SupportJsonParameterService } from '@/services/support-json-parameter.s
 import { assertMeasuresHandledBeforeClose } from '@/services/support-measure-closing';
 import { supportMetadataCache } from '@/services/support-metadata-cache';
 import { assertCanWriteSupportServiceNote, buildSupportServiceNote } from '@/services/support-note.service';
-import { followErrandWithAssignee, SupportSubscriberApi } from '@/services/support-subscriber.service';
+import { SupportSubscriberApi, unfollowErrandAssignedToOther } from '@/services/support-subscriber.service';
 import { logger } from '@/utils/logger';
 import { apiURL, luhnCheck, withRetries } from '@/utils/util';
 
@@ -779,13 +779,6 @@ export class SupportErrandController {
       logger.error('Something went wrong when initiating support errand');
       return response.status(500).send('Something went wrong when initiating support errand');
     }
-    if (this.investigationPolicyService.assigneeFollowsErrand && res.data.id) {
-      await followErrandWithAssignee(
-        this.subscriberApi(),
-        { municipalityId: MUNICIPALITY_ID, errandId: res.data.id, nextAssignee: req.user.username },
-        req.user,
-      );
-    }
     return response.status(201).send(res.data);
   }
 
@@ -1252,9 +1245,9 @@ export class SupportErrandController {
         throw e;
       });
     if (this.investigationPolicyService.assigneeFollowsErrand) {
-      await followErrandWithAssignee(
+      await unfollowErrandAssignedToOther(
         this.subscriberApi(),
-        { municipalityId: MUNICIPALITY_ID, errandId: id, previousAssignee: currentErrand.data.assignedUserId, nextAssignee: data.assignedUserId },
+        { municipalityId: MUNICIPALITY_ID, errandId: id, assignee: data.assignedUserId },
         req.user,
       );
     }

@@ -1405,38 +1405,44 @@ describe('SupportErrandController', () => {
       expect(api.patch).toHaveBeenCalledTimes(1);
     });
 
-    /** The errand as Support Management answers it, assigned to the previous handler, and both handlers' subscribers. */
-    const assignedFromPreviousHandler = async ({ url }: { url: string }) => {
+    /** The errand as Support Management answers it, and the signed-in user's subscriber, which follows it. */
+    const followedBySignedInUser = async ({ url }: { url: string }) => {
       if (url.includes('/subscribers?')) {
-        return { data: [{ id: url.includes('previous.handler') ? 'previous-subscriber' : 'next-subscriber' }], message: 'success' };
+        return { data: url.includes(mockAdUsername) ? [{ id: 'own-subscriber' }] : [], message: 'success' };
       }
-      if (url.endsWith('/previous-subscriber/subscriptions')) {
+      if (url.endsWith('/own-subscriber/subscriptions')) {
         return { data: [{ id: 'followed', target: { type: 'ERRAND', id: mockSupportErrandId } }], message: 'success' };
       }
-      if (url.endsWith('/next-subscriber/subscriptions')) return { data: [], message: 'success' };
-      return { data: { version: 7, status: 'ONGOING', assignedUserId: 'previous.handler' }, headers: { etag: '"7"' }, message: 'success' };
+      return { data: { version: 7, status: 'ONGOING', assignedUserId: mockAdUsername }, headers: { etag: '"7"' }, message: 'success' };
     };
 
-    it('moves the following to the new assignee where the profile says the assignee alone follows the errand', async () => {
+    it('stops the user following an errand they give to someone else, where the assignee alone follows it', async () => {
       const { controller, api, investigationPolicy } = makeController();
       Object.assign(investigationPolicy, { assigneeFollowsErrand: true });
-      api.get.mockImplementation(assignedFromPreviousHandler);
+      api.get.mockImplementation(followedBySignedInUser);
+
+      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: 'next.handler' }, mockRes());
+
+      expect(api.delete.mock.calls.map(([config]) => config.url)).toEqual([expect.stringMatching(/\/own-subscriber\/subscriptions\/followed$/u)]);
+      // Support Management subscribes the new assignee itself.
+      expect(api.post).not.toHaveBeenCalled();
+    });
+
+    it('keeps the following of a user who assigns the errand to themselves', async () => {
+      const { controller, api, investigationPolicy } = makeController();
+      Object.assign(investigationPolicy, { assigneeFollowsErrand: true });
+      api.get.mockImplementation(followedBySignedInUser);
 
       await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: mockAdUsername }, mockRes());
 
-      expect(api.delete.mock.calls.map(([config]) => config.url)).toEqual([
-        expect.stringMatching(/\/previous-subscriber\/subscriptions\/followed$/u),
-      ]);
-      expect(api.post.mock.calls.map(([config]) => [config.url, config.data])).toEqual([
-        [expect.stringMatching(/\/next-subscriber\/subscriptions$/u), { target: { type: 'ERRAND', id: mockSupportErrandId } }],
-      ]);
+      expect(api.delete).not.toHaveBeenCalled();
     });
 
     it('leaves the following to Support Management where the profile does not say so', async () => {
       const { controller, api } = makeController();
-      api.get.mockImplementation(assignedFromPreviousHandler);
+      api.get.mockImplementation(followedBySignedInUser);
 
-      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: mockAdUsername }, mockRes());
+      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: 'next.handler' }, mockRes());
 
       expect(api.get.mock.calls.some(([config]) => config.url.includes('/subscribers'))).toBe(false);
       expect(api.delete).not.toHaveBeenCalled();

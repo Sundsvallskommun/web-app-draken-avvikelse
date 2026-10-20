@@ -299,8 +299,9 @@ so no conflict detection is available for them.
   start-up (`entrypoint.sh`), so the same image serves both
 - SAML SSO authentication with Active Directory group-based authorization
 - Support Management notifications come from SM's subscriber model. The investigation profile says the assignee
-  alone follows the errand (`assigneeFollowsErrand`): the BFF moves the following with every assignment, handover
-  and registration (`followErrandWithAssignee`), and the previous assignee stops following the errand; the sidebar
+  alone follows the errand (`assigneeFollowsErrand`): Support Management subscribes whoever is assigned on its own,
+  and a user who gives the errand to someone else, by assignment or handover, stops following it
+  (`unfollowErrandAssignedToOther`); the sidebar
   offers no follow button. An errand's notifications are acknowledged when the errand page opens. A user action
   that makes several writes runs in `withRequestGroup` (`common/services/api-service.ts`) so it becomes one
   notification. The helpers that make one request per item (`saveChangedErrandParameters`,

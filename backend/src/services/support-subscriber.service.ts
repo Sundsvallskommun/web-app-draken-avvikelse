@@ -81,56 +81,42 @@ export const loadOrCreateSubscriber = async (
 const readSubscriptions = async (api: SupportSubscriberApi, municipalityId: string, subscriberId: string, user: User): Promise<Subscription[]> =>
   (await api.apiService.get<Subscription[]>({ url: subscriptionsUrl(api, municipalityId, subscriberId) }, user)).data ?? [];
 
-const sameAccount = (a: string | undefined, b: string | undefined): boolean => (a ?? '').toLowerCase() === (b ?? '').toLowerCase();
+const sameAccount = (a: string | undefined, b: string | undefined): boolean => (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
 
-interface AssigneeChange {
+interface Assignment {
   readonly municipalityId: string;
   readonly errandId: string;
-  readonly previousAssignee?: string;
-  readonly nextAssignee?: string;
+  /** Who the errand was just given to. */
+  readonly assignee?: string;
 }
 
 /**
- * Moves the following of an errand along with its assignee, where the errand is followed by its assignee alone: every
- * subscription the previous assignee had to it ends - one they made with Bevaka too - and the new assignee is
- * subscribed unless Support Management already did. Bookkeeping, so it notifies nobody; and the assignment has
- * already landed, so a failure is logged rather than thrown.
+ * The user who gives an errand to someone else stops following it: every subscription they have to that errand ends.
+ * Support Management subscribes whoever is assigned on its own, so the new assignee needs nothing from here.
+ *
+ * Bookkeeping, so it notifies nobody; and the assignment has already landed, so a failure is logged rather than thrown.
  */
-export const followErrandWithAssignee = async (
+export const unfollowErrandAssignedToOther = async (
   api: SupportSubscriberApi,
-  { municipalityId, errandId, previousAssignee, nextAssignee }: AssigneeChange,
+  { municipalityId, errandId, assignee }: Assignment,
   user: User,
 ): Promise<void> => {
-  const previous = previousAssignee?.trim();
-  const next = nextAssignee?.trim();
-  if (sameAccount(previous, next)) return;
+  if (!assignee?.trim() || sameAccount(assignee, user.username)) return;
   const target: SubscriptionTarget = { type: SubscriptionTargetTypeEnum.ERRAND, id: errandId };
   try {
-    if (previous) {
-      for (const subscriber of await findSubscribers(api, municipalityId, previous, user)) {
-        const followed = (await readSubscriptions(api, municipalityId, subscriber.id!, user)).filter(subscription =>
-          sameSubscriptionTarget(subscription.target, target),
-        );
-        for (const subscription of followed) {
-          await api.apiService.delete(
-            { url: `${subscriptionsUrl(api, municipalityId, subscriber.id!)}/${subscription.id}`, notifySubscribers: false },
-            user,
-          );
-        }
-      }
-    }
-    if (next) {
-      const subscriber = await loadOrCreateSubscriber(api, municipalityId, { account: next }, user);
-      const subscriptions = await readSubscriptions(api, municipalityId, subscriber.id!, user);
-      if (!subscriptions.some(subscription => sameSubscriptionTarget(subscription.target, target))) {
-        await api.apiService.post<Subscription, { target: SubscriptionTarget }>(
-          { url: subscriptionsUrl(api, municipalityId, subscriber.id!), data: { target }, notifySubscribers: false },
+    for (const subscriber of await findSubscribers(api, municipalityId, user.username, user)) {
+      const followed = (await readSubscriptions(api, municipalityId, subscriber.id!, user)).filter(subscription =>
+        sameSubscriptionTarget(subscription.target, target),
+      );
+      for (const subscription of followed) {
+        await api.apiService.delete(
+          { url: `${subscriptionsUrl(api, municipalityId, subscriber.id!)}/${subscription.id}`, notifySubscribers: false },
           user,
         );
       }
     }
   } catch (error) {
-    logger.error(`Could not move the following of support errand ${errandId} to its assignee`);
+    logger.error(`Could not stop ${user.username} following support errand ${errandId} after assigning it to ${assignee}`);
     logger.error(error);
   }
 };

@@ -10,7 +10,7 @@ import {
 import { Label } from '@/data-contracts/supportmanagement/data-contracts';
 
 import { mockReq, mockRes } from './helpers/http';
-import { mockMunicipalityId, mockSupportErrandId, mockSupportNamespace } from './helpers/mock-data';
+import { mockAdUsername, mockMunicipalityId, mockSupportErrandId, mockSupportNamespace } from './helpers/mock-data';
 
 const MUNICIPALITY_ID = mockMunicipalityId;
 const NAMESPACE = mockSupportNamespace;
@@ -129,20 +129,20 @@ describe('move-location', () => {
     expect(config.data).not.toHaveProperty('jsonParameters');
   });
 
-  // In IAF/VOF the errand is followed by its assignee alone: the manager it leaves stops following it.
-  it('moves the following from the manager the errand leaves to the one it goes to', async () => {
+  // In IAF/VOF the errand is followed by its assignee alone: the manager who hands it on stops following it, and
+  // Support Management subscribes the one it goes to.
+  it('stops the manager who hands the errand on following it', async () => {
     const { controller, stubs } = makeController();
     const readErrandOrMetadata = stubs.get.getMockImplementation() as (config: { url?: string }) => Promise<{ data: object }>;
     stubs.get.mockImplementation(async (config: { url?: string }) => {
       if (config.url?.includes('/subscribers?')) {
-        return { data: [{ id: config.url.includes('north.manager') ? 'north-subscriber' : 'south-subscriber' }], message: 'success' };
+        return { data: config.url.includes(mockAdUsername) ? [{ id: 'own-subscriber' }] : [], message: 'success' };
       }
-      if (config.url?.endsWith('/north-subscriber/subscriptions')) {
+      if (config.url?.endsWith('/own-subscriber/subscriptions')) {
         return { data: [{ id: 'followed', target: { type: 'ERRAND', id: mockSupportErrandId } }], message: 'success' };
       }
-      if (config.url?.endsWith('/south-subscriber/subscriptions')) return { data: [], message: 'success' };
       const answer = await readErrandOrMetadata(config);
-      return config.url === errandUrl ? { ...answer, data: { ...answer.data, assignedUserId: 'north.manager' } } : answer;
+      return config.url === errandUrl ? { ...answer, data: { ...answer.data, assignedUserId: mockAdUsername } } : answer;
     });
     const post = vi.fn(async (_config: { url: string; data: unknown }) => ({ data: {}, message: 'success' }));
     const remove = vi.fn(async (_config: { url: string }) => ({ data: {}, message: 'success' }));
@@ -158,8 +158,8 @@ describe('move-location', () => {
       mockRes(),
     );
 
-    expect(remove.mock.calls.map(([config]) => config.url)).toEqual([expect.stringMatching(/\/north-subscriber\/subscriptions\/followed$/u)]);
-    expect(post.mock.calls.map(([config]) => config.data)).toEqual([{ target: { type: 'ERRAND', id: mockSupportErrandId } }]);
+    expect(remove.mock.calls.map(([config]) => config.url)).toEqual([expect.stringMatching(/\/own-subscriber\/subscriptions\/followed$/u)]);
+    expect(post).not.toHaveBeenCalled();
   });
 
   it('requires a target place and refuses an assignee who is not a manager there', async () => {

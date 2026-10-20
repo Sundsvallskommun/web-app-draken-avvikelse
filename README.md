@@ -421,9 +421,10 @@ så reglerna ligger i backenden (`support-note.service.ts`). Texten får vara h�
 
 Notiserna kommer från Support Managements prenumerationsmodell.
 
-- **Vem får notiser.** Bara ärendets handläggare följer ärendet (profilens `assigneeFollowsErrand`). När
-  ärendet tilldelas, lämnas över eller registreras prenumererar BFF:en den nya handläggaren och tar bort
-  den förras prenumerationer på ärendet. Därför finns ingen Följ ärendet i sidopanelen.
+- **Vem får notiser.** Bara ärendets handläggare följer ärendet (profilens `assigneeFollowsErrand`). Support
+  Management prenumererar själv den som är tilldelad. Den som tilldelar eller lämnar över ärendet till någon
+  annan slutar följa det, så BFF:en tar bort hens prenumerationer på ärendet. Därför finns ingen Följ ärendet i
+  sidopanelen.
 - **En notis per ärende och utskick.** Support Management skickar ut notiser var femte minut och gör då en
   notis per ärende och användare av det som hänt sedan förra utskicket (`GET /supportnotifications`). Ett
   ärende kan alltså ha flera notiser. En handling tas med först när den har varit tyst i tio sekunder, så

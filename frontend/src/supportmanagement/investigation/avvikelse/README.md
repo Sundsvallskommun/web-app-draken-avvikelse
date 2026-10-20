@@ -482,8 +482,8 @@ och alla drakar utan `handlerParameters`, får exakt samma filter som förut. Fr
 parameter, så en sådan fråga ställs till filterendpointen även där indexet är påslaget, och räknarna med den.
 
 **Ta ärende** finns inte: handläggaren väljs i Ansvarig och MAS/MAR i sin egen väljare. Inte heller **Följ
-ärendet**: den som handlägger ärendet följer det, och ingen annan, eftersom BFF:en flyttar följandet med varje
-tilldelning (profilens `assigneeFollowsErrand`). Ärenden **parkeras** inte: sidopanelen har ingen Parkera ärende och
+ärendet**: den som handlägger ärendet följer det, och ingen annan. Support Management prenumererar den som tilldelas,
+och den som ger ärendet till någon annan slutar följa det (profilens `assigneeFollowsErrand`). Ärenden **parkeras** inte: sidopanelen har ingen Parkera ärende och
 översikten ingen lista över parkerade ärenden. Ett ärende som ändå är parkerat visas som parkerat och återupptas med
 Återuppta ärende.
 

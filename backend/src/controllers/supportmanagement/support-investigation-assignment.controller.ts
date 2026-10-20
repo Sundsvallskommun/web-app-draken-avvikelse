@@ -45,7 +45,7 @@ import {
   isSupportServiceNote,
   SUPPORT_SERVICE_NOTE,
 } from '@/services/support-note.service';
-import { followErrandWithAssignee } from '@/services/support-subscriber.service';
+import { unfollowErrandAssignedToOther } from '@/services/support-subscriber.service';
 import { ManagerCandidate, ManagerRoleOption, managerRoleOptions, resolveLocationManagers } from '@/services/unit-manager-resolution';
 import { logger } from '@/utils/logger';
 import { apiURL } from '@/utils/util';
@@ -297,9 +297,9 @@ export class SupportInvestigationAssignmentController {
     );
 
     if (assignedUserId && this.investigationPolicyService.assigneeFollowsErrand) {
-      await followErrandWithAssignee(
+      await unfollowErrandAssignedToOther(
         { apiService: this.apiService, service: this.SERVICE, namespace: this.namespace },
-        { municipalityId: MUNICIPALITY_ID, errandId: id, previousAssignee: errand.assignedUserId, nextAssignee: assignedUserId },
+        { municipalityId: MUNICIPALITY_ID, errandId: id, assignee: assignedUserId },
         req.user,
       );
     }
