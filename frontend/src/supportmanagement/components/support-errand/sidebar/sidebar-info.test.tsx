@@ -36,16 +36,31 @@ vi.mock('@common/services/user-service', async (original) => ({
   ...(await original<typeof import('@common/services/user-service')>()),
   getAssignableHandlers: async () => mocks.assignable,
 }));
-vi.mock('@common/components/handler-select/handler-select-options.component', () => ({
-  HandlerSelectOptions: ({ administrators }: { administrators: { adAccount: string; displayName: string }[] }) => (
-    <>
-      <option>Välj handläggare</option>
-      {administrators.map((administrator) => (
-        <option key={administrator.adAccount}>{administrator.displayName}</option>
-      ))}
-    </>
-  ),
-}));
+vi.mock('@common/components/handler-select/handler-select-options.component', async () => {
+  const { handlerOptionValue } = await import('@common/components/handler-select/handler-option-value');
+  return {
+    // One option per role an administrator is listed under, valued as the real options are.
+    HandlerSelectOptions: ({
+      administrators,
+    }: {
+      administrators: { adAccount: string; displayName: string; roleKeys: string[] }[];
+    }) => (
+      <>
+        <option>Välj handläggare</option>
+        {administrators.flatMap((administrator) =>
+          administrator.roleKeys.map((roleKey) => (
+            <option
+              key={handlerOptionValue(roleKey, administrator.adAccount)}
+              value={handlerOptionValue(roleKey, administrator.adAccount)}
+            >
+              {administrator.displayName}
+            </option>
+          ))
+        )}
+      </>
+    ),
+  };
+});
 vi.mock('@common/components/lucide-icon-map/lucide-icon-map.component', () => ({ default: {} }));
 vi.mock('@common/services/helper-service', () => ({
   hasDirtyFields: (fields: object) => Object.keys(fields).length > 0,
@@ -248,11 +263,64 @@ const handToLex = async () => {
 
   const handlerSelect = await screen.findByLabelText('Tilldela handläggare');
   await waitFor(() => expect(screen.getByRole('option', { name: 'Lena LEX' })).toBeTruthy());
-  fireEvent.change(handlerSelect, { target: { value: 'Lena LEX' } });
+  fireEvent.change(handlerSelect, { target: { value: 'lex-ansvarig:lena.lex' } });
   const save = screen.getByRole('button', { name: 'Spara ärende' });
   await waitFor(() => expect(save).toHaveProperty('disabled', false));
   fireEvent.click(save);
 };
+
+/**
+ * Waiting for the handover to LEX, a manager of the place who is also LEX-ansvarig is offered twice: as the manager,
+ * and as the handover. Picks her under the given role and presses Spara ärende.
+ */
+const chooseManagerWhoIsAlsoLex = async (roleKey: string) => {
+  const nora = { displayName: 'Nora Chef', firstName: 'Nora', lastName: 'Chef', adAccount: 'nora.chef', id: 'nora' };
+  mocks.assignable = {
+    administrators: [
+      { ...nora, roleKeys: ['verksamhetschef'] },
+      { ...nora, roleKeys: ['lex-ansvarig'], handoverStep: 'assign-lex' },
+    ],
+    roles: [
+      { key: 'verksamhetschef', label: 'Verksamhetschef' },
+      { key: 'lex-ansvarig', label: 'LEX-ansvarig' },
+    ],
+  };
+  mocks.read.mockResolvedValue({ errand: { ...loaded }, version: 3 });
+  useUserStore.setState({
+    administrators: [
+      {
+        displayName: 'Handläggare',
+        firstName: 'H',
+        lastName: 'L',
+        adAccount: 'handler',
+        id: 'h',
+        roleKeys: ['enhetschef'],
+      },
+    ],
+  });
+  render(<Harness />);
+
+  const handlerSelect = await screen.findByLabelText('Tilldela handläggare');
+  await waitFor(() => expect(screen.getAllByRole('option', { name: 'Nora Chef' })).toHaveLength(2));
+  fireEvent.change(handlerSelect, { target: { value: `${roleKey}:nora.chef` } });
+  const save = screen.getByRole('button', { name: 'Spara ärende' });
+  await waitFor(() => expect(save).toHaveProperty('disabled', false));
+  fireEvent.click(save);
+};
+
+test('giving the errand to someone under their LEX heading is the handover, not an assignment', async () => {
+  await chooseManagerWhoIsAlsoLex('lex-ansvarig');
+
+  await waitFor(() => expect(mocks.handover).toHaveBeenCalledWith('one', 'assign-lex', 3, 'nora.chef'));
+  expect(mocks.assign).not.toHaveBeenCalled();
+});
+
+test('giving the errand to the same person under their manager heading is an ordinary assignment', async () => {
+  await chooseManagerWhoIsAlsoLex('verksamhetschef');
+
+  await waitFor(() => expect(mocks.assign).toHaveBeenCalledWith('one', 'nora.chef', 3, 'ASSIGNED', 'handler'));
+  expect(mocks.handover).not.toHaveBeenCalled();
+});
 
 /** A part of the errand holding a draft, as the MAS/MAR select or an investigation document would. */
 const registerDraft = (save: () => Promise<boolean>) => {

@@ -1,3 +1,4 @@
+import { findHandlerForOption, optionValueForHandler } from '@common/components/handler-select/handler-option-value';
 import { HandlerSelectOptions } from '@common/components/handler-select/handler-select-options.component';
 import iconMap from '@common/components/lucide-icon-map/lucide-icon-map.component';
 import { withRequestGroup } from '@common/services/api-service';
@@ -187,21 +188,22 @@ export const SidebarInfo: FC<{
 
   // Resolved from the list the selector actually offered: a manager reached through AccessMapper
   // need not be in any configured handler group, so looking only in the full directory would
-  // silently find nobody and skip the assignment.
-  const findChosenAdmin = () =>
-    [...assignableHandlers, ...administrators].find((a) => a.displayName === getValues().admin);
+  // silently find nobody and skip the assignment. The option names the role it was chosen under,
+  // which is what tells a handover to LEX from an ordinary assignment to the same person.
+  const findChosenAdmin = () => findHandlerForOption([...assignableHandlers, ...administrators], getValues().admin);
 
-  /** The handler the errand is given to, from the list the selector offers and, failing that, the full directory. */
-  const findAssignedAdmin = (adAccount: string) =>
-    [...assignableHandlers, ...administrators].find((a) => a.adAccount === adAccount);
+  /** The option showing the errand's handler, from the list the selector offers and, failing that, the full directory. */
+  const assignedOptionValue = (adAccount: string) =>
+    optionValueForHandler(assignableHandlers, assignableRoles, adAccount) ??
+    optionValueForHandler(administrators, handlerRoles, adAccount);
 
   // The errand's own directory arrives after the errand. A handler only it knows - a manager reached through
   // AccessMapper - is shown as the assignee once it is there, unless somebody else has been chosen meanwhile.
   useEffect(() => {
     const assignedUserId = supportErrand?.assignedUserId;
     if (!assignable || !assignedUserId || getFieldState('admin').isDirty) return;
-    const assigned = findAssignedAdmin(assignedUserId);
-    if (assigned) setValue('admin', assigned.displayName);
+    const assigned = assignedOptionValue(assignedUserId);
+    if (assigned) setValue('admin', assigned);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignable]);
 
@@ -371,7 +373,7 @@ export const SidebarInfo: FC<{
 
   useEffect(() => {
     if (administrators && supportErrand?.assignedUserId) {
-      setValue('admin', findAssignedAdmin(supportErrand.assignedUserId)?.displayName || '');
+      setValue('admin', assignedOptionValue(supportErrand.assignedUserId) || '');
     } else {
       setValue('admin', 'Välj handläggare');
     }
@@ -397,7 +399,7 @@ export const SidebarInfo: FC<{
         <p className="text-small ml-8">{dayjs(supportErrand?.modified).format('DD MMM, HH:mm')}</p>
       </div>
       <p className="text-small">
-        <strong>{getValues('admin')}</strong> {info}
+        <strong>{findChosenAdmin()?.displayName}</strong> {info}
       </p>
     </>
   );
@@ -509,7 +511,7 @@ export const SidebarInfo: FC<{
                     <span className="mb-24">Ärendet parkerades utan en handläggare.</span>
                   ) : (
                     <span className="mb-24">
-                      <strong>{getValues('admin')}</strong>
+                      <strong>{findChosenAdmin()?.displayName}</strong>
                       {supportErrand?.status === Status.SUSPENDED
                         ? ' parkerade ärendet med en påminnelse '
                         : ' tilldelades ärendet'}{' '}

@@ -2501,7 +2501,7 @@ test.describe('IAF/VOF:s riktiga utredningsflöde', () => {
     await errandSaveButton(page).click();
 
     await expect(page.getByText('Handläggaren tilldelades, men ärendet kunde inte sättas till Pågående')).toBeVisible();
-    await expect(page.locator('[data-cy="admin-input"]')).toHaveValue('Testare Iaf');
+    await expect(page.locator('[data-cy="admin-input"] option:checked')).toHaveText('Testare Iaf');
   });
 
   /**

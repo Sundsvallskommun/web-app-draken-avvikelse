@@ -93,7 +93,7 @@ test('MAS/MAR records the MAS/MAR handler in a parameter on an errand someone el
   await visitErrand(page, dismissCookieConsent);
 
   // The errand is the unit manager's, and MAS/MAR need not be its handler to say who answers for the HSL side.
-  await expect(handlerSelect(page)).toHaveValue('Nora Chef');
+  await expect(handlerSelect(page).locator('option:checked')).toHaveText('Nora Chef');
   await expect(masMarSelect(page)).toBeEnabled();
   // Only the MAS/MAR handlers of the directory are on offer, the signed-in one among them.
   await expect(masMarSelect(page).locator('option:not([value=""])')).toHaveText(['Iaf Testare', 'Mia MAS']);
@@ -107,7 +107,7 @@ test('MAS/MAR records the MAS/MAR handler in a parameter on an errand someone el
     .toEqual([{ key: 'masMarHandler', values: ['mia.mas'], ifNoneMatch: '*' }]);
   expect(trace.handovers).toEqual([]);
   await expect(masMarSelect(page)).toHaveValue('mia.mas');
-  await expect(handlerSelect(page)).toHaveValue('Nora Chef');
+  await expect(handlerSelect(page).locator('option:checked')).toHaveText('Nora Chef');
 });
 
 test('a recorded MAS/MAR handler is shown, and a change is written on that parameter’s own version', async ({
@@ -191,7 +191,7 @@ test('shows an assignee whom only the errand’s own directory knows', async ({ 
   });
   await visitErrand(page, dismissCookieConsent);
 
-  await expect(handlerSelect(page)).toHaveValue('Nora Chef');
+  await expect(handlerSelect(page).locator('option:checked')).toHaveText('Nora Chef');
 });
 
 // Saving the investigation as completed with a suspected misconduct makes LEX-ansvarig one who may have the errand.
@@ -207,7 +207,7 @@ test('offers LEX-ansvarig as soon as the investigation is saved with a suspected
   });
   await visitErrand(page, dismissCookieConsent);
   const lexOptions = handlerSelect(page).locator('optgroup[label="LEX-ansvarig"] option');
-  await expect(handlerSelect(page)).toHaveValue('Iaf Testare');
+  await expect(handlerSelect(page).locator('option:checked')).toHaveText('Iaf Testare');
   await expect(lexOptions).toHaveCount(0);
 
   await page.getByRole('tab', { name: 'Utredning', exact: true }).click();

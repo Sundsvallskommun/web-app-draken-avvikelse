@@ -3,6 +3,8 @@ import { Admin, HandlerRole } from '@common/services/user-service';
 import { Select } from '@sk-web-gui/react';
 import { FC } from 'react';
 
+import { handlerOptionValue } from './handler-option-value';
+
 interface HandlerSelectOptionsProps {
   administrators: Admin[];
   roles: HandlerRole[];
@@ -11,15 +13,20 @@ interface HandlerSelectOptionsProps {
 /**
  * The options inside a handler `Select`, under a heading per handler role.
  *
- * The option's value is its display name, matching how the errand form has always read the handler
- * back out of the select.
+ * Each option's value names its role and its account (`handlerOptionValue`), so a person listed under two
+ * headings is two different choices; `findHandlerForOption` reads the choice back.
  */
 export const HandlerSelectOptions: FC<HandlerSelectOptionsProps> = ({ administrators, roles }) => (
   <>
     {groupHandlersByRole(administrators, roles).map((group) => (
       <Select.Optgroup key={group.key} label={group.label}>
         {group.administrators.map((administrator) => (
-          <Select.Option key={`${group.key}-${administrator.adAccount}`}>{administrator.displayName}</Select.Option>
+          <Select.Option
+            key={`${group.key}-${administrator.adAccount}`}
+            value={handlerOptionValue(group.key, administrator.adAccount)}
+          >
+            {administrator.displayName}
+          </Select.Option>
         ))}
       </Select.Optgroup>
     ))}
