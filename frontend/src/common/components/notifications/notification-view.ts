@@ -2,10 +2,11 @@
 export interface NotificationEventView {
   /** When the event happened. */
   created: string;
-  /** MESSAGE | ATTACHMENT | NOTE | ... — drives both the icon and the human readable label. */
+  /** MESSAGE | ATTACHMENT | NOTE | ... — drives the icon. */
   subType?: string;
   /** CREATE | UPDATE | DELETE — what happened to the entity. */
   eventType?: string;
+  /** Upstream's own wording of the event, the same text as in the errand's log; what the panel shows. */
   description?: string;
 }
 

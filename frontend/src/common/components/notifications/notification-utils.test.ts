@@ -49,12 +49,32 @@ test('is undefined when nothing new has happened on the errand', () => {
   assert.equal(latestUnacknowledgedEvent([], undefined), undefined);
 });
 
-// Support Management reports an assignment as its own event type; without a label of its own an
-// assignment without a description would read as the generic "Händelse på ärende".
-test('names assignments, and a burst of them, in their own words', () => {
-  const assignment: NotificationEventView = { created: '2026-10-01T09:00:00+02:00', subType: 'ASSIGNMENT' };
+// Support Management describes every event itself, in the words of the errand's log; the panel
+// repeats that rather than naming the subtype in words of its own.
+test('names an event by the description upstream gives it', () => {
+  const removal: NotificationEventView = {
+    created: '2026-10-01T09:00:00+02:00',
+    subType: 'ATTACHMENT',
+    eventType: 'DELETE',
+    description: 'Bilaga har tagits bort',
+  };
 
-  assert.equal(notificationLabel(assignment), 'Ärendet tilldelat');
-  assert.equal(notificationLabel({ ...assignment, eventType: 'DELETE' }), 'Tilldelning borttagen');
-  assert.equal(notificationSummary(notification({ events: [assignment, assignment] })), '2 tilldelningar');
+  assert.equal(notificationLabel(removal), 'Bilaga har tagits bort');
+});
+
+test('falls back to a generic label for an event without a description', () => {
+  const undescribed: NotificationEventView = { created: '2026-10-01T09:00:00+02:00', subType: 'ERRAND' };
+
+  assert.equal(notificationLabel(undescribed), 'Händelse på ärende');
+  assert.equal(notificationLabel({ ...undescribed, description: '' }), 'Händelse på ärende');
+  assert.equal(notificationLabel(undefined), 'Händelse på ärende');
+});
+
+test('counts a burst under the description its events share, and as händelser when they differ', () => {
+  const update = event('2026-10-01T09:00:00+02:00', 'Ärendet har uppdaterats');
+  const note = { ...event('2026-10-01T09:01:00+02:00', 'Kommentar har skapats'), subType: 'NOTE' };
+
+  assert.equal(notificationSummary(notification({ events: [update] })), 'Ärendet har uppdaterats');
+  assert.equal(notificationSummary(notification({ events: [update, update, update] })), 'Ärendet har uppdaterats (3)');
+  assert.equal(notificationSummary(notification({ events: [note, update] })), '2 händelser');
 });

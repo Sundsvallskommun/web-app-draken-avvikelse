@@ -13,7 +13,8 @@ interface NotificationRenderIconProps {
 
 /**
  * Keyed on subtype rather than on the description text, so the icon survives upstream rewording of
- * the notification message.
+ * the notification message. The keys are Support Management's `EventSubType`; SYSTEM never reaches
+ * the panel (`getFilteredNotifications`).
  */
 const iconConfig: Record<string, { icon?: string; defaultColor: string }> = {
   MESSAGE: { icon: 'message-circle', defaultColor: 'gronsta' },
@@ -21,7 +22,8 @@ const iconConfig: Record<string, { icon?: string; defaultColor: string }> = {
   ERRAND: { icon: 'bell-ring', defaultColor: 'juniskar' },
   ATTACHMENT: { icon: 'file', defaultColor: 'vattjom' },
   DECISION: { icon: 'file-text', defaultColor: 'vattjom' },
-  ASSIGNMENT: { icon: 'user', defaultColor: 'bjornstigen' },
+  HANDOVER_IN: { icon: 'file-input', defaultColor: 'bjornstigen' },
+  HANDOVER_OUT: { icon: 'file-output', defaultColor: 'bjornstigen' },
   NOTE: { icon: 'clipboard-pen', defaultColor: 'juniskar' },
   default: { icon: 'bell', defaultColor: 'vattjom' },
 };

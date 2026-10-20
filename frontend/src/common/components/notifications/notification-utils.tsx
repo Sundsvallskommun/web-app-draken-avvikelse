@@ -2,48 +2,8 @@ import dayjs from 'dayjs';
 
 import { NotificationEventView, NotificationView } from './notification-view';
 
-/** Fallback labels for everything that is not a removal. */
-const labelBySubType: Record<string, string> = {
-  ASSIGNMENT: 'Ärendet tilldelat',
-  ATTACHMENT: 'Ny bilaga',
-  DECISION: 'Nytt beslut',
-  ERRAND: 'Ärende uppdaterat',
-  MESSAGE: 'Nytt meddelande',
-  NOTE: 'Ny kommentar/anteckning',
-  SUSPENSION: 'Parkering upphört',
-};
-
-/**
- * Labels for removals, which the plain ones get wrong — a deleted attachment is not "Ny bilaga".
- *
- * Only DELETE is treated specially. UPDATE would be the obvious second case, but upstream uses it
- * for things that merely reached the errand (`eventType: UPDATE` with the description "Meddelande
- * mottaget"), so an "uppdaterad" wording there would be plain wrong.
- */
-const removalLabelBySubType: Record<string, string> = {
-  ASSIGNMENT: 'Tilldelning borttagen',
-  ATTACHMENT: 'Bilaga borttagen',
-  DECISION: 'Beslut borttaget',
-  MESSAGE: 'Meddelande borttaget',
-  NOTE: 'Kommentar/anteckning borttagen',
-};
-
-/** Plural forms for the collapsed notification summary, falling back to the singular label. */
-const pluralBySubType: Record<string, string> = {
-  ASSIGNMENT: 'tilldelningar',
-  ATTACHMENT: 'nya bilagor',
-  DECISION: 'nya beslut',
-  ERRAND: 'uppdateringar av ärendet',
-  MESSAGE: 'nya meddelanden',
-  NOTE: 'nya kommentarer/anteckningar',
-  SUSPENSION: 'parkeringar som upphört',
-};
-
-/** Shown when an event carries neither a description nor a recognised subtype. */
+/** Shown for an event without a description. */
 const DEFAULT_NOTIFICATION_LABEL = 'Händelse på ärende';
-
-/** Upstream marks removals with DELETE; every other type is something arriving or changing. */
-const isRemoval = (event: NotificationEventView): boolean => event.eventType === 'DELETE';
 
 /**
  * The event that stands for the notification in a collapsed row — the newest one.
@@ -53,40 +13,30 @@ const isRemoval = (event: NotificationEventView): boolean => event.eventType ===
 export const primaryEvent = (notification: NotificationView): NotificationEventView | undefined =>
   notification.events[0];
 
-/** What kind of thing happened, e.g. "Ny bilaga" or "Bilaga borttagen". */
-export const subTypeLabel = (event?: NotificationEventView): string | undefined => {
-  if (!event?.subType) return undefined;
-  if (isRemoval(event)) return removalLabelBySubType[event.subType] ?? labelBySubType[event.subType];
-  return labelBySubType[event.subType];
-};
-
 /**
- * What to call an event in the list.
+ * What to call an event in the list: upstream's own description of it, e.g. "Bilaga har skapats".
  *
- * Not every event carries a description or a subtype — older ones predate those fields, and upstream
- * does not guarantee them. Falling back keeps the panel readable instead of rendering an empty or
- * broken row, and an absent event falls back the same way.
+ * Support Management writes the same text it logs for the event, so the panel and the errand's log
+ * say the same thing. An event without one, or no event at all, falls back to a generic label.
  */
 export const notificationLabel = (event?: NotificationEventView): string =>
-  event?.description ?? subTypeLabel(event) ?? DEFAULT_NOTIFICATION_LABEL;
+  event?.description || DEFAULT_NOTIFICATION_LABEL;
 
 /**
- * Human readable summary of a notification, e.g. "3 nya meddelanden".
+ * Human readable summary of a notification, e.g. "Ärendet har uppdaterats (3)" or "3 händelser".
  *
- * Only worth pluralising when every event is of the same kind; a mixed burst is just "händelser".
+ * Several events that upstream describes alike are counted under that description; a mixed burst is
+ * just "händelser".
  */
 export const notificationSummary = (notification: NotificationView): string => {
   if (notification.events.length <= 1) {
     return notificationLabel(primaryEvent(notification));
   }
 
-  const subTypes = new Set(notification.events.map((event) => event.subType));
-  const sharedSubType = subTypes.size === 1 ? notification.events[0].subType : undefined;
-  // Every plural form reads as "new X". A burst that includes a removal is not that, so it falls
-  // back to the neutral wording rather than claiming three new attachments when one was deleted.
-  const plural = sharedSubType && !notification.events.some(isRemoval) ? pluralBySubType[sharedSubType] : undefined;
+  const labels = new Set(notification.events.map(notificationLabel));
+  const sharedLabel = labels.size === 1 ? notificationLabel(primaryEvent(notification)) : undefined;
 
-  return `${notification.events.length} ${plural ?? 'nya händelser'}`;
+  return sharedLabel ? `${sharedLabel} (${notification.events.length})` : `${notification.events.length} händelser`;
 };
 
 /**

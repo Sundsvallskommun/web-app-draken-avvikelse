@@ -5,7 +5,7 @@ import NextLink from 'next/link';
 import { FC } from 'react';
 
 import { NotificationRenderIcon } from './notification-render-icon';
-import { notificationHref, notificationLabel, primaryEvent, subTypeLabel } from './notification-utils';
+import { notificationHref, notificationLabel, primaryEvent } from './notification-utils';
 import { NotificationView } from './notification-view';
 
 interface NotificationItemProps {
@@ -32,7 +32,6 @@ export const NotificationItem: FC<NotificationItemProps> = ({
   const handleAcknowledge = useAcknowledgeNotification(notification, refresh);
 
   const event = primaryEvent(notification);
-  const eventLabel = subTypeLabel(event);
 
   return (
     <div className="p-16 pl-0 flex gap-12 items-start justify-between text-small" data-cy="notification-item">
@@ -56,7 +55,6 @@ export const NotificationItem: FC<NotificationItemProps> = ({
             {notification.errandNumber || 'Till ärendet'}
           </NextLink>
         </div>
-        {eventLabel ? <div>Händelse: {eventLabel}</div> : null}
       </div>
       <span className="whitespace-nowrap">{prettyTime(notification.created ?? '')}</span>
       {!notification.acknowledged && (
