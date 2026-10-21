@@ -2234,7 +2234,7 @@ test.describe('IAF/VOF:s riktiga utredningsflöde', () => {
     await page.locator('[data-cy="manage-sidebar"] [data-cy="save-button"]').click();
 
     await expect(page.locator('[data-cy="investigation-document-notice"]')).toContainText(
-      'klassificering har ändrats av någon annan'
+      'någon annan har ändrat ärendets klassificering'
     );
     expect(trace.puts).toHaveLength(1);
     expect(trace.classificationPatches).toHaveLength(1);
@@ -2259,9 +2259,7 @@ test.describe('IAF/VOF:s riktiga utredningsflöde', () => {
     const saveButton = page.locator('[data-cy="manage-sidebar"] [data-cy="save-button"]');
     await saveButton.click();
 
-    await expect(page.locator('[data-cy="investigation-document-notice"]')).toContainText(
-      'Utredningen har ändrats av någon annan'
-    );
+    await expect(page.locator('[data-cy="investigation-document-notice"]')).toContainText('Utredningen sparades inte');
     await expect(probabilityFour).toBeChecked();
     await expect(page.locator(`#${managerKey}_riskAssessmentHsl_calculatedRiskValue`)).toHaveValue('12');
     await expect(saveButton).toBeEnabled();

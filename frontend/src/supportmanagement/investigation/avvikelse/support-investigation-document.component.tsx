@@ -96,6 +96,7 @@ import {
   investigationClassificationWriteBlock,
   investigationDocumentWording,
   investigationSaveErrorMessage,
+  type InvestigationSaveStep,
   type PreparedInvestigationClassification,
   prepareInvestigationClassification,
   saveInvestigationClassificationStep,
@@ -851,6 +852,7 @@ export function SupportInvestigationDocument({
     setIsSaving(true);
     setNotice(undefined);
     let documentSavedForClassification = documentSavedPendingClassification;
+    let step: InvestigationSaveStep = 'document';
 
     try {
       const errors = getSchemaFormErrors(renderingSchema, schemaErrors, definition.key);
@@ -900,6 +902,8 @@ export function SupportInvestigationDocument({
         setDocumentSavedPendingClassification(true);
       }
 
+      step = 'classification';
+
       const savedClassification = await saveInvestigationClassificationStep({
         errandId,
         documentKey: definition.key,
@@ -929,6 +933,7 @@ export function SupportInvestigationDocument({
         type: 'error',
         message: investigationSaveErrorMessage({
           error,
+          failedStep: step,
           documentSavedForClassification,
           classificationDirty,
           classificationRequired: classificationOwner,

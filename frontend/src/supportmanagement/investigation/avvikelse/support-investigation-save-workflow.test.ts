@@ -2,6 +2,7 @@ import { expect, test, vi } from 'vitest';
 
 import {
   investigationClassificationWriteBlock,
+  investigationSaveErrorMessage,
   prepareInvestigationClassification,
 } from './support-investigation-save-workflow';
 
@@ -144,4 +145,37 @@ test('a classification the handler edited is validated even in a draft', async (
 
   await expect(prepareInvestigationClassification(request)).rejects.toThrow('för varje valt lagrum');
   expect(request.triggerValidation).toHaveBeenCalled();
+});
+
+const responseError = (status: number, message?: string) => ({
+  response: { status, data: message ? { message } : {} },
+});
+const saveError = (error: unknown, failedStep: 'document' | 'classification', documentSaved = false) =>
+  investigationSaveErrorMessage({
+    error,
+    failedStep,
+    documentSavedForClassification: documentSaved,
+    classificationDirty: true,
+    classificationRequired: true,
+  });
+
+// A conflict is not saved over: the handler is told what was saved, what was not, and to redo it on the errand reloaded.
+test('says the document was saved but not the classification somebody else changed', () => {
+  expect(saveError(responseError(409), 'classification', true)).toBe(
+    'Utredningen har sparats, men inte kategoriseringen: någon annan har ändrat ärendets klassificering sedan du öppnade det. Notera dina val, ladda om ärendet och gör om kategoriseringen.'
+  );
+  expect(saveError(responseError(412), 'classification')).toMatch(/^Kategoriseringen sparades inte: /u);
+});
+
+test('blames the document, not the classification, when the document is what somebody else changed', () => {
+  expect(saveError(responseError(412), 'document')).toBe(
+    'Utredningen sparades inte: någon annan har ändrat utredningsdokumentet sedan du öppnade det. Inte heller kategoriseringen sparades. Kopiera det du vill behålla, ladda om ärendet och gör om ändringarna.'
+  );
+});
+
+// A 409 on the document is a refusal the BFF gives a reason for - a locked document - and no conflict.
+test('shows the reason for a refused document instead of calling it somebody else’s change', () => {
+  expect(saveError(responseError(409, 'Rapporten väntar på bekräftelse.'), 'document')).toBe(
+    'Rapporten väntar på bekräftelse.'
+  );
 });

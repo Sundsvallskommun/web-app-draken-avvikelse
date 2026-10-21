@@ -372,7 +372,11 @@ export const SupportMessageForm: FC<{
           closeable: false,
           // The status change after a send is a conditional errand write, so this catch also
           // sees 409/412 - reporting those as a send failure hides that someone else saved first.
-          message: supportErrandWriteErrorMessage(e, 'Något gick fel när meddelandet skulle skickas'),
+          message: supportErrandWriteErrorMessage(
+            e,
+            'Något gick fel när meddelandet skulle skickas',
+            'Meddelandet skickades, men ärendets status ändrades inte: någon annan har ändrat ärendet sedan du öppnade det. Ladda om ärendet och ändra status om det behövs.'
+          ),
           status: 'error',
         });
       })

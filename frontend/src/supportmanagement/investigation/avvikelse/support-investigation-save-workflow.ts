@@ -24,7 +24,7 @@ import {
 } from './support-investigation-classification-service';
 import {
   isSupportInvestigationAccessDenied,
-  isSupportInvestigationConflict,
+  isSupportInvestigationDocumentConflict,
   type LoadedSupportInvestigationDocument,
   saveSupportInvestigationDocument,
 } from './support-investigation-service';
@@ -247,16 +247,26 @@ export const decisionDocumentWording: InvestigationDocumentWording = Object.free
   kind: 'beslutsdokumentet',
 });
 
+/** The step of a save that failed: writing the document, or the classification saved with it. */
+export type InvestigationSaveStep = 'document' | 'classification';
+
 interface SaveErrorMessageInput {
   readonly error: unknown;
+  readonly failedStep: InvestigationSaveStep;
   readonly documentSavedForClassification: boolean;
   readonly classificationDirty: boolean;
   readonly classificationRequired: boolean;
   readonly wording?: InvestigationDocumentWording;
 }
 
+/**
+ * What the handler is told when a save failed. A conflict - somebody else changed what was written first - is never
+ * resolved by saving again over it: the message says what was saved and what was not, and that the change is made
+ * anew once the errand is reloaded, which throws away what is on the page.
+ */
 export function investigationSaveErrorMessage({
   error,
+  failedStep,
   documentSavedForClassification,
   classificationDirty,
   classificationRequired,
@@ -265,18 +275,18 @@ export function investigationSaveErrorMessage({
   if (isSupportInvestigationAccessDenied(error)) {
     return `Support Management nekade åtkomst till det här ${wording.kind}.`;
   }
-  const classificationConflict = isSupportInvestigationClassificationConflict(error);
-  if (classificationConflict && documentSavedForClassification && classificationDirty) {
-    return `${wording.noun} har sparats, men ärendets klassificering har ändrats av någon annan. Dina kategoriseringsval finns kvar här. Ladda om ärendet och jämför innan du sparar klassificeringen igen.`;
+  if (failedStep === 'classification' && isSupportInvestigationClassificationConflict(error)) {
+    const unsaved = documentSavedForClassification
+      ? `${wording.noun} har sparats, men inte kategoriseringen`
+      : 'Kategoriseringen sparades inte';
+    return `${unsaved}: någon annan har ändrat ärendets klassificering sedan du öppnade det. Notera dina val, ladda om ärendet och gör om kategoriseringen.`;
   }
-  if (classificationConflict && classificationDirty) {
-    return 'Ärendets klassificering har ändrats av någon annan. Dina kategoriseringsval finns kvar här. Ladda om ärendet och jämför innan du sparar igen.';
+  if (failedStep === 'document' && isSupportInvestigationDocumentConflict(error)) {
+    const alsoUnsaved = classificationDirty ? ' Inte heller kategoriseringen sparades.' : '';
+    return `${wording.noun} sparades inte: någon annan har ändrat ${wording.kind} sedan du öppnade det.${alsoUnsaved} Kopiera det du vill behålla, ladda om ärendet och gör om ändringarna.`;
   }
   if (documentSavedForClassification && classificationDirty) {
     return `${wording.noun} har sparats, men ärendets klassificering kunde inte synkroniseras. Försök igen; nästa försök uppdaterar bara klassificeringen.`;
-  }
-  if (isSupportInvestigationConflict(error)) {
-    return `${wording.noun} har ändrats av någon annan. Dina ändringar finns kvar här. Ladda om ärendet och jämför innan du sparar igen.`;
   }
 
   const apiMessage = (error as AxiosError<{ message?: string }>).response?.data?.message;

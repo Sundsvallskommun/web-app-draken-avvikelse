@@ -105,7 +105,7 @@ export const registeredPlaceName = (labels: readonly Label[] | undefined): strin
 /** Why a report could not be saved, in the words the unit manager is shown. */
 export const reportSaveErrorMessage = (status: number | undefined): string => {
   if (status === 412)
-    return 'Rapporten har ändrats av någon annan sedan du öppnade den. Ladda om sidan och försök igen.';
+    return 'Rapporten sparades inte: någon annan har ändrat den sedan du öppnade den. Kopiera det du vill behålla, ladda om sidan och gör om ändringarna.';
   if (status === 409) return 'Rapporten kan inte längre ändras, eftersom ärendet har gått vidare till utredning.';
   if (status === 403) return 'Du saknar behörighet att ändra rapporten.';
   return 'Rapporten kunde inte sparas. Försök igen.';

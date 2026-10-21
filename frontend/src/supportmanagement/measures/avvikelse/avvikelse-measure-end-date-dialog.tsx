@@ -11,10 +11,12 @@ import {
   Textarea,
   useConfirm,
 } from '@sk-web-gui/react';
+import { isSupportErrandWriteConflict } from '@supportmanagement/services/support-errand-write-error';
 import { isAxiosError } from 'axios';
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
 
 import { measureCanBeFollowedUp } from '../measure-follow-up';
+import { MeasureConflictAlert } from './measure-conflict-alert';
 import { measureDateLabels, measureDateTime, measureFormValues, plannedMeasureDateErrors } from './measure-form';
 
 /**
@@ -24,6 +26,7 @@ import { measureDateLabels, measureDateTime, measureFormValues, plannedMeasureDa
 export function AvvikelseMeasureEndDateDialog({
   measure,
   unavailable = false,
+  conflicted = false,
   title,
   onSave,
   onClose,
@@ -31,6 +34,8 @@ export function AvvikelseMeasureEndDateDialog({
 }: {
   measure: Measure;
   unavailable?: boolean;
+  /** Somebody else changed the measure first: nothing more is sent, and what was written stays to be copied. */
+  conflicted?: boolean;
   title: string;
   /** Receives the new end date as the timestamp the API stores, and the description where it was rewritten. */
   onSave: (plannedComplete: string, description?: string) => Promise<void>;
@@ -50,6 +55,8 @@ export function AvvikelseMeasureEndDateDialog({
   const [saving, setSaving] = useState(false);
   const confirm = useConfirm();
   const available = !unavailable && measureCanBeFollowedUp(measure);
+  // Kept readable rather than disabled, so that what was written can still be copied.
+  const locked = !available || conflicted;
   const dateChanged = plannedComplete !== savedEnd;
   const descriptionChanged = description !== savedDescription;
   const dirty = dateChanged || descriptionChanged;
@@ -63,6 +70,7 @@ export function AvvikelseMeasureEndDateDialog({
     if (busy.current) return;
     if (
       dirty &&
+      !locked &&
       !(await confirm.showConfirmation(
         'Avbryt ändringen?',
         'Dina ändringar sparas inte. Vill du fortsätta?',
@@ -78,7 +86,7 @@ export function AvvikelseMeasureEndDateDialog({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy.current || !available) return;
+    if (busy.current || locked) return;
     const error = plannedMeasureDateErrors(plannedStart, plannedComplete).plannedComplete;
     const missingDescription = description.trim() ? undefined : 'Beskriv vad åtgärden innebär.';
     setDateError(error);
@@ -90,7 +98,8 @@ export function AvvikelseMeasureEndDateDialog({
     try {
       await onSave(measureDateTime(plannedComplete), descriptionChanged ? description : undefined);
     } catch (cause) {
-      setSaveError(endDateSaveError(cause));
+      // A conflict is told by the container, which stops the dialog (`conflicted`).
+      if (!isSupportErrandWriteConflict(cause)) setSaveError(endDateSaveError(cause));
     } finally {
       busy.current = false;
       setSaving(false);
@@ -124,7 +133,10 @@ export function AvvikelseMeasureEndDateDialog({
             )}
           </section>
           <p>Startdatumet är beslutat och ändras inte. Slutdatumet kan flyttas om åtgärden tar längre tid.</p>
-          {!available && <p role="status">Åtgärden är redan uppföljd, och slutdatumet kan inte längre ändras.</p>}
+          {conflicted && <MeasureConflictAlert title="Slutdatumet sparades inte" />}
+          {!available && !conflicted && (
+            <p role="status">Åtgärden är redan uppföljd, och slutdatumet kan inte längre ändras.</p>
+          )}
           {saveError && (
             <div role="alert">
               <Alert type="error">
@@ -140,7 +152,8 @@ export function AvvikelseMeasureEndDateDialog({
               value={plannedComplete}
               min={plannedStart || undefined}
               onChange={(event) => setPlannedComplete(event.target.value)}
-              disabled={saving || !available}
+              disabled={saving}
+              readOnly={locked}
               aria-required
               className="w-full"
             />
@@ -153,7 +166,8 @@ export function AvvikelseMeasureEndDateDialog({
               value={description}
               rows={6}
               onChange={(event) => setDescription(event.target.value)}
-              disabled={saving || !available}
+              disabled={saving}
+              readOnly={locked}
               aria-required
               aria-describedby={`${id}-description-help`}
               className="w-full"
@@ -165,11 +179,13 @@ export function AvvikelseMeasureEndDateDialog({
           </FormControl>
           <div className="flex flex-wrap gap-12">
             {/* The step is the date's: the description is rewritten to explain a move, not on its own. */}
-            <Button type="submit" disabled={saving || !available || !dateChanged} loading={saving}>
-              Spara slutdatum
-            </Button>
+            {!conflicted && (
+              <Button type="submit" disabled={saving || locked || !dateChanged} loading={saving}>
+                Spara slutdatum
+              </Button>
+            )}
             <Button type="button" variant="secondary" disabled={saving} onClick={() => void requestClose()}>
-              Avbryt
+              {conflicted ? 'Stäng' : 'Avbryt'}
             </Button>
           </div>
         </form>
@@ -185,9 +201,6 @@ function endDateSaveError(cause: unknown): string {
     case 401:
     case 403:
       return 'Du saknar behörighet att ändra åtgärdens slutdatum.';
-    case 409:
-    case 412:
-      return 'Åtgärden har ändrats av någon annan. Dina ändringar finns kvar: kontrollera dem och spara igen.';
     default:
       return 'Slutdatumet kunde inte sparas. Ladda om åtgärderna innan du försöker igen.';
   }

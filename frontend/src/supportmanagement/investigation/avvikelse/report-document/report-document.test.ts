@@ -151,7 +151,7 @@ test('names the registered place by the deepest location label the errand carrie
 });
 
 test('explains why a report could not be saved', () => {
-  assert.match(reportSaveErrorMessage(412), /ändrats av någon annan/u);
+  assert.match(reportSaveErrorMessage(412), /sparades inte: någon annan har ändrat den/u);
   assert.match(reportSaveErrorMessage(409), /gått vidare till utredning/u);
   assert.match(reportSaveErrorMessage(403), /behörighet/u);
   assert.match(reportSaveErrorMessage(undefined), /kunde inte sparas/u);

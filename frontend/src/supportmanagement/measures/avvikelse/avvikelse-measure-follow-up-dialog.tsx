@@ -1,13 +1,16 @@
 import type { Measure } from '@common/data-contracts/supportmanagement/data-contracts';
 import { Alert, Button, FormControl, FormLabel, Modal, RadioButton, Textarea, useConfirm } from '@sk-web-gui/react';
+import { isSupportErrandWriteConflict } from '@supportmanagement/services/support-errand-write-error';
 import { isAxiosError } from 'axios';
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
 
 import { measureCanBeFollowedUp, type MeasureFollowUpInput } from '../measure-follow-up';
+import { MeasureConflictAlert } from './measure-conflict-alert';
 
 export function AvvikelseMeasureFollowUpDialog({
   measure,
   unavailable = false,
+  conflicted = false,
   title,
   onSave,
   onClose,
@@ -15,6 +18,8 @@ export function AvvikelseMeasureFollowUpDialog({
 }: {
   measure: Measure;
   unavailable?: boolean;
+  /** Somebody else changed the measure first: nothing more is sent, and the answers stay to be copied. */
+  conflicted?: boolean;
   title: string;
   onSave: (values: MeasureFollowUpInput) => Promise<void>;
   onClose: () => void;
@@ -30,6 +35,8 @@ export function AvvikelseMeasureFollowUpDialog({
   const [error, setError] = useState<string>();
   const confirm = useConfirm();
   const available = !unavailable && measureCanBeFollowedUp(measure);
+  // Kept readable rather than disabled, so that the answers can still be copied.
+  const locked = !available || conflicted;
   // Opening this dialog is the user's unsaved choice to mark the measure as completed.
   useEffect(() => {
     onDirtyChange(true);
@@ -43,6 +50,7 @@ export function AvvikelseMeasureFollowUpDialog({
     if (busy.current) return;
     if (
       (effect || description) &&
+      !locked &&
       !(await confirm.showConfirmation(
         'Avbryt uppföljningen?',
         'Dina svar sparas inte och åtgärden markeras inte som utförd. Vill du fortsätta?',
@@ -58,7 +66,7 @@ export function AvvikelseMeasureFollowUpDialog({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy.current || !available) return;
+    if (busy.current || locked) return;
     if (!effect || !description.trim()) {
       setError('Välj Ja eller Nej och beskriv vad som har hänt. Båda svaren är obligatoriska.');
       return;
@@ -69,11 +77,11 @@ export function AvvikelseMeasureFollowUpDialog({
     try {
       await onSave({ desiredEffectAchieved: effect === 'yes', followUpDescription: description.trim() });
     } catch (cause) {
+      // A conflict is told by the container, which stops the dialog (`conflicted`).
+      if (isSupportErrandWriteConflict(cause)) return;
       const status = isAxiosError(cause) ? cause.response?.status : undefined;
       setError(
-        status === 409 || status === 412
-          ? 'Åtgärden har ändrats. Dina svar finns kvar. Stäng och ladda om åtgärderna innan du försöker igen.'
-          : status === 401 || status === 403
+        status === 401 || status === 403
           ? 'Du saknar behörighet att följa upp åtgärden. Dina svar finns kvar.'
           : status === 404
           ? 'Uppföljningen är inte tillgänglig. Ladda om åtgärderna och kontakta administratören om felet kvarstår. Dina svar finns kvar.'
@@ -117,7 +125,8 @@ export function AvvikelseMeasureFollowUpDialog({
             )}
           </section>
           <p>När du sparar markeras åtgärden som utförd. Svaren visas tillsammans med åtgärden.</p>
-          {!available && (
+          {conflicted && <MeasureConflictAlert title="Uppföljningen sparades inte" />}
+          {!available && !conflicted && (
             <p role="status">
               Åtgärden kan inte längre följas upp. Dina svar finns kvar så att du kan kopiera dem innan du stänger.
             </p>
@@ -134,7 +143,7 @@ export function AvvikelseMeasureFollowUpDialog({
               </Alert>
             </div>
           )}
-          <fieldset disabled={saving || !available} className="flex flex-col gap-24">
+          <fieldset disabled={saving} className="flex flex-col gap-24">
             <legend className="sr-only">Uppföljningssvar</legend>
             <FormControl fieldset id={`${id}-effect`} className="w-full">
               <FormLabel>Har åtgärd lett till önskad effekt? (Obligatoriskt)</FormLabel>
@@ -147,6 +156,7 @@ export function AvvikelseMeasureFollowUpDialog({
                     value={value}
                     checked={effect === value}
                     onChange={() => setEffect(value)}
+                    disabled={locked}
                     aria-required
                   >
                     {value === 'yes' ? 'Ja' : 'Nej'}
@@ -160,6 +170,7 @@ export function AvvikelseMeasureFollowUpDialog({
                 id={`${id}-description`}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
+                readOnly={locked}
                 aria-required
                 maxLength={4000}
                 rows={5}
@@ -168,11 +179,13 @@ export function AvvikelseMeasureFollowUpDialog({
             </FormControl>
           </fieldset>
           <div className="flex flex-wrap gap-12">
-            <Button type="submit" disabled={saving || !available} loading={saving}>
-              Spara uppföljning
-            </Button>
+            {!conflicted && (
+              <Button type="submit" disabled={saving || locked} loading={saving}>
+                Spara uppföljning
+              </Button>
+            )}
             <Button type="button" variant="secondary" disabled={saving} onClick={() => void requestClose()}>
-              Avbryt
+              {conflicted ? 'Stäng' : 'Avbryt'}
             </Button>
           </div>
         </form>

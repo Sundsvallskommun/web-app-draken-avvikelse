@@ -48,7 +48,13 @@ export const MasMarHandlerSelect: FC<InvestigationHandlerFieldsProps> = ({ locke
         setChosen(undefined);
         return true;
       } catch (cause) {
-        setError(supportErrandWriteErrorMessage(cause, 'MAS/MAR kunde inte sparas. Försök igen.'));
+        setError(
+          supportErrandWriteErrorMessage(
+            cause,
+            'MAS/MAR kunde inte sparas. Försök igen.',
+            'MAS/MAR sparades inte: någon annan har ändrat valet sedan du öppnade ärendet. Ladda om ärendet och välj MAS/MAR igen.'
+          )
+        );
         return false;
       }
     },

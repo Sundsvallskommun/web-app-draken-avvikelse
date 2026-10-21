@@ -31,7 +31,10 @@ import {
   updateSupportErrand,
   validateAction,
 } from '@supportmanagement/services/support-errand-service';
-import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-error';
+import {
+  SUPPORT_ERRAND_DRAFT_CONFLICT_MESSAGE,
+  supportErrandWriteErrorMessage,
+} from '@supportmanagement/services/support-errand-write-error';
 import {
   closesFromActivePhase,
   getActiveSupportPhaseId,
@@ -286,7 +289,11 @@ export const SidebarInfo: FC<{
       toastMessage({
         position: 'bottom',
         closeable: false,
-        message: supportErrandWriteErrorMessage(e, 'Något gick fel när ärendet uppdaterades'),
+        message: supportErrandWriteErrorMessage(
+          e,
+          'Något gick fel när ärendet uppdaterades',
+          SUPPORT_ERRAND_DRAFT_CONFLICT_MESSAGE
+        ),
         status: 'error',
       });
       setError(true);

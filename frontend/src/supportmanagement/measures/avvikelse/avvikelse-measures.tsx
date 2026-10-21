@@ -50,7 +50,7 @@ export function AvvikelseMeasures({
   snapshot: MeasuresSnapshot;
   errand: SupportErrand;
   onDirtyChange: (dirty: boolean) => void;
-  /** Reloads the tab and hands back what it read, so a conflict can rebase on the current measure. */
+  /** Reloads the tab and hands back what it read. */
   onSaved: () => Promise<MeasuresSnapshot | undefined>;
   followUp?: boolean;
 }) {
@@ -60,9 +60,10 @@ export function AvvikelseMeasures({
   const confirm = useConfirm();
   const [filters, setFilters] = useState(emptyMeasureFilters);
   const [sort, setSort] = useState<MeasureSort>('created');
+  // `conflicted`: the dialog's write was refused because somebody else changed the measure first (`stopOnConflict`).
   const [dialog, setDialog] = useState<
-    | { kind: 'edit' | 'decide'; measure: Measure }
-    | { kind: 'follow-up' | 'end-date'; measure: Measure; unavailable?: boolean }
+    | { kind: 'edit' | 'decide'; measure: Measure; conflicted?: boolean }
+    | { kind: 'follow-up' | 'end-date'; measure: Measure; unavailable?: boolean; conflicted?: boolean }
   >();
   const editing = dialog?.kind === 'edit' ? dialog.measure : undefined;
   const [revision, setRevision] = useState(0);
@@ -95,33 +96,28 @@ export function AvvikelseMeasures({
     listHeading.current?.focus();
   };
   const closeEditing = () => setDialog(undefined);
+  /**
+   * Closes the open dialog. One whose write ran into somebody else's change reads the list again as it closes, so
+   * the change is made anew on the measures as they now stand.
+   */
+  const closeDialog = () => {
+    const conflicted = dialog?.conflicted;
+    setDialog(undefined);
+    if (conflicted) void onSaved();
+  };
   const requestCloseEditing = async () => {
-    if (dirty && !(await confirmDiscardMeasureDraft(confirm))) return;
-    closeEditing();
+    // A draft that ran into somebody else's change can no longer be saved, as the dialog already says.
+    if (!dialog?.conflicted && dirty && !(await confirmDiscardMeasureDraft(confirm))) return;
+    closeDialog();
   };
   /**
-   * A rejected write leaves the open dialog holding a version upstream has moved past, so every retry fails the
-   * same way and the draft is trapped. Reload and put the current measure under the dialog instead: the form is
-   * keyed by id, not version, so the typed values survive while measureFormChanges recomputes against the new
-   * baseline - fields the other writer already set to the same value drop out of the patch by themselves.
+   * A write refused because somebody else changed the measure first stops there. The dialog keeps what the user
+   * wrote, locked so that it can be copied, and sends none of it again: a retry on the measure as it now stands
+   * would write over the other change unseen. The change is made anew once the dialog is closed and the list read.
    */
-  const rebaseOnCurrent = async (
-    measureId: string,
-    kind: 'edit' | 'decide' | 'follow-up' | 'end-date'
-  ): Promise<Measure | undefined> => {
-    const snapshot = await onSaved();
-    // A failed reload is not evidence the measure is gone, and closing here would discard the draft. Leave the
-    // dialog as it stands; the write error is already on screen and the tab shows its own reload failure.
-    if (!snapshot) return undefined;
-    const current = snapshot.measures.find((measure) => measure.id === measureId);
-    if (current) setDialog({ kind, measure: current });
-    else if (kind === 'follow-up' || kind === 'end-date') {
-      // Preserve the answers even when the measure disappeared, and explicitly disable submission.
-      setDialog((open) => (open?.kind === kind ? { ...open, unavailable: true } : open));
-    } else setDialog(undefined);
-    return current;
+  const stopOnConflict = (cause: unknown) => {
+    if (isSupportErrandWriteConflict(cause)) setDialog((open) => (open ? { ...open, conflicted: true } : open));
   };
-
   const save = async (values: MeasureForm) => {
     if (!canEdit || !errand.id) throw new Error('SupportMeasure is not writable');
     if (editing) {
@@ -137,7 +133,7 @@ export function AvvikelseMeasures({
       try {
         await updateSupportMeasure(errand.id, measureId, editing.version, changes);
       } catch (cause) {
-        if (isSupportErrandWriteConflict(cause)) await rebaseOnCurrent(measureId, 'edit');
+        stopOnConflict(cause);
         throw cause;
       }
     } else {
@@ -165,7 +161,14 @@ export function AvvikelseMeasures({
       await deleteSupportMeasure(errand.id, measure.id, measure.version);
       snackbar({ message: 'Åtgärden har tagits bort.', status: 'success' });
     } catch (cause) {
-      snackbar({ message: supportErrandWriteErrorMessage(cause, 'Åtgärden kunde inte tas bort.'), status: 'error' });
+      snackbar({
+        message: supportErrandWriteErrorMessage(
+          cause,
+          'Åtgärden kunde inte tas bort.',
+          MEASURE_REMOVAL_CONFLICT_MESSAGE
+        ),
+        status: 'error',
+      });
     }
     listHeading.current?.focus();
     await onSaved();
@@ -179,9 +182,8 @@ export function AvvikelseMeasures({
     try {
       await decideSupportMeasure(errand.id, measureId, measure.version, decision);
     } catch (cause) {
-      // The dialog stays open on its own error, and the refreshed measure tells it whether a decision is still
-      // open to make. Closing here would throw away a comment the user may want to keep.
-      if (isSupportErrandWriteConflict(cause)) await rebaseOnCurrent(measureId, 'decide');
+      // The dialog stays open on its own error: closing here would throw away a comment the user may want to keep.
+      stopOnConflict(cause);
       throw cause;
     }
     // Clear the dialog before reloading so a failed read never invites a second submission.
@@ -200,10 +202,18 @@ export function AvvikelseMeasures({
     try {
       await followUpSupportMeasure(errand.id, measure.id, measure.version, values);
     } catch (cause) {
-      // A failed save can still have been accepted, with only its response lost: the reloaded measure then holds
-      // exactly these answers, and the follow-up is done rather than failed.
-      const current = await rebaseOnCurrent(measure.id, 'follow-up');
-      if (!current || !measureHoldsFollowUp(current, values)) throw cause;
+      // A failed save can still have been accepted, with only its response lost: the measure read back then holds
+      // exactly these answers, and the follow-up is done rather than failed. The dialog stays on the measure it was
+      // opened on, so nothing it holds is sent again over a change somebody else made.
+      const snapshot = await onSaved();
+      const current = snapshot?.measures.find((candidate) => candidate.id === measure.id);
+      if (!current || !measureHoldsFollowUp(current, values)) {
+        // A measure the read no longer finds cannot be followed up; the answers stay for the user to copy.
+        if (snapshot && !current)
+          setDialog((open) => (open?.kind === 'follow-up' ? { ...open, unavailable: true } : open));
+        stopOnConflict(cause);
+        throw cause;
+      }
       recovered = true;
     }
     setDialog(undefined);
@@ -222,8 +232,7 @@ export function AvvikelseMeasures({
     try {
       await changeSupportMeasurePlannedComplete(errand.id, measureId, measure.version, plannedComplete, description);
     } catch (cause) {
-      // The date stays in the dialog, now over the current measure, so a retry is made on its fresh version.
-      if (isSupportErrandWriteConflict(cause)) await rebaseOnCurrent(measureId, 'end-date');
+      stopOnConflict(cause);
       throw cause;
     }
     setDialog(undefined);
@@ -290,7 +299,8 @@ export function AvvikelseMeasures({
                 registration={registration}
                 onSave={save}
                 errandIsInvestigated={errandIsInvestigated}
-                onCancel={closeEditing}
+                conflicted={dialog?.conflicted}
+                onCancel={closeDialog}
                 onDirtyChange={reportDirty}
                 titledBy={editHeadingId}
               />
@@ -301,9 +311,10 @@ export function AvvikelseMeasures({
       {canDecide && dialog?.kind === 'decide' && (
         <AvvikelseMeasureDecisionDialog
           measure={dialog.measure}
+          conflicted={dialog.conflicted}
           title={measureTypeLabel(metadata.measureTypes, dialog.measure)}
           onSave={saveDecision}
-          onClose={() => setDialog(undefined)}
+          onClose={closeDialog}
           onDirtyChange={reportDirty}
         />
       )}
@@ -311,9 +322,10 @@ export function AvvikelseMeasures({
         <AvvikelseMeasureFollowUpDialog
           measure={dialog.measure}
           unavailable={dialog.unavailable}
+          conflicted={dialog.conflicted}
           title={measureTypeLabel(metadata.measureTypes, dialog.measure)}
           onSave={saveFollowUp}
-          onClose={() => setDialog(undefined)}
+          onClose={closeDialog}
           onDirtyChange={reportDirty}
         />
       )}
@@ -322,9 +334,10 @@ export function AvvikelseMeasures({
         <AvvikelseMeasureEndDateDialog
           measure={dialog.measure}
           unavailable={dialog.unavailable}
+          conflicted={dialog.conflicted}
           title={measureTypeLabel(metadata.measureTypes, dialog.measure)}
           onSave={saveEndDate}
-          onClose={() => setDialog(undefined)}
+          onClose={closeDialog}
           onDirtyChange={reportDirty}
         />
       )}
@@ -380,6 +393,10 @@ export function AvvikelseMeasures({
     </div>
   );
 }
+
+/** A removal refused because somebody else changed the measure first. The list is read again right after it. */
+const MEASURE_REMOVAL_CONFLICT_MESSAGE =
+  'Åtgärden togs inte bort: någon annan har ändrat den sedan du öppnade den. Listan visar nu åtgärden som den ser ut; ta bort den igen om den fortfarande ska bort.';
 
 function registrationMessage(status: MeasuresSnapshot['registration']['status']): string {
   switch (status) {

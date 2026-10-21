@@ -1267,7 +1267,10 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
     if (facts.some((fact) => seenFacts[fact] !== current[fact])) {
       await fulfillJson(
         route,
-        { message: 'Ärendet har ändrats av någon annan. Ladda om ärendet och försök igen.' },
+        {
+          message:
+            'Ändringen sparades inte: någon annan har ändrat ärendet sedan du öppnade det. Ladda om ärendet och gör om ändringen.',
+        },
         409
       );
       return true;
@@ -1419,7 +1422,14 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
         return;
       }
       if (scenario.classificationPatchResult === 'conflict') {
-        await fulfillJson(route, { message: 'Ärendets klassificering har ändrats sedan den laddades.' }, 409);
+        await fulfillJson(
+          route,
+          {
+            message:
+              'Ändringen sparades inte: någon annan har ändrat ärendet sedan du öppnade det. Ladda om ärendet och gör om ändringen.',
+          },
+          409
+        );
         return;
       }
       if (

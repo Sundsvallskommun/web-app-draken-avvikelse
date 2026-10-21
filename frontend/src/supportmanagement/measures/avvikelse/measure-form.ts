@@ -140,64 +140,6 @@ export function measureFormErrors(
   return errors;
 }
 
-/** The editable fields; addedByRole is fixed for an existing measure and never rebases. */
-const REBASABLE_FIELDS = [
-  'type',
-  'timing',
-  'responsibleUser',
-  'goal',
-  'description',
-  'plannedStart',
-  'plannedComplete',
-  'executed',
-] as const satisfies readonly (keyof MeasureForm)[];
-
-const FIELD_LABELS: Record<(typeof REBASABLE_FIELDS)[number], string> = {
-  type: 'Typ av åtgärd',
-  timing: 'Genomförd eller planerad',
-  responsibleUser: 'Ansvarig',
-  goal: 'Mål',
-  description: 'Beskrivning',
-  plannedStart: 'Startdatum',
-  plannedComplete: 'Slutdatum',
-  executed: 'Genomfört datum',
-};
-
-export interface MeasureFormRebase {
-  /** Values to adopt from the current measure: the user never touched these, so the other writer owns them. */
-  adopt: Partial<MeasureForm>;
-  /** Labels of fields both writers changed, differently. The draft wins, so the user has to be told. */
-  conflicts: string[];
-}
-
-/**
- * Merges an open draft onto the measure as it now stands upstream, given the measure the draft started from.
- * Keeping the whole draft would silently revert every field the other writer changed as soon as the retry
- * passed If-Match, and discarding it would throw away typing that is usually still valid. So: fields only the
- * other writer moved are adopted, fields the user typed into stay, and the overlap is reported rather than
- * resolved - only the user knows whose wording should win.
- */
-export function measureFormRebase(
-  values: MeasureForm,
-  touched: Partial<Record<keyof MeasureForm, unknown>>,
-  baseline: Measure,
-  current: Measure
-): MeasureFormRebase {
-  const before = measureFormValues(baseline);
-  const upstream = measureFormValues(current);
-  const adopt: Partial<MeasureForm> = {};
-  const conflicts: string[] = [];
-  for (const key of REBASABLE_FIELDS) {
-    // Only what moved upstream is any of our business; a field the other writer left alone stays as typed.
-    if (upstream[key] === before[key]) continue;
-    if (touched[key]) conflicts.push(FIELD_LABELS[key]);
-    // Key and value are read from the same MeasureForm, so the pairing holds; iterating widens the key to a
-    // union of the field names and TypeScript can no longer see that the value belongs to this one.
-    else (adopt as Record<string, string>)[key] = upstream[key];
-  }
-  return { adopt, conflicts };
-}
-
 /** Send only edited basic fields, preserving audit/decision fields and exact timestamps on untouched dates. */
 export function measureFormChanges(
   values: MeasureForm,

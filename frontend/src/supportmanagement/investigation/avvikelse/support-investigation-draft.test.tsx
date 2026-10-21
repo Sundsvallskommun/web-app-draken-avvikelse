@@ -141,7 +141,7 @@ vi.mock('./investigation-schema-debug-panel.component', () => ({
 vi.mock('./support-investigation-service', () => ({
   getSupportInvestigationDocument: mocks.read,
   isSupportInvestigationAccessDenied: () => false,
-  isSupportInvestigationConflict: () => false,
+  isSupportInvestigationDocumentConflict: () => false,
   saveSupportInvestigationDocument: mocks.save,
   createSupportInvestigationReport: mocks.generate,
   previewSupportInvestigationReport: mocks.preview,

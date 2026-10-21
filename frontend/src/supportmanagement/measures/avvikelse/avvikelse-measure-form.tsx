@@ -12,10 +12,7 @@ import {
   Textarea,
   useConfirm,
 } from '@sk-web-gui/react';
-import {
-  isSupportErrandWriteConflict,
-  supportErrandWriteErrorMessage,
-} from '@supportmanagement/services/support-errand-write-error';
+import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-error';
 import { isAxiosError } from 'axios';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -23,6 +20,7 @@ import { useForm } from 'react-hook-form';
 import { measureContentIsLocked, measureDecisionPresentation } from '../measure-decision';
 import { selectableMeasureTypes } from '../measure-types';
 import type { MeasuresSnapshot } from '../support-measure-service';
+import { MeasureConflictAlert } from './measure-conflict-alert';
 import {
   lockedMeasureDateHelp,
   measureCanExecute,
@@ -31,7 +29,6 @@ import {
   type MeasureForm,
   type MeasureFormErrors,
   measureFormErrors,
-  measureFormRebase,
   measureFormValues,
   measureIsUndatedProposal,
   measurePlannedDateIsLocked,
@@ -50,6 +47,7 @@ export function AvvikelseMeasureForm({
   registration,
   onSave,
   errandIsInvestigated = false,
+  conflicted = false,
   onCancel,
   onDirtyChange,
   titledBy,
@@ -62,6 +60,11 @@ export function AvvikelseMeasureForm({
   onSave: (values: MeasureForm) => Promise<void>;
   /** Whether the errand is in Utredning, where a decided measure's content may still be put right. */
   errandIsInvestigated?: boolean;
+  /**
+   * Somebody else changed the measure first. Nothing more is sent - a retry would write over their change - and what
+   * was written stays, locked, to be copied before the form is closed.
+   */
+  conflicted?: boolean;
   /** Abandons the edit of an existing measure; a new measure's form has nothing to abandon. */
   onCancel?: () => void;
   onDirtyChange: (dirty: boolean) => void;
@@ -78,8 +81,7 @@ export function AvvikelseMeasureForm({
     watch,
     handleSubmit,
     setValue,
-    getValues,
-    formState: { isDirty, dirtyFields },
+    formState: { isDirty },
   } = useForm<MeasureForm>({ defaultValues: defaults });
   const timing = watch('timing');
   const roleName = watch('addedByRole');
@@ -104,12 +106,6 @@ export function AvvikelseMeasureForm({
   const detailsDisabled = saving || (!measure && !roleName);
   const [errors, setErrors] = useState<MeasureFormErrors>({});
   const [saveError, setSaveError] = useState<string>();
-  // Held apart from saveError because the container swaps in the current measure while this catch runs: the right
-  // wording depends on what the measure looks like after the rebase, so it is derived at render, not at catch.
-  const [conflict, setConflict] = useState<{ fields: string[] } | undefined>();
-  // The measure the open draft was started from. A rebase moves this forward; without it there is no way to
-  // tell a field the other writer changed from one this user simply never edited.
-  const baseline = useRef(measure);
   const heading = useRef<HTMLHeadingElement>(null);
   const errorSummary = useRef<HTMLDivElement>(null);
 
@@ -123,29 +119,8 @@ export function AvvikelseMeasureForm({
   }, [isDirty, onDirtyChange]);
 
   useEffect(() => {
-    if (saveError || conflict || Object.keys(errors).length > 0) errorSummary.current?.focus();
-  }, [errors, saveError, conflict]);
-
-  // The container swaps in the current measure after a rejected write. The form is keyed by id, so it is not
-  // remounted and the draft survives - but its baseline has moved, and the fields nobody here touched have to
-  // follow it. Otherwise the retry would pass If-Match and quietly restore this user's stale values over the
-  // other writer's edit, which is the very thing the version check exists to prevent.
-  useEffect(() => {
-    if (!measure || measure === baseline.current || measure.version === baseline.current?.version) return;
-    const previous = baseline.current;
-    baseline.current = measure;
-    if (!previous) return;
-    const { adopt, conflicts } = measureFormRebase(getValues(), dirtyFields, previous, measure);
-    // Same widening as in measureFormRebase: the entries come from one MeasureForm, so each value fits its own
-    // field, but Object.entries flattens that into string. Left non-dirty so these stay the other writer's.
-    for (const [field, value] of Object.entries(adopt) as [keyof MeasureForm, MeasureForm['timing']][]) {
-      setValue(field, value, { shouldDirty: false });
-    }
-    // Only rebaseOnCurrent ever swaps this prop, and it only runs after a rejected write, so the rebase owns
-    // the conflict state outright. Making it depend on setConflict having landed first would tie the warning to
-    // two components' updates being batched together.
-    setConflict({ fields: conflicts });
-  }, [measure, getValues, dirtyFields, setValue]);
+    if (saveError || Object.keys(errors).length > 0) errorSummary.current?.focus();
+  }, [errors, saveError]);
 
   // Validation runs in submit(); aria-required instead of the required attribute keeps the theme's :invalid
   // styling off untouched fields, so only reported errors render red.
@@ -159,26 +134,25 @@ export function AvvikelseMeasureForm({
     errors[key] ? <FormErrorMessage>{errors[key]}</FormErrorMessage> : null;
 
   const cancel = async () => {
-    if (isDirty && !(await confirmDiscardMeasureDraft(confirm))) return;
+    // A draft that ran into somebody else's change can no longer be saved, as the form already says.
+    if (isDirty && !conflicted && !(await confirmDiscardMeasureDraft(confirm))) return;
     onCancel?.();
   };
 
   const submit = handleSubmit(async (values) => {
-    if (saving) return;
+    if (saving || conflicted) return;
     const nextErrors = measureFormErrors(values, measure, { canExecute, undatedProposal });
     setErrors(nextErrors);
     setSaveError(undefined);
-    setConflict(undefined);
     if (Object.keys(nextErrors).length > 0) return;
     setSaving(true);
     try {
       // A proposal sends no timing, so no dates either - whatever an earlier role choice left in the form.
       await onSave(undatedProposal ? { ...values, timing: '' } : values);
     } catch (cause) {
-      // Only an existing measure can be rebased. A create that conflicts means the errand itself moved on
-      // (status guard, 409), and there is nothing merged to report - say that instead.
-      if (measure && isSupportErrandWriteConflict(cause)) setConflict({ fields: [] });
-      else setSaveError(measureSaveError(cause));
+      // An existing measure's conflict is told by the container, which stops the form (`conflicted`). A create that
+      // conflicts means the errand itself moved on (status guard, 409), and is said here.
+      if (!measure || !isMeasureConflict(cause)) setSaveError(measureSaveError(cause));
     } finally {
       setSaving(false);
     }
@@ -230,7 +204,8 @@ export function AvvikelseMeasureForm({
           </p>
         )}
       </div>
-      {(saveError || conflict || Object.keys(errors).length > 0) && (
+      {conflicted && <MeasureConflictAlert title="Ändringarna sparades inte" />}
+      {(saveError || Object.keys(errors).length > 0) && (
         <div
           ref={errorSummary}
           tabIndex={-1}
@@ -239,26 +214,14 @@ export function AvvikelseMeasureForm({
           className="focus-visible:outline focus-visible:outline-2"
           data-cy="measure-form-error"
         >
-          <Alert type={conflict ? 'warning' : 'error'}>
+          <Alert type="error">
             <Alert.Icon />
             <Alert.Content>
               <Alert.Content.Title>
-                {conflict
-                  ? 'Åtgärden har ändrats av någon annan'
-                  : saveError
-                  ? 'Åtgärden kunde inte sparas'
-                  : 'Kontrollera uppgifterna innan du sparar'}
+                {saveError ? 'Åtgärden kunde inte sparas' : 'Kontrollera uppgifterna innan du sparar'}
               </Alert.Content.Title>
               <Alert.Content.Description>
-                {conflict
-                  ? contentLocked
-                    ? 'Ett beslut har fattats, så typ, beskrivning och mål är nu låsta. Dina övriga ändringar ligger kvar - kontrollera vad som fortfarande går att spara.'
-                    : conflict.fields.length > 0
-                    ? `Fälten är uppdaterade med den andra ändringen, utom där ni båda skrivit: ${conflict.fields.join(
-                        ', '
-                      )}. Där ligger din text kvar och ersätter den andras om du sparar.`
-                    : 'Fälten är uppdaterade med den andra ändringen och din text ligger kvar. Kontrollera dem och spara igen.'
-                  : saveError}
+                {saveError}
                 {Object.keys(errors).length > 0 && (
                   <ul className="list-disc ml-20 mt-8">
                     {(Object.keys(errors) as Array<keyof MeasureForm>).map((key) => (
@@ -340,7 +303,13 @@ export function AvvikelseMeasureForm({
             Åtgärd
             <Required />
           </FormLabel>
-          <Select id={fieldId('type')} {...register('type')} disabled={contentLocked} aria-required className="w-full">
+          <Select
+            id={fieldId('type')}
+            {...register('type')}
+            disabled={contentLocked || conflicted}
+            aria-required
+            className="w-full"
+          >
             <Select.Option value="">
               {!measure && !roleName ? 'Välj registreringsroll först' : 'Välj typ av åtgärd'}
             </Select.Option>
@@ -387,12 +356,12 @@ export function AvvikelseMeasureForm({
                   {...register('timing')}
                   value="planned"
                   aria-required
-                  disabled={Boolean(measure?.executed)}
+                  disabled={Boolean(measure?.executed) || conflicted}
                 >
                   Planerade åtgärder
                 </RadioButton>
                 {canExecute && (
-                  <RadioButton {...register('timing')} value="executed" aria-required>
+                  <RadioButton {...register('timing')} value="executed" aria-required disabled={conflicted}>
                     Genomförda åtgärder
                   </RadioButton>
                 )}
@@ -422,7 +391,7 @@ export function AvvikelseMeasureForm({
                         {...register(key)}
                         aria-required
                         max={key === 'executed' ? todayIsoDate() : undefined}
-                        readOnly={locked}
+                        readOnly={locked || conflicted}
                         className="w-full"
                       />
                       {locked && plannedKey && <FormHelperText>{lockedMeasureDateHelp[plannedKey]}</FormHelperText>}
@@ -442,6 +411,7 @@ export function AvvikelseMeasureForm({
             {...register('responsibleUser')}
             autoComplete="off"
             placeholder="Namn på den som ansvarar för åtgärden"
+            readOnly={conflicted}
             className="w-full"
           />
           <FormHelperText>Valfritt. Skriv namn i fritext.</FormHelperText>
@@ -454,7 +424,7 @@ export function AvvikelseMeasureForm({
           <Textarea
             id={fieldId('description')}
             {...register('description')}
-            readOnly={contentLocked}
+            readOnly={contentLocked || conflicted}
             aria-required
             rows={6}
             placeholder="Beskriv vad som ska göras…"
@@ -470,7 +440,7 @@ export function AvvikelseMeasureForm({
           <Textarea
             id={fieldId('goal')}
             {...register('goal')}
-            readOnly={contentLocked}
+            readOnly={contentLocked || conflicted}
             aria-required
             rows={3}
             placeholder="Beskriv vad åtgärden ska uppnå…"
@@ -480,16 +450,18 @@ export function AvvikelseMeasureForm({
         </FormControl>
       </fieldset>
       <div className="flex flex-wrap gap-12">
-        <Button
-          type="submit"
-          disabled={detailsDisabled || !isDirty || (!measure && types.length === 0)}
-          loading={saving}
-        >
-          {measure ? 'Spara ändringar' : proposes ? 'Lägg till förslag till åtgärd' : 'Lägg till åtgärd'}
-        </Button>
+        {!conflicted && (
+          <Button
+            type="submit"
+            disabled={detailsDisabled || !isDirty || (!measure && types.length === 0)}
+            loading={saving}
+          >
+            {measure ? 'Spara ändringar' : proposes ? 'Lägg till förslag till åtgärd' : 'Lägg till åtgärd'}
+          </Button>
+        )}
         {measure && (
           <Button type="button" variant="secondary" disabled={saving} onClick={() => void cancel()}>
-            Avbryt redigering
+            {conflicted ? 'Stäng' : 'Avbryt redigering'}
           </Button>
         )}
       </div>
@@ -521,7 +493,11 @@ function measureSaveError(cause: unknown): string {
     default:
       return supportErrandWriteErrorMessage(
         cause,
-        'Åtgärden kunde inte sparas. Dina uppgifter finns kvar. Försök igen.'
+        'Åtgärden kunde inte sparas. Dina uppgifter finns kvar. Försök igen.',
+        'Åtgärden lades inte till: ärendet har ändrats sedan du öppnade det. Kopiera det du vill behålla, ladda om ärendet och lägg till åtgärden igen.'
       );
   }
 }
+
+const isMeasureConflict = (cause: unknown): boolean =>
+  isAxiosError(cause) && (cause.response?.status === 409 || cause.response?.status === 412);

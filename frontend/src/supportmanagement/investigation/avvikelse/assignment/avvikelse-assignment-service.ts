@@ -77,8 +77,8 @@ export const applyInvestigationHandover = async (
 };
 
 const conflictMessages: Record<string, string> = {
-  409: 'Ärendet har ändrats sedan det laddades, eller saknar den information som behövs. Ladda om ärendet och försök igen.',
-  412: 'Ärendet har ändrats av någon annan. Ladda om ärendet och försök igen.',
+  409: 'Ändringen sparades inte: ärendet har ändrats sedan du öppnade det, eller saknar uppgifter som behövs. Ladda om ärendet och gör om ändringen.',
+  412: 'Ändringen sparades inte: någon annan har ändrat ärendet sedan du öppnade det. Ladda om ärendet och gör om ändringen.',
   403: 'Du saknar behörighet att utföra det här steget.',
 };
 

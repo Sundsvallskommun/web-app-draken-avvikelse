@@ -211,7 +211,7 @@ test('a LEX investigator hands the errand on right after creating the report', a
   await dialog.locator('[data-cy="handler-assignment-confirm"]').click();
 
   await expect.poll(() => trace.adminPatches).toEqual(['lex.giver']);
-  await expect(dialog.getByText('Ärendet har ändrats av någon annan')).toHaveCount(0);
+  await expect(dialog.getByText('någon annan har ändrat ärendet')).toHaveCount(0);
 });
 
 test('a LEX manager sends the finished lex Sarah investigation to the decision', async ({

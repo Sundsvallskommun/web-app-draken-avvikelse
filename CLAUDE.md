@@ -306,6 +306,10 @@ Consequences worth keeping:
   so somebody else's change to another field neither stops the save nor is written over. Starta
   handläggning saves the sidebar's errand fields only when they hold a draft. No action writes something
   that changes nothing to check the errand: each command checks the facts it depends on.
+- **A conflict stops.** A write refused because somebody else changed what it depends on is never retried on
+  the resource as it now stands, which would write over their change unseen, and nothing is read into the open
+  draft. The message says what was not saved and that the change is made anew once reloaded; a measure dialog
+  locks what was written, readable to be copied, and reads the list again when it is closed (`stopOnConflict`).
 - **The facts the page holds are the ones it shows.** The store's errand carries the facts it was loaded
   with (`SeenSupportErrand`, `frontend/src/supportmanagement/services/support-errand-facts.ts`). When the
   answer to an own write replaces some of the errand's fields in the store, the page takes the facts of those

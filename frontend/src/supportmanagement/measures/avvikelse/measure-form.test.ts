@@ -6,7 +6,6 @@ import {
   measureFormChanges,
   measureFormCreate,
   measureFormErrors,
-  measureFormRebase,
   measureFormValues,
   measureIsUndatedProposal,
   measurePlannedDateIsLocked,
@@ -163,34 +162,6 @@ test.each(['TRUE', 'FALSE', 'REWORK'])('preserves decided content when editing p
     responsibleUser: ' Anna ',
   };
   expect(measureFormChanges(form, measure)).toEqual({ responsibleUser: 'Anna' });
-});
-
-test('adopts fields the other writer changed while the draft never touched them', () => {
-  const upstream = { ...plannedMeasure, goal: 'Goal set by someone else', version: 4 };
-  const draft = { ...measureFormValues(plannedMeasure), description: 'My edited description' };
-  const rebase = measureFormRebase(draft, { description: true }, plannedMeasure, upstream);
-  expect(rebase).toEqual({ adopt: { goal: 'Goal set by someone else' }, conflicts: [] });
-});
-
-test('keeps the draft and names the field when both writers changed the same one', () => {
-  const upstream = { ...plannedMeasure, goal: 'Goal set by someone else', version: 4 };
-  const draft = { ...measureFormValues(plannedMeasure), goal: 'My goal' };
-  const rebase = measureFormRebase(draft, { goal: true }, plannedMeasure, upstream);
-  expect(rebase).toEqual({ adopt: {}, conflicts: ['Mål'] });
-});
-
-test('reports nothing to merge when the measure only moved version', () => {
-  const draft = { ...measureFormValues(plannedMeasure), goal: 'My goal' };
-  const rebase = measureFormRebase(draft, { goal: true }, plannedMeasure, { ...plannedMeasure, version: 9 });
-  expect(rebase).toEqual({ adopt: {}, conflicts: [] });
-});
-
-test('rebases a timing switch and its dates together', () => {
-  const upstream = { ...plannedMeasure, executed: '2026-09-11T09:00:00+02:00', version: 4 };
-  const draft = { ...measureFormValues(plannedMeasure), responsibleUser: 'Anna' };
-  const rebase = measureFormRebase(draft, { responsibleUser: true }, plannedMeasure, upstream);
-  expect(rebase.conflicts).toEqual([]);
-  expect(rebase.adopt).toEqual({ timing: 'executed', executed: '2026-09-11' });
 });
 
 test('a proposal is undated until it is decided, whatever role registered it', () => {

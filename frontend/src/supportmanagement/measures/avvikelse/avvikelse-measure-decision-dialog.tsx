@@ -12,15 +12,12 @@ import {
   Textarea,
   useConfirm,
 } from '@sk-web-gui/react';
+import { isSupportErrandWriteConflict } from '@supportmanagement/services/support-errand-write-error';
 import { isAxiosError } from 'axios';
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
 
-import {
-  measureCanBeDecided,
-  type MeasureDecisionInput,
-  measureDecisionPresentation,
-  measureDecisionSetsDates,
-} from '../measure-decision';
+import { type MeasureDecisionInput, measureDecisionSetsDates } from '../measure-decision';
+import { MeasureConflictAlert } from './measure-conflict-alert';
 import { measureDateLabels, measureDateTime, measureFormValues, plannedMeasureDateErrors } from './measure-form';
 
 type DecisionErrors = { accept?: string; comment?: string; plannedStart?: string; plannedComplete?: string };
@@ -35,14 +32,21 @@ const options: { value: MeasureDecisionInput['accept']; label: string; descripti
   },
 ];
 
+/** Why a decision stopped, when somebody else changed the proposal or decided it first. */
+const DECISION_CONFLICT_DESCRIPTION =
+  'Någon annan har ändrat förslaget, eller redan fattat ett beslut om det, sedan du öppnade det. Kopiera det du vill behålla, stäng och gör om bedömningen på förslaget som det ser ut nu.';
+
 export function AvvikelseMeasureDecisionDialog({
   measure,
+  conflicted = false,
   title,
   onSave,
   onClose,
   onDirtyChange,
 }: {
   measure: Measure;
+  /** Somebody else changed the proposal or decided it first: nothing more is sent, and the comment stays to be copied. */
+  conflicted?: boolean;
   title: string;
   onSave: (decision: MeasureDecisionInput) => Promise<void>;
   onClose: () => void;
@@ -74,10 +78,6 @@ export function AvvikelseMeasureDecisionDialog({
   const hasErrors = Boolean(
     saveError || errors.accept || errors.comment || errors.plannedStart || errors.plannedComplete
   );
-  // After a conflict the container swaps in the current measure. If someone else decided it meanwhile, saying so
-  // beats leaving a submit button that can only fail again - the comment stays readable until the user closes.
-  const settled = !measureCanBeDecided(measure);
-  const settledDecision = measureDecisionPresentation(measure);
 
   useEffect(() => {
     onDirtyChange(dirty);
@@ -91,6 +91,7 @@ export function AvvikelseMeasureDecisionDialog({
     if (busy.current) return;
     if (
       dirty &&
+      !conflicted &&
       !(await confirm.showConfirmation(
         'Avbryt bedömning?',
         'Ditt beslut och din kommentar sparas inte. Vill du fortsätta?',
@@ -106,7 +107,7 @@ export function AvvikelseMeasureDecisionDialog({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy.current || settled) return;
+    if (busy.current || conflicted) return;
     const motivation = comment.trim();
     const nextErrors: DecisionErrors = {
       accept: accept ? undefined : 'Välj ett beslut.',
@@ -128,7 +129,8 @@ export function AvvikelseMeasureDecisionDialog({
           : { accept, ...(motivation ? { acceptMotivation: motivation } : {}), ...dates }
       );
     } catch (cause) {
-      setSaveError(decisionSaveError(cause));
+      // A conflict is told by the container, which stops the dialog (`conflicted`).
+      if (!isSupportErrandWriteConflict(cause)) setSaveError(decisionSaveError(cause));
     } finally {
       busy.current = false;
       setSaving(false);
@@ -174,17 +176,8 @@ export function AvvikelseMeasureDecisionDialog({
               <strong>Mål:</strong> {measure.goal}
             </p>
           </section>
-          {settled && (
-            <div role="status">
-              <Alert type="warning">
-                <Alert.Icon />
-                <Alert.Content>
-                  <Alert.Content.Title>Förslaget är redan avgjort</Alert.Content.Title>
-                  Någon annan hann fatta beslutet: {settledDecision.label.toLowerCase()}. Din kommentar ligger kvar så
-                  att du kan kopiera den innan du stänger.
-                </Alert.Content>
-              </Alert>
-            </div>
+          {conflicted && (
+            <MeasureConflictAlert title="Beslutet sparades inte" description={DECISION_CONFLICT_DESCRIPTION} />
           )}
           {hasErrors && (
             <div
@@ -250,6 +243,7 @@ export function AvvikelseMeasureDecisionDialog({
                     value={option.value}
                     checked={accept === option.value}
                     onChange={() => setAccept(option.value)}
+                    disabled={conflicted}
                     aria-required
                     aria-invalid={Boolean(errors.accept)}
                     aria-describedby={`${id}-accept-helptext${errors.accept ? ` ${id}-accept-error` : ''}`}
@@ -279,6 +273,7 @@ export function AvvikelseMeasureDecisionDialog({
                       type="date"
                       value={value}
                       onChange={(event) => setValue(event.target.value)}
+                      readOnly={conflicted}
                       aria-required
                       className="w-full"
                     />
@@ -296,6 +291,7 @@ export function AvvikelseMeasureDecisionDialog({
                 id={`${id}-comment`}
                 value={comment}
                 onChange={(event) => setComment(event.target.value)}
+                readOnly={conflicted}
                 aria-required={commentRequired}
                 rows={5}
                 className="w-full"
@@ -309,13 +305,13 @@ export function AvvikelseMeasureDecisionDialog({
             </FormControl>
           </fieldset>
           <div className="flex flex-wrap gap-12">
-            {!settled && (
+            {!conflicted && (
               <Button type="submit" disabled={saving} loading={saving}>
                 Spara beslut
               </Button>
             )}
             <Button type="button" variant="secondary" disabled={saving} onClick={() => void requestClose()}>
-              {settled ? 'Stäng' : 'Avbryt'}
+              {conflicted ? 'Stäng' : 'Avbryt'}
             </Button>
           </div>
         </form>
@@ -331,9 +327,6 @@ function decisionSaveError(cause: unknown): string {
     case 401:
     case 403:
       return 'Du saknar behörighet att fatta beslut om förslaget. Dina uppgifter finns kvar.';
-    case 409:
-    case 412:
-      return 'Förslaget eller ärendet har ändrats, eller så har ett beslut redan fattats. Dina uppgifter finns kvar. Stäng bedömningen och ladda om åtgärderna innan du fortsätter.';
     case 503:
       return 'Beslutsfunktionen är inte tillgänglig just nu. Dina uppgifter finns kvar.';
     default:

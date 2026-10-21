@@ -133,7 +133,8 @@ export const withErrandFacts = <T extends object>(
   facts: errandFacts(upstream, labelPaths),
 });
 
-export const ERRAND_CHANGED_ELSEWHERE_MESSAGE = 'Ärendet har ändrats av någon annan. Ladda om ärendet och försök igen.';
+export const ERRAND_CHANGED_ELSEWHERE_MESSAGE =
+  'Ändringen sparades inte: någon annan har ändrat ärendet sedan du öppnade det. Ladda om ärendet och gör om ändringen.';
 
 /**
  * Refuses a command when a fact it depends on is no longer what the handler saw. A fact the command depends on but

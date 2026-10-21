@@ -218,16 +218,19 @@ test('a follow-up whose response was lost is recognised as saved from the reload
   expect(screen.getByText(answers.followUpDescription)).toBeTruthy();
 });
 
+/** Support Management refusing a write because somebody else changed the measure first. */
+const conflictError = () =>
+  new AxiosError('Conflict', 'ERR_BAD_REQUEST', undefined, undefined, {
+    status: 412,
+    statusText: 'Precondition Failed',
+    headers: {},
+    config: { headers: new AxiosHeaders() },
+    data: {},
+  });
+
+// A conflict stops: a retry on the measure as it now stands would write over the other follow-up unseen.
 test('a version conflict preserves answers and never replaces someone else’s recorded follow-up', async () => {
-  mocks.followUp.mockRejectedValueOnce(
-    new AxiosError('Conflict', 'ERR_BAD_REQUEST', undefined, undefined, {
-      status: 412,
-      statusText: 'Precondition Failed',
-      headers: {},
-      config: { headers: new AxiosHeaders() },
-      data: {},
-    })
-  );
+  mocks.followUp.mockRejectedValueOnce(conflictError());
   render(<Harness />);
   fireEvent.click(await screen.findByRole('checkbox', { name: 'Utförd: Utbildning' }));
   const dialog = await screen.findByRole('dialog');
@@ -246,10 +249,33 @@ test('a version conflict preserves answers and never replaces someone else’s r
     ],
   });
   fireEvent.click(within(dialog).getByRole('button', { name: 'Spara uppföljning' }));
-  await within(dialog).findByRole('alert');
-  expect(within(dialog).getByDisplayValue('Mina svar')).toBeTruthy();
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Spara uppföljning' }));
+
+  expect(await within(dialog).findByText('Uppföljningen sparades inte')).toBeTruthy();
+  // The answers stay, readable to be copied, and nothing more can be sent.
+  expect(within(dialog).getByDisplayValue('Mina svar')).toHaveProperty('readOnly', true);
+  expect(within(dialog).queryByRole('button', { name: 'Spara uppföljning' })).toBeNull();
   expect(mocks.followUp).toHaveBeenCalledTimes(1);
+});
+
+test('an end date that ran into somebody else’s change is not sent again, and stays to be copied', async () => {
+  mocks.changeEnd.mockRejectedValueOnce(conflictError());
+  render(<Harness />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Ändra slutdatum Utbildning' }));
+  const dialog = await screen.findByRole('dialog');
+  const end = within(dialog).getByLabelText('När ska åtgärden vara klar? (Obligatoriskt)');
+  fireEvent.change(end, { target: { value: '2026-10-15' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Spara slutdatum' }));
+
+  expect(await within(dialog).findByText('Slutdatumet sparades inte')).toBeTruthy();
+  expect(end).toHaveProperty('readOnly', true);
+  expect(within(dialog).queryByRole('button', { name: 'Spara slutdatum' })).toBeNull();
+  // Nothing was read into the dialog: the list is read again only once it is closed, without asking, since nothing
+  // in it can be saved any more.
+  const reads = mocks.read.mock.calls.length;
+  fireEvent.click(within(dialog).getAllByRole('button', { name: 'Stäng' }).at(-1)!);
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  await waitFor(() => expect(mocks.read).toHaveBeenCalledTimes(reads + 1));
+  expect(mocks.changeEnd).toHaveBeenCalledTimes(1);
 });
 
 test('the follow-up is offered by role, whoever registered the measure', async () => {

@@ -64,9 +64,12 @@ export async function saveSupportInvestigationDocument(
   return parseSupportInvestigationDocument(response.data, key, response.headers.etag);
 }
 
-export function isSupportInvestigationConflict(error: unknown): boolean {
-  const status = responseStatus(error);
-  return status === 409 || status === 412 || status === 428;
+/**
+ * Somebody else saved the document after it was loaded: its ETag no longer matches. A 409 is a refusal the BFF
+ * gives a reason for - a locked document, a phase it no longer applies in - and is no conflict.
+ */
+export function isSupportInvestigationDocumentConflict(error: unknown): boolean {
+  return responseStatus(error) === 412;
 }
 
 export function isSupportInvestigationAccessDenied(error: unknown): boolean {

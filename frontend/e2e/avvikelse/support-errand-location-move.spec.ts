@@ -124,7 +124,7 @@ test.describe('Fel plats: flytta ärendet utan att ändra det inrapporterade', (
     await expect(modal.locator('[data-cy="move-location-manager"]')).toBeVisible();
     await modal.locator('[data-cy="move-location-confirm"]').click();
 
-    await expect(modal.locator('[data-cy="move-location-error"]')).toContainText('ändrats av någon annan');
+    await expect(modal.locator('[data-cy="move-location-error"]')).toContainText('någon annan har ändrat ärendet');
     await expect(page).toHaveURL(new RegExp(`arende/${errandNumber}`, 'u'));
     expect(trace.handovers).toHaveLength(1);
   });

@@ -6,8 +6,16 @@
  */
 const SUPPORT_ERRAND_WRITE_CONFLICT_STATUSES: ReadonlySet<number> = new Set([409, 412]);
 
+/**
+ * A conflict is never resolved by writing again on the errand as it now stands: that would write over the other
+ * change unseen. So the message says what was not saved, and that the change is made anew on the errand reloaded.
+ */
 export const SUPPORT_ERRAND_WRITE_CONFLICT_MESSAGE =
-  'Ärendet har uppdaterats av någon annan. Ladda om ärendet och gör om ändringen.';
+  'Ändringen sparades inte: någon annan har ändrat ärendet sedan du öppnade det. Ladda om ärendet och gör om ändringen.';
+
+/** The same, where the user typed what was not saved: reloading the errand throws it away. */
+export const SUPPORT_ERRAND_DRAFT_CONFLICT_MESSAGE =
+  'Ändringarna sparades inte: någon annan har ändrat ärendet sedan du öppnade det. Kopiera det du vill behålla, ladda om ärendet och gör om ändringarna.';
 
 /** Reads the response status from an Axios rejection without depending on its error class. */
 const getResponseStatus = (error: unknown): number | undefined => {
@@ -54,10 +62,13 @@ const refusalMessage = (error: unknown): string | undefined => {
   return typeof message === 'string' && message.trim() ? message : undefined;
 };
 
-export const supportErrandWriteErrorMessage = (error: unknown, fallback: string): string => {
+/** `conflictMessage` says what a conflict left unsaved where the errand-wide wording does not fit. */
+export const supportErrandWriteErrorMessage = (
+  error: unknown,
+  fallback: string,
+  conflictMessage: string = SUPPORT_ERRAND_WRITE_CONFLICT_MESSAGE
+): string => {
   if (error instanceof SupportErrandStatusAfterAssignmentError) return error.message;
 
-  return (
-    refusalMessage(error) ?? (isSupportErrandWriteConflict(error) ? SUPPORT_ERRAND_WRITE_CONFLICT_MESSAGE : fallback)
-  );
+  return refusalMessage(error) ?? (isSupportErrandWriteConflict(error) ? conflictMessage : fallback);
 };
