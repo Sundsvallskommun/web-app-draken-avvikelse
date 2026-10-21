@@ -20,10 +20,10 @@ import {
   getInvestigationHandlerFields,
 } from '@supportmanagement/investigation/investigation-variant-registry';
 import { useInvestigationNextStep } from '@supportmanagement/investigation/use-investigation-next-step';
+import type { SeenSupportErrand } from '@supportmanagement/services/support-errand-facts';
 import {
   getSupportErrandById,
   isSupportErrandLocked,
-  readSupportErrandWriteSnapshot,
   resolveWorkingStatus,
   setSupportErrandAdmin,
   Status,
@@ -31,7 +31,7 @@ import {
   updateSupportErrand,
   validateAction,
 } from '@supportmanagement/services/support-errand-service';
-import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-version';
+import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-error';
 import {
   closesFromActivePhase,
   getActiveSupportPhaseId,
@@ -163,8 +163,9 @@ export const SidebarInfo: FC<{
 
   const errandId = supportErrand?.id;
   // Who may be given the errand follows its saved state - a completed investigation that suspects a misconduct
-  // makes LEX-ansvarig one - so the directory is read again whenever the saved errand moves on.
+  // makes LEX-ansvarig one - so the directory is read again whenever the errand is loaded or a document saved.
   const errandVersion = supportErrand?.version;
+  const savedDocuments = supportErrand?.jsonParameters;
   useEffect(() => {
     if (!errandId) {
       setAssignable(undefined);
@@ -184,7 +185,7 @@ export const SidebarInfo: FC<{
     return () => {
       cancelled = true;
     };
-  }, [errandId, errandVersion]);
+  }, [errandId, errandVersion, savedDocuments]);
 
   // Resolved from the list the selector actually offered: a manager reached through AccessMapper
   // need not be in any configured handler group, so looking only in the full directory would
@@ -216,15 +217,16 @@ export const SidebarInfo: FC<{
   /**
    * Gives the errand away in its named handover, which moves its access with it. That leaves the errand out of
    * reach, so it is the last write of a save and the page leaves the errand. Answers whether it was handed over.
+   *
+   * Conditioned on the errand as the handler saw it when they saved (`seen`): the save's own writes move none of what
+   * the handover depends on, so a change made elsewhere to the errand's handler, status or routing still stops it.
    */
-  const handOver = async (recipient: Admin): Promise<boolean> => {
+  const handOver = async (recipient: Admin, seen: SeenSupportErrand | undefined): Promise<boolean> => {
     try {
-      const current = await readSupportErrandWriteSnapshot(supportErrand!.id!);
-      if (typeof current.version !== 'number') throw new Error('The support errand version is missing');
       await applyInvestigationHandover(
         supportErrand!.id!,
         recipient.handoverStep as InvestigationHandoverStep,
-        current.version,
+        seen,
         recipient.adAccount
       );
       router.push('/oversikt');
@@ -242,18 +244,17 @@ export const SidebarInfo: FC<{
     }
   };
 
-  /** Writes the errand's own fields; answers whether they were saved. A failure is told in a toast. */
+  /** Writes the errand's own fields and the assignment; answers whether they were saved. A failure is told in a toast. */
   const saveErrandFields = async (): Promise<boolean> => {
     try {
       // Only what changed is written (`updateSupportErrand`), so a save that only chooses a new handler writes the
       // assignment alone. An errand taken over while it waits accepts nothing else anyway.
-      const writesOwnFields = errandOwnFieldsDirty
-        ? (await updateSupportErrand(getValues(), supportErrand?.version, supportErrand?.parameters, otherDirtyFields))
-            .wrote
-        : false;
+      if (errandOwnFieldsDirty) {
+        await updateSupportErrand(getValues(), supportErrand, supportErrand?.parameters, otherDirtyFields);
+      }
 
-      // Handle admin change. The update above, when there was one, is ours and moved the version on, so
-      // the version the form was loaded with can no longer be used as the precondition here.
+      // Handle admin change. Each write checks only what it depends on of the errand as the handler saw it, so the
+      // fields written above stop nothing here.
       const newAdmin = findChosenAdmin();
       const newAdminAccount = newAdmin?.adAccount;
       if (supportErrand?.assignedUserId !== newAdminAccount) {
@@ -264,13 +265,10 @@ export const SidebarInfo: FC<{
             newAdminAccount === assigner.adAccount
               ? resolveWorkingStatus(supportErrand?.phases, supportMetadata?.phases)
               : Status.ASSIGNED;
-          const expectedVersion = writesOwnFields
-            ? (await readSupportErrandWriteSnapshot(supportErrand!.id!)).version
-            : supportErrand?.version;
           await setSupportErrandAdmin(
             supportErrand!.id!,
             newAdminAccount,
-            expectedVersion,
+            supportErrand,
             newStatus,
             assigner.adAccount
           );
@@ -309,12 +307,13 @@ export const SidebarInfo: FC<{
       setError(false);
       setIsLoading(true);
       try {
-        // Read before the save resets the form to the errand as saved.
+        // Read before the save resets the form and the store to the errand as saved.
         const handover = findChosenHandover();
+        const seen = supportErrand;
         const saved = await saveErrandFields();
         if (saved && handover) {
           // The errand has left; whatever was to follow the save must not act on it.
-          if (await handOver(handover)) toast('success', 'Ärendet lämnades över');
+          if (await handOver(handover, seen)) toast('success', 'Ärendet lämnades över');
           return false;
         }
         if (saved) toast('success', 'Ärendet uppdaterades');
@@ -345,15 +344,16 @@ export const SidebarInfo: FC<{
    * Spara ärende saves the errand's own fields, then each part of the errand that holds a draft - the
    * investigation documents - validated and saved on its own. A part that could not be saved is shown,
    * with why, in its own place. A handover chosen in Ansvarig comes last, since it takes the errand
-   * out of reach: the errand's own fields first, because the drafts' writes move its version on.
+   * out of reach.
    */
   const saveErrand = () =>
     withRequestGroup(async () => {
       setError(false);
       setIsLoading(true);
       try {
-        // Read before the save resets the form to the errand as saved.
+        // Read before the save resets the form and the store to the errand as saved.
         const handover = findChosenHandover();
+        const seen = supportErrand;
         if (errandFieldsDirty && !(await saveErrandFields())) return;
 
         const unsaved = await saveParticipantsInTurn(
@@ -366,7 +366,7 @@ export const SidebarInfo: FC<{
           return;
         }
         if (handover) {
-          if (await handOver(handover)) toast('success', 'Ärendet lämnades över');
+          if (await handOver(handover, seen)) toast('success', 'Ärendet lämnades över');
           return;
         }
         toast('success', 'Ärendet uppdaterades');

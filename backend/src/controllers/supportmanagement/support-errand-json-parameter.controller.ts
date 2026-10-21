@@ -131,13 +131,12 @@ export class SupportErrandJsonParameterController {
     @Param('key') key: string,
     @HeaderParam('If-Match') ifMatch: string,
     @HeaderParam('If-None-Match') ifNoneMatch: string,
-    @HeaderParam('X-Errand-Version') parentErrandVersion: string,
     @Body() data: UpdateSupportErrandJsonParameterDto,
     @Res() response: Response,
   ): Promise<Response> {
     const reportDocument = this.reportDocumentFor(key);
     if (reportDocument) {
-      const preconditions = { ifMatch, ifNoneMatch, parentErrandVersion };
+      const preconditions = { ifMatch, ifNoneMatch };
       return this.updateReportDocument(req, reportDocument, MUNICIPALITY_ID, errandId, data, preconditions, response);
     }
 
@@ -158,18 +157,14 @@ export class SupportErrandJsonParameterController {
       errandId,
       user: req.user,
       data,
-      preconditions: { ifMatch, ifNoneMatch, parentErrandVersion },
+      preconditions: { ifMatch, ifNoneMatch },
       ...(serverOwnedOverrides ? { internal: { serverOwnedOverrides } } : {}),
     });
 
-    // A label the document decides is a second write on the errand. The client is told how many of the version steps
-    // are this request's own, so it can tell them from somebody else's: the document write is one, read back right
-    // after it, and the label write is the steps from there - as many as Support Management took for it.
-    const labelVersion = await this.applyDerivedLabel(req, definition, MUNICIPALITY_ID, errandId, result);
-    const errandVersion = labelVersion ?? result.parentErrandVersion;
+    // A label the document decides is a second write on the errand. It touches none of the facts the errand-level
+    // commands that may follow depend on, so the client follows nothing of it.
+    await this.applyDerivedLabel(req, definition, MUNICIPALITY_ID, errandId, result);
     setETagHeader(response, result.etag, result.document.version);
-    response.setHeader('X-Errand-Version', String(errandVersion));
-    response.setHeader('X-Errand-Writes', String(1 + (errandVersion - result.parentErrandVersion)));
     return response.status(result.status).send(result.document);
   }
 
@@ -213,30 +208,21 @@ export class SupportErrandJsonParameterController {
 
   /**
    * Adds the label the saved document decides. It is done if it can be: the document is saved either way, and a
-   * label that could not be written is logged rather than turned into a failed save. Answers the errand version
-   * after the label write, or `undefined` when none was made - as when the document decides none, or the errand
-   * already carries it.
+   * label that could not be written is logged rather than turned into a failed save.
    */
   private async applyDerivedLabel(
     req: RequestWithUser,
     definition: SupportInvestigationDocumentProfileDto,
     municipalityId: string,
     errandId: string,
-    written: { document: { schemaId: string; value: JsonObject }; parentErrandVersion: number },
-  ): Promise<number | undefined> {
+    written: { document: { schemaId: string; value: JsonObject } },
+  ): Promise<void> {
     const resourcePath = this.derivedLabel(definition, written.document.value);
-    if (!resourcePath) return undefined;
+    if (!resourcePath) return;
     try {
-      return await this.derivedLabelService.applyDerivedLabel({
-        municipalityId,
-        errandId,
-        user: req.user,
-        resourcePath,
-        expectedVersion: written.parentErrandVersion,
-      });
+      await this.derivedLabelService.applyDerivedLabel({ municipalityId, errandId, user: req.user, resourcePath });
     } catch (error) {
       logger.warn(`Could not add the ${resourcePath} label to errand ${errandId}`, error);
-      return undefined;
     }
   }
 
@@ -277,7 +263,7 @@ export class SupportErrandJsonParameterController {
     municipalityId: string,
     errandId: string,
     data: UpdateSupportErrandJsonParameterDto,
-    preconditions: { ifMatch: string; ifNoneMatch: string; parentErrandVersion: string },
+    preconditions: { ifMatch: string; ifNoneMatch: string },
     response: Response,
   ): Promise<Response> {
     if ((await this.policyService.getState()) === 'unavailable') {
@@ -296,7 +282,6 @@ export class SupportErrandJsonParameterController {
 
     const result = await this.documentService.writeJsonParameter({ ...request, data, preconditions });
     setETagHeader(response, result.etag, result.document.version);
-    response.setHeader('X-Errand-Version', String(result.parentErrandVersion));
     return response.status(result.status).send(result.document);
   }
 

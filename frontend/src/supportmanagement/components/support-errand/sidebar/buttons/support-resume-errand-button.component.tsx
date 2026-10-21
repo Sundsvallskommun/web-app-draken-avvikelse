@@ -8,7 +8,7 @@ import {
   shouldShowResumeErrandButton,
   Status,
 } from '@supportmanagement/services/support-errand-service';
-import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-version';
+import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-error';
 import { CirclePlay } from 'lucide-react';
 import { useState } from 'react';
 

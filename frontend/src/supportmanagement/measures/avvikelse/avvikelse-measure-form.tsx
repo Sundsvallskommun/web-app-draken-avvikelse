@@ -15,7 +15,7 @@ import {
 import {
   isSupportErrandWriteConflict,
   supportErrandWriteErrorMessage,
-} from '@supportmanagement/services/support-errand-write-version';
+} from '@supportmanagement/services/support-errand-write-error';
 import { isAxiosError } from 'axios';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';

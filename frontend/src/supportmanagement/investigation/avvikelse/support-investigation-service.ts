@@ -4,17 +4,12 @@ import type { AxiosError } from 'axios';
 import type { InvestigationDocumentKey, InvestigationFormData } from './investigation-document';
 import {
   type LoadedSupportInvestigationDocument,
-  parseOwnErrandWrites,
-  parseParentErrandVersion,
-  parseReportErrandWrites,
   parseSupportInvestigationDocument,
-  type SavedSupportInvestigationDocument,
   type SupportInvestigationDocument,
 } from './support-investigation-contract';
 
 export type {
   LoadedSupportInvestigationDocument,
-  SavedSupportInvestigationDocument,
   SupportInvestigationDocument,
 } from './support-investigation-contract';
 
@@ -45,32 +40,20 @@ export async function getSupportInvestigationDocument(
 }
 
 /**
- * Writes one investigation document.
- *
- * The document's own ETag is the precondition. The errand version the form was loaded with is sent
- * along, but it is not a precondition: version checks are scoped to the resource being written, and
- * an errand whose version moved because somebody edited an unrelated field has nothing to do with
- * this document. The response carries the errand's fresh version back, because writing the document
- * does move it.
+ * Writes one investigation document, conditioned on the document's own ETag: version checks are scoped to the
+ * resource being written, and an errand whose version moved because somebody edited an unrelated field has nothing
+ * to do with this document.
  */
 export async function saveSupportInvestigationDocument(
   errandId: string,
   key: InvestigationDocumentKey,
   data: SaveSupportInvestigationDocumentRequest,
-  loadedParentErrandVersion: number | undefined,
   etag?: string
-): Promise<SavedSupportInvestigationDocument> {
+): Promise<LoadedSupportInvestigationDocument> {
   const response = await apiService.put<SupportInvestigationDocument, SaveSupportInvestigationDocumentRequest>(
     documentUrl(errandId, key),
     data,
-    {
-      headers: {
-        ...(etag ? { 'If-Match': etag } : { 'If-None-Match': '*' }),
-        ...(typeof loadedParentErrandVersion === 'number'
-          ? { 'X-Errand-Version': String(loadedParentErrandVersion) }
-          : {}),
-      },
-    }
+    { headers: etag ? { 'If-Match': etag } : { 'If-None-Match': '*' } }
   );
 
   const expectedStatus = etag ? 200 : 201;
@@ -78,11 +61,7 @@ export async function saveSupportInvestigationDocument(
     throw new Error(`Utredningsdokumentet returnerade oväntad status ${response.status}.`);
   }
 
-  return {
-    ...parseSupportInvestigationDocument(response.data, key, response.headers.etag),
-    parentErrandVersion: parseParentErrandVersion(response.headers['x-errand-version']),
-    ownErrandWrites: parseOwnErrandWrites(response.headers['x-errand-writes']),
-  };
+  return parseSupportInvestigationDocument(response.data, key, response.headers.etag);
 }
 
 export function isSupportInvestigationConflict(error: unknown): boolean {
@@ -102,7 +81,7 @@ interface SupportInvestigationReportEntry {
   readonly attachmentId?: string;
 }
 
-export interface CreatedSupportInvestigationReport extends SavedSupportInvestigationDocument {
+export interface CreatedSupportInvestigationReport extends LoadedSupportInvestigationDocument {
   readonly report: SupportInvestigationReportEntry;
 }
 
@@ -148,8 +127,6 @@ export async function createSupportInvestigationReport(
   }
   return {
     ...parseSupportInvestigationDocument(response.data.data?.document, key, response.headers.etag),
-    parentErrandVersion: parseParentErrandVersion(response.headers['x-errand-version']),
-    ownErrandWrites: parseReportErrandWrites(response.headers['x-errand-writes']),
     report: parseReportEntry(response.data.data?.report),
   };
 }

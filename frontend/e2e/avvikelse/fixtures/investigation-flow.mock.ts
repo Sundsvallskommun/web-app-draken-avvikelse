@@ -175,7 +175,12 @@ export interface IafApiTrace {
   /** Phase transition requests, in order, as the BFF received them. */
   phasePatches: Array<{ transitionId?: string; expectedActivePhaseId?: string | null }>;
   /** Handover steps, in order, exactly as the client named them. */
-  handovers: Array<{ step: string; expectedVersion?: number; assignedUserId?: string; locationLabelId?: string }>;
+  handovers: Array<{
+    step: string;
+    seenFacts?: Record<string, string>;
+    assignedUserId?: string;
+    locationLabelId?: string;
+  }>;
   /** Assignee changes through the admin route, in order: who the errand was given to. */
   adminPatches: Array<string | undefined>;
   /** Places whose managers were previewed, by label id. */
@@ -760,8 +765,6 @@ export const withPlaceStructure = ({ withLex = false } = {}): Pick<IafApiScenari
 });
 
 const highHslRisk = label('risk-high-hsl-id', 'RISK', 'Hög risk HSL', 'HIGH_HSL', 'RISK/HIGH_HSL');
-/** How many of the errand's version steps a label write takes: not one, so nothing may count it as one. */
-const LABEL_WRITE_VERSION_STEPS = 2;
 const riskRoot = label('risk-root-id', 'RISK_ROOT', 'Risk', 'RISK', 'RISK', [highHslRisk]);
 /** Set when MAS/MAR asks the head of operations for their comment on the HSL analysis. It opens VC kommentar HSL. */
 const vcCommentRequested = label(
@@ -932,6 +935,64 @@ const requestBody = (request: Request): unknown => {
 const fulfillJson = (route: Route, json: unknown, status = 200, headers?: Record<string, string>) =>
   route.fulfill({ status, json, headers });
 
+/** The facts the BFF fingerprints of an errand's own fields, each the field as Support Management holds it. */
+const OWN_FIELD_FACTS = [
+  'title',
+  'priority',
+  'contactReason',
+  'contactReasonDescription',
+  'businessRelated',
+  'escalationEmail',
+  'channel',
+  'description',
+  'stakeholders',
+  'externalTags',
+] as const;
+const ROUTING_LABEL_ROOTS: ReadonlySet<string> = new Set(['ACCESS', 'REPORT_TYPE', 'LOCATION']);
+const PERMANENT_LABEL_ROOTS: ReadonlySet<string> = new Set(['RISK', 'ANALYSIS']);
+
+/** The root of a label's resource path, read from the label tree where the errand's copy leaves the path out. */
+const labelRoot = (candidate: MockLabel): string =>
+  (allLabelsById.get(candidate.id)?.resourcePath ?? candidate.resourcePath ?? '').split('/')[0].toUpperCase();
+
+const labelIds = (labels: readonly MockLabel[]): string[] => labels.map(({ id }) => id).sort();
+
+interface MockUpstreamErrand {
+  readonly assignedUserId?: string;
+  readonly status?: string;
+  readonly classification?: unknown;
+  readonly labels: MockLabel[];
+  readonly phases?: ReadonlyArray<{ readonly phaseId?: string; readonly ended?: string }>;
+}
+
+/**
+ * Like the BFF's `errandFacts`: one fingerprint per fact of the errand an errand-level command may depend on. The
+ * client only carries them back, so here they are simply the facts written out.
+ */
+const mockErrandFacts = (errand: MockUpstreamErrand): Record<string, string> => {
+  const fingerprint = (value: unknown) => JSON.stringify(value ?? null);
+  const fields = errand as unknown as Record<string, unknown>;
+  return {
+    ...Object.fromEntries(OWN_FIELD_FACTS.map((field) => [field, fingerprint(fields[field])])),
+    labels: fingerprint(labelIds(errand.labels)),
+    routingLabels: fingerprint(
+      labelIds(errand.labels.filter((candidate) => ROUTING_LABEL_ROOTS.has(labelRoot(candidate))))
+    ),
+    classification: fingerprint([
+      errand.classification,
+      labelIds(
+        errand.labels.filter(
+          (candidate) =>
+            !ROUTING_LABEL_ROOTS.has(labelRoot(candidate)) && !PERMANENT_LABEL_ROOTS.has(labelRoot(candidate))
+        )
+      ),
+    ]),
+    assignedUserId: fingerprint(errand.assignedUserId?.trim().toLowerCase()),
+    status: fingerprint(errand.status),
+    activePhase: fingerprint(errand.phases?.find((phase) => !phase.ended)?.phaseId),
+  };
+};
+
 const schemaVersionFromId = (schemaId: string): string => schemaId.split('_').at(-1) ?? '';
 
 const isLegacySchemaVersion = (version: string): boolean => {
@@ -978,7 +1039,7 @@ interface ClassificationPatchSelection {
 }
 
 interface ClassificationPatchBody {
-  expectedVersion: number;
+  seenFacts: Record<string, string>;
   classifications: ClassificationPatchSelection[];
   documentKey: string;
   documentETag: string;
@@ -1016,11 +1077,12 @@ const isClassificationPatchSelection = (selection: unknown): selection is Classi
 const isClassificationPatchBody = (body: unknown): body is ClassificationPatchBody => {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return false;
   const value = body as JsonObject;
-  if (!hasOnlyKeys(value, ['expectedVersion', 'classifications', 'documentKey', 'documentETag'])) return false;
+  if (!hasOnlyKeys(value, ['seenFacts', 'classifications', 'documentKey', 'documentETag'])) return false;
 
   return (
-    Number.isSafeInteger(value.expectedVersion) &&
-    (value.expectedVersion as number) >= 0 &&
+    Boolean(value.seenFacts) &&
+    typeof value.seenFacts === 'object' &&
+    !Array.isArray(value.seenFacts) &&
     typeof value.documentKey === 'string' &&
     typeof value.documentETag === 'string' &&
     Array.isArray(value.classifications) &&
@@ -1115,7 +1177,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
     };
   };
 
-  const buildErrand = () => ({
+  const buildUpstreamErrand = () => ({
     id: errandId,
     errandNumber,
     title: `${errandNumberPrefix}-avvikelse för test`,
@@ -1183,6 +1245,39 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       })),
     ],
   });
+
+  /** The errand as the BFF hands it out: with the facts the commands made on it send back. */
+  const buildErrand = () => {
+    const errand = buildUpstreamErrand();
+    return { ...errand, facts: mockErrandFacts(errand) };
+  };
+
+  /**
+   * Like the BFF's `assertErrandFactsUnchanged`: a command sends what the handler saw of the errand, and the facts it
+   * depends on have to be as they saw them. Answers whether the command was refused, and refuses it when it is.
+   */
+  const refusesUnseenChange = async (route: Route, seen: unknown, facts: readonly string[]): Promise<boolean> => {
+    const seenFacts = seen && typeof seen === 'object' && !Array.isArray(seen) ? (seen as Record<string, unknown>) : {};
+    const missing = facts.filter((fact) => typeof seenFacts[fact] !== 'string');
+    if (missing.length > 0) {
+      await fulfillJson(
+        route,
+        { message: `The command must send what the handler saw of: ${missing.join(', ')}` },
+        400
+      );
+      return true;
+    }
+    const current = mockErrandFacts(buildUpstreamErrand());
+    if (facts.some((fact) => seenFacts[fact] !== current[fact])) {
+      await fulfillJson(
+        route,
+        { message: 'Ärendet har ändrats av någon annan. Ladda om ärendet och försök igen.' },
+        409
+      );
+      return true;
+    }
+    return false;
+  };
 
   // The handler `/me` answers for is signed in, so the protected pages (Översikt, Registrera) open without a login.
   await page
@@ -1342,10 +1437,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
         await fulfillJson(route, { message: 'Invalid classification body' }, 400);
         return;
       }
-      if (body.expectedVersion !== errandVersion) {
-        await fulfillJson(route, { message: 'Ärendets klassificering har ändrats sedan den laddades.' }, 409);
-        return;
-      }
+      if (await refusesUnseenChange(route, body.seenFacts, ['classification'])) return;
       if (documents[body.documentKey]?.etag !== body.documentETag) {
         await fulfillJson(route, { message: 'Utredningsdokumentet har ändrats.' }, 409);
         return;
@@ -1370,12 +1462,9 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
     }
 
     if (method === 'PATCH' && path.endsWith(`/supporterrands/${errandId}/admin`)) {
-      const body = requestBody(request) as { assignedUserId?: string } | undefined;
-      // Like the BFF: an assignment is conditioned on the errand's version, and a stale one is refused.
-      if (request.headers()['if-match'] !== `"${errandVersion}"`) {
-        await fulfillJson(route, { message: 'If-Match does not match the current errand version' }, 412);
-        return;
-      }
+      const body = requestBody(request) as { assignedUserId?: string; seenFacts?: unknown } | undefined;
+      // Like the BFF: the errand is given away from the handler the handler saw holding it.
+      if (await refusesUnseenChange(route, body?.seenFacts, ['assignedUserId'])) return;
       errandAssignedUserId = body?.assignedUserId;
       trace.adminPatches.push(body?.assignedUserId);
       errandVersion += 1;
@@ -1388,7 +1477,9 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
         await fulfillJson(route, { message: 'Target status is not available in Support Management metadata' }, 400);
         return;
       }
-      const body = requestBody(request) as { status?: string } | undefined;
+      const body = requestBody(request) as { status?: string; seenFacts?: unknown } | undefined;
+      // Like the BFF: the transition starts from the status and the phase the handler saw.
+      if (await refusesUnseenChange(route, body?.seenFacts, ['status', 'activePhase'])) return;
       if (body?.status) errandStatus = body.status;
       errandVersion += 1;
       await fulfillJson(route, buildErrand());
@@ -1450,7 +1541,6 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
     if (method === 'GET' && path.endsWith(`/supporterrands/${errandId}/measures`)) {
       await fulfillJson(route, {
         measures: [],
-        errandVersion,
         metadata: { measureTypes: [], roles: [] },
         creationRoles: [],
         registration: { status: 'unconfigured', roleTypes: [] },
@@ -1503,15 +1593,17 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
     if (method === 'POST' && handoverMatch) {
       const step = decodeURIComponent(handoverMatch[1]);
       const body = (requestBody(request) ?? {}) as {
-        expectedVersion?: number;
+        seenFacts?: Record<string, string>;
         assignedUserId?: string;
         locationLabelId?: string;
       };
       trace.handovers.push({ step, ...body });
-      if (scenario.handoverResult === 'conflict' || body.expectedVersion !== errandVersion) {
+      if (scenario.handoverResult === 'conflict') {
         await fulfillJson(route, { message: 'If-Match does not match the current support errand version' }, 412);
         return;
       }
+      // Like the BFF: the errand is handed over from the handler, the status and the routing the handler saw.
+      if (await refusesUnseenChange(route, body.seenFacts, ['assignedUserId', 'status', 'routingLabels'])) return;
       if (step === 'move-location') {
         // The BFF's rule, mirrored: every label under the place structure goes, the target's whole
         // chain comes, everything else stays. The JSON parameters are never touched.
@@ -1547,7 +1639,6 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       if (step === 'request-vc-comment' && !errandLabels.some(({ id }) => id === vcCommentRequested.id)) {
         // Like the BFF: the request label is all the step writes. Nobody is assigned.
         errandLabels = [...errandLabels, withoutChildren(vcCommentRequested)];
-        errandVersion += LABEL_WRITE_VERSION_STEPS - 1;
       }
       if (body.assignedUserId) errandAssignedUserId = body.assignedUserId;
       errandVersion += 1;
@@ -1559,6 +1650,9 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
       const body = requestBody(request);
       trace.errandPatches.push(body);
       if (body && typeof body === 'object' && !Array.isArray(body)) {
+        // Like the BFF: each field written is checked against what the handler saw of it, and nothing else of the errand.
+        const { seenFacts, ...changes } = body as Record<string, unknown>;
+        if (await refusesUnseenChange(route, seenFacts, Object.keys(changes))) return;
         if ('classification' in body && body.classification && typeof body.classification === 'object') {
           errandClassification = structuredClone(body.classification as { category: string; type: string });
         }
@@ -1623,16 +1717,12 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
         etag: `"${nextVersion}"`,
       };
       documents[key] = updated;
-      // Like the BFF: the reservation, the upload and the confirmation each move the errand's version, and the
-      // answer says that all three steps were this request's own.
-      const reportErrandWrites = 3;
-      errandVersion += reportErrandWrites;
+      // The reservation, the upload and the confirmation each move the errand's version upstream.
+      errandVersion += 3;
       const { etag, ...responseDocument } = updated;
       await fulfillJson(route, { data: { document: responseDocument, report: entry }, message: 'attached' }, 201, {
         etag,
-        'x-errand-version': String(errandVersion),
-        'x-errand-writes': String(reportErrandWrites),
-        'access-control-expose-headers': 'ETag, X-Errand-Version, X-Errand-Writes',
+        'access-control-expose-headers': 'ETag',
       });
       return;
     }
@@ -1702,9 +1792,7 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
         documents[key] = updated;
         errandVersion += 1;
         // The BFF marks the errand with a high HSL risk in the same call, when the unit manager's investigation
-        // assesses one, the namespace has the label and the errand does not carry it yet. It is a second write on
-        // the errand, which Support Management takes more than one version step for, and the answer says how many
-        // of the steps were the request's own.
+        // assesses one, the namespace has the label and the errand does not carry it yet.
         const hslRisk = updated.value.riskAssessmentHsl as { calculatedRiskValue?: unknown } | undefined;
         const marksHighHslRisk =
           key === 'utredning-enhetschef' &&
@@ -1714,14 +1802,12 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
           !errandLabels.some(({ id }) => id === highHslRisk.id);
         if (marksHighHslRisk) {
           errandLabels = [...errandLabels, withoutChildren(highHslRisk)];
-          errandVersion += LABEL_WRITE_VERSION_STEPS;
+          errandVersion += 1;
         }
         const { etag, ...responseDocument } = updated;
         await fulfillJson(route, responseDocument, existingDocument ? 200 : 201, {
           etag,
-          'x-errand-version': String(errandVersion),
-          ...(marksHighHslRisk ? { 'x-errand-writes': String(1 + LABEL_WRITE_VERSION_STEPS) } : {}),
-          'access-control-expose-headers': 'ETag, X-Errand-Version, X-Errand-Writes',
+          'access-control-expose-headers': 'ETag',
         });
         return;
       }

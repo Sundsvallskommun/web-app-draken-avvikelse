@@ -1,4 +1,5 @@
 import { Alert, Button } from '@sk-web-gui/react';
+import type { SeenSupportErrand } from '@supportmanagement/services/support-errand-facts';
 import { useRouter } from 'next/navigation';
 import { FC, useState } from 'react';
 
@@ -17,7 +18,8 @@ interface ReturnToManagerButtonProps {
   /** After the lex Sarah decision, or when LEX-ansvarig's initial assessment declines to lex-investigate. */
   step?: ReturnStep;
   errandId: string;
-  expectedVersion: number | undefined;
+  /** The errand as the handler saw it; the backend refuses the handover when its handler, status or routing moved since. */
+  seen: SeenSupportErrand | undefined;
   disabled: boolean;
 }
 
@@ -70,7 +72,7 @@ const returnCopy: Readonly<Record<ReturnStep, ReturnCopy>> = {
 export const ReturnToManagerButton: FC<ReturnToManagerButtonProps> = ({
   step = 'return-to-manager',
   errandId,
-  expectedVersion,
+  seen,
   disabled,
 }) => {
   const router = useRouter();
@@ -103,15 +105,15 @@ export const ReturnToManagerButton: FC<ReturnToManagerButtonProps> = ({
   };
 
   const returnErrand = async (adAccount: string) => {
-    if (typeof expectedVersion !== 'number') {
-      setError('Ärendets version saknas. Ladda om ärendet innan du återlämnar det.');
+    if (!seen?.facts) {
+      setError('Ärendet är inte helt inläst. Ladda om ärendet innan du återlämnar det.');
       return;
     }
 
     setIsSaving(true);
     setError(undefined);
     try {
-      await applyInvestigationHandover(errandId, step, expectedVersion, adAccount);
+      await applyInvestigationHandover(errandId, step, seen, adAccount);
       router.push('/oversikt');
     } catch (e) {
       setError(investigationHandoverErrorMessage(e, copy.failure));

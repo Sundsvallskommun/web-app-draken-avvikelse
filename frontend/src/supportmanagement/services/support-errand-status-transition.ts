@@ -1,7 +1,4 @@
-export interface SupportErrandStatusSnapshot {
-  status?: string;
-  version?: number;
-}
+import { type SeenSupportErrand, seenSupportErrandFacts, type SupportErrandFacts } from './support-errand-facts';
 
 export interface SupportErrandStatusTransitionChanges {
   resolution?: string;
@@ -14,30 +11,23 @@ export interface SupportErrandStatusTransitionChanges {
 }
 
 export interface SupportErrandStatusTransitionRequest extends SupportErrandStatusTransitionChanges {
-  expectedVersion: number;
-  expectedStatus: string;
+  /** What the handler saw of the errand; the BFF checks the status and the phase the transition starts from. */
+  seenFacts: SupportErrandFacts;
   status: string;
 }
 
-/** Builds the exact command from a fresh errand snapshot; stale state is rejected by the backend. */
+/** Builds the command from the errand the handler saw; one that has moved on since is refused by the BFF. */
 export const buildSupportErrandStatusTransitionRequest = (
-  snapshot: SupportErrandStatusSnapshot,
+  seen: SeenSupportErrand | undefined,
   status: string,
   changes: SupportErrandStatusTransitionChanges = {}
 ): SupportErrandStatusTransitionRequest => {
-  if (!Number.isSafeInteger(snapshot.version) || snapshot.version! < 0) {
-    throw new Error('Support errand is missing a valid version');
-  }
-  if (!snapshot.status) {
-    throw new Error('Support errand is missing its current status');
-  }
   if (!status) {
     throw new Error('Target status is required');
   }
 
   return {
-    expectedVersion: snapshot.version!,
-    expectedStatus: snapshot.status,
+    seenFacts: seenSupportErrandFacts(seen),
     status,
     ...changes,
   };

@@ -1,19 +1,14 @@
 import { Button, Spinner } from '@sk-web-gui/react';
 import type { SupportErrand } from '@supportmanagement/services/support-errand-service';
-import {
-  knownSupportErrandVersion,
-  useAdvanceErrandVersion,
-} from '@supportmanagement/services/use-advance-errand-version';
 import { isAxiosError } from 'axios';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { useFormContext } from 'react-hook-form';
 
 // One composition point, with business rules in their own module.
 // Imported statically on purpose: next/dynamic suspends again when this tab re-renders while its content stays
 // mounted (the in-place reload after a save), which hides and re-shows the surrounding subtree and makes the
 // design system's Headless UI transitions throw "Did you forget to passthrough the ref".
 import { AvvikelseMeasures } from './avvikelse/avvikelse-measures';
-import { recordMeasuresSnapshot } from './measure-summary';
+import { currentMeasureSummaryKey, recordMeasuresSnapshot } from './measure-summary';
 import { getSupportMeasures, type MeasuresSnapshot } from './support-measure-service';
 
 type MeasuresState =
@@ -39,47 +34,35 @@ export function SupportMeasuresTab({
   followUp?: boolean;
 }) {
   const [state, setState] = useState<MeasuresState>({ status: 'loading' });
-  const { register } = useFormContext<SupportErrand>();
-  const advanceErrandVersion = useAdvanceErrandVersion(errand.id);
   const generation = useRef(0);
   const heading = useRef<HTMLHeadingElement>(null);
 
-  useEffect(() => {
-    register('version');
-  }, [register]);
-
-  const load = useCallback(
-    async (expectedErrandVersion?: number): Promise<MeasuresSnapshot | undefined> => {
-      const request = ++generation.current;
+  const load = useCallback(async (): Promise<MeasuresSnapshot | undefined> => {
+    const request = ++generation.current;
+    setState((current) =>
+      current.status === 'ready' ? { ...current, refreshing: true, refreshError: undefined } : { status: 'loading' }
+    );
+    try {
+      if (!errand.id) throw new Error('Missing errand ID');
+      const readFor = currentMeasureSummaryKey(errand.id);
+      const snapshot = await getSupportMeasures(errand.id);
+      // What is told outside the tab about the errand's measures - that it has none, that proposals wait for a
+      // decision - follows every read.
+      recordMeasuresSnapshot(errand.id, snapshot, readFor);
+      if (request !== generation.current) return undefined;
+      setState({ status: 'ready', snapshot, refreshing: false });
+      return snapshot;
+    } catch (cause) {
+      if (request !== generation.current) return undefined;
+      const message = readErrorMessage(cause);
       setState((current) =>
-        current.status === 'ready' ? { ...current, refreshing: true, refreshError: undefined } : { status: 'loading' }
+        current.status === 'ready'
+          ? { ...current, refreshing: false, refreshError: message }
+          : { status: 'failed', message }
       );
-      try {
-        if (!errand.id) throw new Error('Missing errand ID');
-        const snapshot = await getSupportMeasures(errand.id);
-        // Our own write moved the errand's version too; anything more is somebody else's to find out about. Told
-        // before the reload is weighed against a newer one: a refresh that overtook this read shows its own list,
-        // but only this read knows which version the write started from.
-        if (expectedErrandVersion !== undefined) advanceErrandVersion(expectedErrandVersion, snapshot.errandVersion);
-        // What is told outside the tab about the errand's measures - that it has none, that proposals wait for a
-        // decision - follows every read.
-        recordMeasuresSnapshot(errand.id, snapshot);
-        if (request !== generation.current) return undefined;
-        setState({ status: 'ready', snapshot, refreshing: false });
-        return snapshot;
-      } catch (cause) {
-        if (request !== generation.current) return undefined;
-        const message = readErrorMessage(cause);
-        setState((current) =>
-          current.status === 'ready'
-            ? { ...current, refreshing: false, refreshError: message }
-            : { status: 'failed', message }
-        );
-        return undefined;
-      }
-    },
-    [errand.id, advanceErrandVersion]
-  );
+      return undefined;
+    }
+  }, [errand.id]);
 
   const cancelLoad = useCallback(() => {
     generation.current++;
@@ -139,9 +122,7 @@ export function SupportMeasuresTab({
             snapshot={state.snapshot}
             errand={errand}
             onDirtyChange={onDirtyChange}
-            // The baseline is what the page knows now, not what the list read when it was loaded: the errand may
-            // have been saved since, with this tab open, and the list's version is then already behind.
-            onSaved={() => load(knownSupportErrandVersion(errand.id))}
+            onSaved={() => load()}
             followUp={followUp}
           />
         </div>

@@ -56,9 +56,9 @@ export const unsavedParticipantsMessage = (unsaved: readonly Pick<ErrandSavePart
 };
 
 /**
- * Saves the parts one at a time - a write moves the errand's version, which the next one may be
- * conditioned on - and all of them even when one fails, since a failure in one part is no reason to
- * leave another's draft unsaved. Answers the parts that were not saved.
+ * Saves the parts one at a time - a part may write the errand around it too, its classification say,
+ * and the next part then works from what that write left - and all of them even when one fails, since
+ * a failure in one part is no reason to leave another's draft unsaved. Answers the parts that were not saved.
  */
 export async function saveParticipantsInTurn(
   participants: readonly ErrandSaveParticipant[]

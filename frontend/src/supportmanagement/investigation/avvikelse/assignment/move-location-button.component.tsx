@@ -1,5 +1,6 @@
 import { Button } from '@sk-web-gui/react';
 import { useMetadataStore, useSupportStore } from '@stores/index';
+import type { SeenSupportErrand } from '@supportmanagement/services/support-errand-facts';
 import { useRouter } from 'next/navigation';
 import { FC, useCallback, useMemo, useState } from 'react';
 
@@ -13,7 +14,8 @@ import { MoveLocationModal } from './move-location-modal.component';
 
 interface MoveLocationButtonProps {
   errandId: string;
-  expectedVersion: number | undefined;
+  /** The errand as the handler saw it; the backend refuses the handover when its handler, status or routing moved since. */
+  seen: SeenSupportErrand | undefined;
   disabled: boolean;
 }
 
@@ -28,7 +30,7 @@ interface MoveLocationButtonProps {
  * Moving the errand writes the mover out of it, so the page navigates to the overview afterwards
  * instead of re-rendering an errand they can no longer see.
  */
-export const MoveLocationButton: FC<MoveLocationButtonProps> = ({ errandId, expectedVersion, disabled }) => {
+export const MoveLocationButton: FC<MoveLocationButtonProps> = ({ errandId, seen, disabled }) => {
   const router = useRouter();
   const labels = useSupportStore((s) => s.supportErrand?.labels);
   const labelStructure = useMetadataStore((s) => s.supportMetadata?.labels?.labelStructure);
@@ -50,15 +52,15 @@ export const MoveLocationButton: FC<MoveLocationButtonProps> = ({ errandId, expe
   if (placeNodes.length === 0) return null;
 
   const move = async (locationLabelId: string, adAccount: string) => {
-    if (typeof expectedVersion !== 'number') {
-      setError('Ärendets version saknas. Ladda om ärendet innan du flyttar det.');
+    if (!seen?.facts) {
+      setError('Ärendet är inte helt inläst. Ladda om ärendet innan du flyttar det.');
       return;
     }
 
     setIsSaving(true);
     setError(undefined);
     try {
-      await applyInvestigationHandover(errandId, 'move-location', expectedVersion, adAccount, {
+      await applyInvestigationHandover(errandId, 'move-location', seen, adAccount, {
         locationLabelId,
       });
       router.push('/oversikt');

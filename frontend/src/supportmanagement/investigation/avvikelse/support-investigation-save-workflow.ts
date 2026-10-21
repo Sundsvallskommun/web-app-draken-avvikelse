@@ -1,4 +1,5 @@
 import type { Label } from '@common/data-contracts/supportmanagement/data-contracts';
+import type { SeenSupportErrand } from '@supportmanagement/services/support-errand-facts';
 import type { AxiosError } from 'axios';
 
 import type {
@@ -24,7 +25,7 @@ import {
 import {
   isSupportInvestigationAccessDenied,
   isSupportInvestigationConflict,
-  type SavedSupportInvestigationDocument,
+  type LoadedSupportInvestigationDocument,
   saveSupportInvestigationDocument,
 } from './support-investigation-service';
 
@@ -182,7 +183,6 @@ interface SaveDocumentStepInput {
   readonly value: InvestigationFormData;
   readonly persisted: boolean;
   readonly etag?: string;
-  readonly parentErrandVersion: number | undefined;
   readonly documentDirty: boolean;
   readonly classificationDirty: boolean;
   readonly documentSavedPendingClassification: boolean;
@@ -195,56 +195,36 @@ export async function saveInvestigationDocumentStep({
   value,
   persisted,
   etag,
-  parentErrandVersion,
   documentDirty,
   classificationDirty,
   documentSavedPendingClassification,
-}: SaveDocumentStepInput): Promise<SavedSupportInvestigationDocument | undefined> {
+}: SaveDocumentStepInput): Promise<LoadedSupportInvestigationDocument | undefined> {
   const mustCreateDocumentBeforeClassification = !persisted && classificationDirty;
   const shouldWriteDocument = documentDirty || mustCreateDocumentBeforeClassification;
   if (documentSavedPendingClassification || !shouldWriteDocument) return undefined;
 
-  // The errand version is passed along but is not a precondition for the document write, so a
-  // missing one no longer blocks the save. The classification step still requires it, and refuses
-  // there, because that step writes the errand itself.
-  const loadedParentErrandVersion =
-    typeof parentErrandVersion === 'number' && Number.isSafeInteger(parentErrandVersion) && parentErrandVersion >= 0
-      ? parentErrandVersion
-      : undefined;
-
-  return saveSupportInvestigationDocument(errandId, documentKey, { schemaId, value }, loadedParentErrandVersion, etag);
+  // The document's own ETag is its precondition; the errand around it has nothing to do with it.
+  return saveSupportInvestigationDocument(errandId, documentKey, { schemaId, value }, etag);
 }
 
 interface SaveClassificationStepInput {
   readonly errandId: string;
   readonly documentKey: InvestigationDocumentKey;
   readonly prepared?: PreparedInvestigationClassification;
-  readonly parentErrandVersion: number | undefined;
+  /** The errand as the handler saw it; the classification they changed is checked against it. */
+  readonly seen: SeenSupportErrand | undefined;
   readonly documentETag: string | undefined;
 }
-
-/**
- * Whether the save wrote more on the errand than the document it sent. The BFF marks the errand with what follows
- * from the document - a high HSL risk - in the same call, and says so in how many of the errand's version steps
- * were the call's own. The labels the page holds are then behind the errand's.
- */
-export const savedBeyondTheDocument = (saved: { readonly ownErrandWrites?: number } | undefined): boolean =>
-  (saved?.ownErrandWrites ?? 1) > 1;
 
 export async function saveInvestigationClassificationStep({
   errandId,
   documentKey,
   prepared,
-  parentErrandVersion,
+  seen,
   documentETag,
 }: SaveClassificationStepInput): Promise<SupportInvestigationClassificationResponse | undefined> {
   if (!prepared) return undefined;
-  const request = buildSupportInvestigationClassificationRequest(
-    prepared.update,
-    parentErrandVersion,
-    documentKey,
-    documentETag
-  );
+  const request = buildSupportInvestigationClassificationRequest(prepared.update, seen, documentKey, documentETag);
   return saveSupportInvestigationClassification(errandId, request);
 }
 

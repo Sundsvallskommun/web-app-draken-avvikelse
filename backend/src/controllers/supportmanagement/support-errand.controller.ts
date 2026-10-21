@@ -5,20 +5,17 @@ import {
   IsBoolean,
   IsDefined,
   IsIn,
-  IsInt,
   IsNumber,
   IsObject,
   IsOptional,
   IsString,
   Matches,
-  Max,
   MaxLength,
-  Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
 import { JSONSchema } from 'class-validator-jsonschema';
-import { Body, Controller, Get, HeaderParam, HttpCode, Param, Patch, Post, QueryParam, Req, Res, UseBefore } from 'routing-controllers';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, QueryParam, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
 import { MUNICIPALITY_ID, SUPERADMIN_GROUP, SUPPORTMANAGEMENT_NAMESPACE } from '@/config';
@@ -67,7 +64,6 @@ import {
 import { OrganizationService } from '@/services/organization.service';
 import { ownHandlerParameterKeys } from '@/services/own-errands-filter';
 import {
-  assertRequestedErrandVersion,
   assertSupportErrandAdminAssignable,
   assertSupportErrandWritable,
   buildSupportErrandClassificationUpdateBody,
@@ -77,13 +73,19 @@ import {
   getErrandVersion,
   NEW_ERRAND_DEFAULTS,
   NewErrandDefaults,
-  requireStrongErrandVersion,
   resolvePhaseStatus,
   resolveSupportErrandClassification,
   resolveSupportErrandStatusTransition,
   stripErrandVersions,
   SupportStakeholderRole,
 } from '@/services/support-errand.service';
+import {
+  assertErrandFactsUnchanged,
+  ERRAND_FACT_KEYS,
+  type ErrandFactKey,
+  type SeenErrandFacts,
+  withErrandFacts,
+} from '@/services/support-errand-facts';
 import { parseStatusGroups, SupportErrandListingService, SupportErrandStatusGroupCounts } from '@/services/support-errand-listing.service';
 import { SupportInvestigationAccessService } from '@/services/support-investigation-access.service';
 import {
@@ -112,6 +114,9 @@ enum Status {
   ASSIGNED = 'ASSIGNED',
   SOLVED = 'SOLVED',
 }
+
+/** A status transition starts from the status and the phase the handler saw. */
+const STATUS_TRANSITION_FACTS: readonly ErrandFactKey[] = ['status', 'activePhase'];
 
 const assertGenericUpdateFields = (data: Partial<SupportErrandDto>): void => {
   if (data.activePhaseId !== undefined) {
@@ -248,10 +253,9 @@ export class InvestigationClassificationSelectionDto {
 }
 
 export class UpdateSupportErrandClassificationDto {
-  @IsInt()
-  @Min(0)
-  @Max(Number.MAX_SAFE_INTEGER)
-  expectedVersion!: number;
+  /** The fingerprints of the facts the classification depends on, as the handler saw them (`errandFacts`). */
+  @IsObject()
+  seenFacts!: SeenErrandFacts;
 
   /** One classification per legal base group the investigation's legal bases reach. */
   @IsDefined()
@@ -281,14 +285,9 @@ export class CSuspension implements Suspension {
 }
 
 export class UpdateSupportErrandStatusDto {
-  @IsInt()
-  @Min(0)
-  @Max(Number.MAX_SAFE_INTEGER)
-  expectedVersion!: number;
-
-  @IsString()
-  @MinLength(1)
-  expectedStatus!: string;
+  /** The fingerprints of the status and the phase the transition starts from, as the handler saw them. */
+  @IsObject()
+  seenFacts!: SeenErrandFacts;
 
   @IsString()
   @MinLength(1)
@@ -316,6 +315,10 @@ export class AssignSupportErrandDto {
   @IsString()
   @MinLength(1)
   assignedUserId!: string;
+
+  /** The fingerprint of the assignee the handler saw (`errandFacts`). */
+  @IsObject()
+  seenFacts!: SeenErrandFacts;
 }
 
 export class CErrandAction implements ErrandAction {
@@ -456,6 +459,35 @@ export class SupportErrandDto implements Partial<SupportErrand> {
   @TypeTransformer(() => CErrandPhase)
   phases?: CErrandPhase[];
 }
+
+/** A change of the errand's own fields: only the fields that changed, and what the handler saw of them. */
+export class UpdateSupportErrandDto extends SupportErrandDto {
+  /** The fingerprints of the fields written, as the handler saw them (`errandFacts`). */
+  @IsObject()
+  seenFacts!: SeenErrandFacts;
+}
+
+/** Errand metadata a client may send back with a change; it is never written. */
+const IGNORED_ERRAND_UPDATE_FIELDS: ReadonlySet<string> = new Set(['id', 'errandNumber', 'version', 'created', 'modified', 'touched']);
+
+/**
+ * The fields a change writes: those it carries a value for, metadata left out. The body arrives as an instance of its
+ * DTO, which declares every field, so a field the client never sent is there as undefined.
+ */
+const writtenErrandFields = (changes: Partial<SupportErrandDto>): Partial<SupportErrandDto> =>
+  Object.fromEntries(Object.entries(changes).filter(([field, value]) => value !== undefined && !IGNORED_ERRAND_UPDATE_FIELDS.has(field)));
+
+/**
+ * The facts a change of the errand's own fields depends on: every field it writes. A field that is no fact of the
+ * errand has a route of its own, or is not the handler's to write, so it cannot be changed here unchecked.
+ */
+const errandFactsWrittenBy = (changes: Partial<SupportErrandDto>): ErrandFactKey[] =>
+  Object.keys(writtenErrandFields(changes)).map(field => {
+    if (!(ERRAND_FACT_KEYS as readonly string[]).includes(field)) {
+      throw new HttpException(400, `${field} cannot be changed with the errand's own fields`);
+    }
+    return field as ErrandFactKey;
+  });
 
 /**
  * Where the places a handler may register for come from: their employment in the organization tree,
@@ -635,7 +667,7 @@ export class SupportErrandController {
     const url = `${this.SERVICE}/${MUNICIPALITY_ID}/${this.namespace}/errands?filter=errandNumber:'${errandNumber}'`;
     const errandResponse = await this.apiService.get<any>({ url }, req.user);
     const errandData = errandResponse.data.content[0];
-    return response.send((await this.preparedErrandResponse(errandData, req)).data);
+    return response.send(withErrandFacts((await this.preparedErrandResponse(errandData, req)).data, errandData));
   }
 
   @Get('/supporterrands/:id')
@@ -646,7 +678,7 @@ export class SupportErrandController {
     const errandResponse = await this.apiService.get<SupportErrand>({ url }, req.user);
     const errandData = errandResponse.data;
 
-    return response.send((await this.preparedErrandResponse(errandData, req)).data);
+    return response.send(withErrandFacts((await this.preparedErrandResponse(errandData, req)).data, errandData));
   }
 
   @Get('/supporterrands')
@@ -944,18 +976,22 @@ export class SupportErrandController {
     });
   }
 
+  /**
+   * Writes the errand's own fields - only the ones that changed - conditioned on what the handler saw of exactly
+   * those fields (`assertErrandFactsUnchanged`), and upstream on the version read for that check.
+   */
   @Patch('/supporterrands/:id')
   @OpenAPI({ summary: 'Update a support errand' })
-  @UseBefore(authMiddleware, hasPermissions(['canEditSupportManagement']), validationMiddleware(SupportErrandDto, 'body'))
+  @UseBefore(authMiddleware, hasPermissions(['canEditSupportManagement']), validationMiddleware(UpdateSupportErrandDto, 'body'))
   async updateSupportErrand(
     @Req() req: RequestWithUser,
     @Param('id') id: string,
-    @HeaderParam('If-Match') ifMatch: string,
-    @Body() data: Partial<SupportErrandDto>,
+    @Body() data: Partial<SupportErrandDto> & Pick<UpdateSupportErrandDto, 'seenFacts'>,
     @Res() response: any,
   ): Promise<{ data: any; message: string }> {
-    assertGenericUpdateFields(data);
-    const requestedVersion = requireStrongErrandVersion(ifMatch);
+    const { seenFacts, ...changes } = data;
+    assertGenericUpdateFields(changes);
+    const writtenFacts = errandFactsWrittenBy(changes);
     const url = `${MUNICIPALITY_ID}/${this.namespace}/errands/${id}`;
     const baseURL = apiURL(this.SERVICE);
     const currentErrand = await this.apiService.get<SupportErrand>(
@@ -963,12 +999,12 @@ export class SupportErrandController {
       req.user,
     );
     const currentVersion = getErrandVersion(currentErrand.data, currentErrand.headers?.etag);
-    assertRequestedErrandVersion(requestedVersion, currentVersion);
+    assertErrandFactsUnchanged(currentErrand.data, seenFacts, writtenFacts);
     assertSupportErrandWritable(currentErrand.data, 'generic changes');
-    this.assertChannelUnchanged(currentErrand.data, data);
+    this.assertChannelUnchanged(currentErrand.data, changes);
 
-    await this.assertGenericClassificationUpdateAllowed(req, currentErrand.data, data);
-    const body: Partial<SupportErrandDto> = stripErrandVersions({ ...data });
+    await this.assertGenericClassificationUpdateAllowed(req, currentErrand.data, changes);
+    const body: Partial<SupportErrandDto> = stripErrandVersions(writtenErrandFields(changes));
     if (body.labels) body.labels = await this.keepPermanentLabels(req, MUNICIPALITY_ID, currentErrand.data.labels, body.labels);
     const res = await this.apiService
       .patch<any, Partial<SupportErrandDto>>(
@@ -1008,9 +1044,8 @@ export class SupportErrandController {
       supportMetadataCache.read<SupportMetadata>(this.apiService, { url: metadataUrl, baseURL, propagateClientError: true }, req.user),
     ]);
     const currentVersion = getErrandVersion(currentErrand.data, currentErrand.headers?.etag);
-    if (currentVersion !== data.expectedVersion) {
-      throw new HttpException(409, 'Support errand status has changed since it was loaded');
-    }
+    // The transition starts from the status and the phase the handler saw; anything else of the errand may have moved.
+    assertErrandFactsUnchanged(currentErrand.data, data.seenFacts, STATUS_TRANSITION_FACTS);
     const assertMeasuresHandled = () =>
       assertMeasuresHandledBeforeClose({
         apiService: this.apiService,
@@ -1062,16 +1097,16 @@ export class SupportErrandController {
     let version = currentVersion;
     if (earlyCloseNote) {
       // The motivation is the handler's service note, written once every refusal is behind it, so a close is never
-      // without it. The note is this request's own write; a version moved further is somebody else's.
+      // without it. The note moves the errand's version but none of the facts the close depends on: those are read
+      // again after it, and the steps that follow are conditioned on the version that read found.
       assertCanWriteSupportServiceNote(currentErrand.data, req.user);
       await this.apiService.post(
         { url: `${url}/notes`, baseURL, data: buildSupportServiceNote(earlyCloseNote, req.user), propagateClientError: true },
         req.user,
       );
       const noted = await this.apiService.get<SupportErrand>({ url, baseURL, includeResponseHeaders: true, propagateClientError: true }, req.user);
-      const notedVersion = getErrandVersion(noted.data, noted.headers?.etag);
-      if (notedVersion > version + 1) throw new HttpException(409, 'Ärendet har ändrats av någon annan. Ladda om ärendet och försök igen.');
-      version = notedVersion;
+      assertErrandFactsUnchanged(noted.data, data.seenFacts, STATUS_TRANSITION_FACTS);
+      version = getErrandVersion(noted.data, noted.headers?.etag);
     }
     for (const step of phaseSteps) {
       await this.apiService.patch<SupportErrand, (typeof phaseSteps)[number]>(
@@ -1111,7 +1146,7 @@ export class SupportErrandController {
       req.user,
     );
     return response.status(200).send({
-      ...savedErrand.data,
+      ...withErrandFacts(savedErrand.data),
       version: getErrandVersion(savedErrand.data, savedErrand.headers?.etag),
     });
   }
@@ -1161,9 +1196,9 @@ export class SupportErrandController {
       }),
     ]);
     const currentVersion = getErrandVersion(currentErrand.data, currentErrand.headers?.etag);
-    if (currentVersion !== data.expectedVersion) {
-      throw new HttpException(409, 'Support errand classification has changed since it was loaded');
-    }
+    // The classification the handler changed, as they saw it - not the errand's other labels, which the document saved
+    // with it may itself have added to (a high HSL risk), and which the write below keeps as they now are.
+    assertErrandFactsUnchanged(currentErrand.data, data.seenFacts, ['classification']);
     assertSupportErrandWritable(currentErrand.data, 'investigation classification changes');
     if (classificationDocument.etag !== data.documentETag) {
       throw new HttpException(409, 'Investigation document has changed since classification was edited');
@@ -1193,7 +1228,7 @@ export class SupportErrandController {
       errandClassification.managedRootResource,
     );
     await this.apiService.patch<SupportErrand, typeof body>(
-      { url, baseURL, data: body, headers: { 'If-Match': `"${data.expectedVersion}"` }, propagateClientError: true },
+      { url, baseURL, data: body, headers: { 'If-Match': `"${currentVersion}"` }, propagateClientError: true },
       req.user,
     );
     const savedErrand = await this.apiService.get<SupportErrand>(
@@ -1202,7 +1237,7 @@ export class SupportErrandController {
     );
     const savedVersion = getErrandVersion(savedErrand.data, savedErrand.headers?.etag);
 
-    return response.status(200).send({ ...savedErrand.data, version: savedVersion });
+    return response.status(200).send({ ...withErrandFacts(savedErrand.data), version: savedVersion });
   }
 
   @Patch('/supporterrands/:id/admin')
@@ -1211,11 +1246,9 @@ export class SupportErrandController {
   async becomeAdminForSupportErrand(
     @Req() req: RequestWithUser,
     @Param('id') id: string,
-    @HeaderParam('If-Match') ifMatch: string,
     @Body() data: AssignSupportErrandDto,
     @Res() response: any,
   ): Promise<{ data: any; message: string }> {
-    const requestedVersion = requireStrongErrandVersion(ifMatch);
     const url = `${MUNICIPALITY_ID}/${this.namespace}/errands/${id}`;
     const baseURL = apiURL(this.SERVICE);
     const currentErrand = await this.apiService.get<SupportErrand>(
@@ -1223,12 +1256,13 @@ export class SupportErrandController {
       req.user,
     );
     const currentVersion = getErrandVersion(currentErrand.data, currentErrand.headers?.etag);
-    assertRequestedErrandVersion(requestedVersion, currentVersion);
+    // The errand is given away from the handler the handler saw holding it.
+    assertErrandFactsUnchanged(currentErrand.data, data.seenFacts, ['assignedUserId']);
     assertSupportErrandAdminAssignable(currentErrand.data, 'administrator changes');
 
-    const body: AssignSupportErrandDto = { assignedUserId: data.assignedUserId };
+    const body: Pick<AssignSupportErrandDto, 'assignedUserId'> = { assignedUserId: data.assignedUserId };
     const res = await this.apiService
-      .patch<any, AssignSupportErrandDto>(
+      .patch<any, Pick<AssignSupportErrandDto, 'assignedUserId'>>(
         {
           url,
           baseURL,

@@ -107,15 +107,11 @@ function setup(roles: readonly HandlerGroupRole[] = handlerRoles) {
   return { service, get, patch, post, remove, access };
 }
 
-test('reads protected measures with their own versions and keeps parent synchronization separate', async () => {
+test('reads protected measures with their own versions', async () => {
   const { service, get, access } = setup();
-  get
-    .mockResolvedValueOnce(response(current))
-    .mockResolvedValueOnce(response([measure]))
-    .mockResolvedValueOnce(response(metadata));
+  get.mockResolvedValueOnce(response([measure])).mockResolvedValueOnce(response(metadata));
   expect(await service.read(mockMunicipalityId, mockSupportErrandId, user)).toEqual({
     measures: [measure],
-    errandVersion: 7,
     metadata,
     creationRoles: [metadata.roles![1]],
     registration: {
@@ -132,9 +128,9 @@ test('reads protected measures with their own versions and keeps parent synchron
     closeRefusal: expect.stringMatching(/^Ärendet kan inte avslutas/u),
     followUpRefusal: expect.stringMatching(/^Ärendet kan inte gå vidare till uppföljning/u),
   });
-  // The errand, its measures and the metadata: a follow-up is part of the measure, not a document of its own.
-  expect(get).toHaveBeenCalledTimes(3);
-  expect(get.mock.calls[1][0]).toMatchObject({
+  // The measures and the metadata: a follow-up is part of the measure, not a document of its own.
+  expect(get).toHaveBeenCalledTimes(2);
+  expect(get.mock.calls[0][0]).toMatchObject({
     url: expect.stringContaining('/errands/' + mockSupportErrandId + '/measures'),
     propagateClientError: true,
   });
@@ -149,10 +145,7 @@ test.each([
 ] as const)('offers no writes when Support Management grants %s on the measures', async (level, canWrite) => {
   const { service, get, access } = setup();
   access.getResourceLevel.mockResolvedValueOnce(level);
-  get
-    .mockResolvedValueOnce(response(current))
-    .mockResolvedValueOnce(response([measure]))
-    .mockResolvedValueOnce(response(metadata));
+  get.mockResolvedValueOnce(response([measure])).mockResolvedValueOnce(response(metadata));
   const snapshot = await service.read(mockMunicipalityId, mockSupportErrandId, user);
   expect(snapshot.canWrite).toBe(canWrite);
   expect(snapshot.creationRoles).toEqual([metadata.roles![1]]);
@@ -161,10 +154,7 @@ test.each([
 test('keeps the measures readable but offers no writes when the access lookup fails', async () => {
   const { service, get, access } = setup();
   access.getResourceLevel.mockRejectedValueOnce(new HttpException(503, 'Unavailable'));
-  get
-    .mockResolvedValueOnce(response(current))
-    .mockResolvedValueOnce(response([measure]))
-    .mockResolvedValueOnce(response(metadata));
+  get.mockResolvedValueOnce(response([measure])).mockResolvedValueOnce(response(metadata));
   const snapshot = await service.read(mockMunicipalityId, mockSupportErrandId, user);
   expect(snapshot.measures).toEqual([measure]);
   expect(snapshot.canWrite).toBe(false);
@@ -174,10 +164,7 @@ test('keeps the measures readable but offers no writes when the access lookup fa
 test('says why the errand cannot be closed while a measure is unhandled', async () => {
   const proposal: Measure = { ...measure, id: 'proposal', accept: undefined };
   const { service, get } = setup();
-  get
-    .mockResolvedValueOnce(response(current))
-    .mockResolvedValueOnce(response([proposal]))
-    .mockResolvedValueOnce(response(metadata));
+  get.mockResolvedValueOnce(response([proposal])).mockResolvedValueOnce(response(metadata));
 
   const snapshot = await service.read(mockMunicipalityId, mockSupportErrandId, user);
 
@@ -191,10 +178,7 @@ test('says why the errand cannot be closed while a measure is unhandled', async 
 test('names no close refusal once every measure is handled', async () => {
   const rejected: Measure = { ...measure, accept: 'FALSE' };
   const { service, get } = setup();
-  get
-    .mockResolvedValueOnce(response(current))
-    .mockResolvedValueOnce(response([rejected]))
-    .mockResolvedValueOnce(response(metadata));
+  get.mockResolvedValueOnce(response([rejected])).mockResolvedValueOnce(response(metadata));
   const decided = await service.read(mockMunicipalityId, mockSupportErrandId, user);
   expect(decided).not.toHaveProperty('closeRefusal');
   expect(decided).not.toHaveProperty('followUpRefusal');
@@ -202,7 +186,7 @@ test('names no close refusal once every measure is handled', async () => {
 
 test('propagates denied access instead of showing a falsely empty list', async () => {
   const { service, get } = setup();
-  get.mockResolvedValueOnce(response(current)).mockRejectedValueOnce(new HttpException(403, 'Denied'));
+  get.mockRejectedValueOnce(new HttpException(403, 'Denied'));
   await expect(service.read(mockMunicipalityId, mockSupportErrandId, user)).rejects.toMatchObject({ status: 403 });
 });
 
@@ -240,10 +224,7 @@ test.each([
   [invalidRoles, 'invalid'],
 ] as const)('reads history when registration configuration is absent or invalid: %j', async (roles, expectedStatus) => {
   const { service, get } = setup(roles);
-  get
-    .mockResolvedValueOnce(response(current))
-    .mockResolvedValueOnce(response([measure]))
-    .mockResolvedValueOnce(response(metadata));
+  get.mockResolvedValueOnce(response([measure])).mockResolvedValueOnce(response(metadata));
   const snapshot = await service.read(mockMunicipalityId, mockSupportErrandId, user);
   expect(snapshot.measures).toEqual([measure]);
   expect(snapshot.creationRoles).toEqual([]);
@@ -500,10 +481,7 @@ test('rejects an active type outside the selected role configuration', async () 
 
 test('does not infer namespace roles by comparing group text to role names', async () => {
   const { service, get } = setup();
-  get
-    .mockResolvedValueOnce(response(current))
-    .mockResolvedValueOnce(response([measure]))
-    .mockResolvedValueOnce(response(metadata));
+  get.mockResolvedValueOnce(response([measure])).mockResolvedValueOnce(response(metadata));
   const snapshot = await service.read(mockMunicipalityId, mockSupportErrandId, mockUser({ groups: ['MANAGER'] }));
   expect(snapshot.creationRoles).toEqual([]);
 });

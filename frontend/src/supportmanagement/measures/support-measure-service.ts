@@ -1,5 +1,6 @@
 import type { Measure, MeasureType, Role } from '@common/data-contracts/supportmanagement/data-contracts';
 import { apiService } from '@common/services/api-service';
+import { toStrongETag } from '@supportmanagement/services/strong-etag';
 
 import type { MeasureDecisionInput } from './measure-decision';
 import type { MeasureFollowUpInput } from './measure-follow-up';
@@ -7,7 +8,6 @@ import type { PlannedSupportMeasure } from './planned-measures';
 
 export interface MeasuresSnapshot {
   measures: Measure[];
-  errandVersion: number;
   metadata: { measureTypes: MeasureType[]; roles: Role[] };
   creationRoles: Role[];
   registration: {
@@ -127,8 +127,5 @@ export async function changeSupportMeasurePlannedComplete(
 }
 
 function measureETag(version: Measure['version']): string {
-  if (version === undefined || !Number.isSafeInteger(version) || version < 0) {
-    throw new Error('A valid measure version is required before writing');
-  }
-  return `"${version}"`;
+  return toStrongETag(version, 'measure');
 }

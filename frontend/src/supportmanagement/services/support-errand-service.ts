@@ -18,6 +18,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { saveSupportAttachments } from './support-attachment-service';
 import { isSupportErrandEmpty } from './support-errand-emptiness';
+import { type SeenSupportErrand, seenSupportErrandFacts, type SupportErrandFacts } from './support-errand-facts';
 import type { SupportErrandFilterQuery, SupportErrandSortQuery } from './support-errand-query';
 import {
   buildSupportErrandsSearchParameters,
@@ -26,12 +27,11 @@ import {
 import { Status } from './support-errand-status';
 import {
   buildSupportErrandStatusTransitionRequest,
-  SupportErrandStatusSnapshot,
   SupportErrandStatusTransitionChanges,
   SupportErrandStatusTransitionRequest,
 } from './support-errand-status-transition';
 import { buildSupportErrandUpdateData, changesSupportErrandBody } from './support-errand-update-data';
-import { SupportErrandStatusAfterAssignmentError, toStrongSupportErrandETag } from './support-errand-write-version';
+import { SupportErrandStatusAfterAssignmentError } from './support-errand-write-error';
 import { getMappedLabelSubType } from './support-label-classification-service';
 import { CATEGORIZATION_CLASSIFICATIONS } from './support-label-service';
 import { saveSupportNote } from './support-note-service';
@@ -93,6 +93,8 @@ export interface ApiSupportErrand extends SupportErrandDto {
   modified?: string;
   touched?: string;
   jsonParameters?: SupportErrandJsonParameter[];
+  /** What the BFF fingerprinted of the errand when it handed it out; every errand-level command sends it back. */
+  facts?: SupportErrandFacts;
 }
 
 export interface SupportErrand extends ApiSupportErrand {
@@ -696,31 +698,29 @@ interface UpdateResponse {
   notes: boolean;
   attachments: boolean;
   errand: ApiSupportErrand | boolean;
-  /** Something was written, so the errand's version has moved on from the one the form was loaded with. */
+  /** Something was written. */
   wrote: boolean;
 }
 
 /**
- * Writes the edited form back to the errand - only what the draft changed: the errand itself when a field of its
- * own is dirty (`changesSupportErrandBody`), and each parameter, note and attachment that changed or was added.
+ * Writes the edited form back to the errand - only what the draft changed: the errand's own fields that are dirty
+ * (`buildSupportErrandUpdateData`), and each parameter, note and attachment that changed or was added.
  *
- * `expectedVersion` is a required argument rather than a form field: form state is only reset
- * when the errand page loads, so any version carried in it is stale as soon as another action
- * has written to the errand. Pass the version of the errand currently in the store.
+ * `seen` is the errand the handler saw - the one in the store, not the form: the BFF checks each field written
+ * against what the handler saw of it, so a field somebody else changed meanwhile is not written over unseen.
  */
 export const updateSupportErrand: (
   formdata: Partial<RegisterSupportErrandFormModel>,
-  expectedVersion: number | undefined,
+  seen: SeenSupportErrand | undefined,
   currentParameters: CParameter[] | undefined,
   dirtyFields: Record<string, unknown>
-) => Promise<UpdateResponse> = async (formdata, expectedVersion, currentParameters, dirtyFields) => {
+) => Promise<UpdateResponse> = async (formdata, seen, currentParameters, dirtyFields) => {
   if (!formdata.id) {
     throw new Error('A support errand id is required before writing');
   }
   const errandId = formdata.id;
-  const ifMatch = toStrongSupportErrandETag(expectedVersion);
   const stakeholders = buildStakeholdersList(formdata);
-  const data = buildSupportErrandUpdateData(formdata, stakeholders);
+  const data = buildSupportErrandUpdateData(formdata, stakeholders, dirtyFields);
   const responseObj: UpdateResponse = {
     notes: false,
     attachments: false,
@@ -730,9 +730,10 @@ export const updateSupportErrand: (
 
   if (changesSupportErrandBody(dirtyFields)) {
     try {
-      await apiService.patch<ApiSupportErrand, Partial<SupportErrandDto>>(`supporterrands/${errandId}`, data, {
-        headers: { 'If-Match': ifMatch },
-      });
+      await apiService.patch<ApiSupportErrand, Partial<SupportErrandDto> & { seenFacts: SupportErrandFacts }>(
+        `supporterrands/${errandId}`,
+        { ...data, seenFacts: seenSupportErrandFacts(seen) }
+      );
       responseObj.errand = true;
       responseObj.wrote = true;
     } catch (e) {
@@ -819,54 +820,33 @@ export const validateAction: (errand: SupportErrand, user: User) => boolean = (e
 };
 
 /**
- * Reads the errand's current concurrency state from the API.
- *
- * Only for a write that follows one of *our own* writes in the same flow: that earlier write
- * already verified the version the user was looking at, so the version it produced is causally
- * ours and re-reading cannot mask someone else's edit. The first write in a flow must instead
- * pass the snapshot the view was loaded with - reading immediately before writing satisfies the
- * precondition without ever checking it, which is optimistic locking in name only.
- */
-export const readSupportErrandWriteSnapshot = async (errandId: string): Promise<SupportErrandStatusSnapshot> => {
-  const current = await apiService.get<ApiSupportErrand>(`supporterrands/${errandId}`);
-
-  return { status: current.data.status, version: current.data.version };
-};
-
-/**
- * `expectedVersion` is the version of the errand the caller was looking at. Pass the value from
- * the store, or from `readSupportErrandWriteSnapshot` when an earlier write in the same flow has
- * already moved it on.
+ * Gives the errand to `assignedUserId`, from the handler `seen` shows holding it, and moves it to `status` when one is
+ * given. Neither write depends on the other: the assignment checks the assignee the handler saw, the status change the
+ * status and the phase, and an assignment moves neither.
  */
 export const setSupportErrandAdmin: (
   errandId: string,
   assignedUserId: string,
-  expectedVersion: number | undefined,
+  seen: SeenSupportErrand | undefined,
   status?: Status,
   assigner?: string
-) => Promise<boolean> = (errandId, assignedUserId, expectedVersion, status?, assigner?) =>
+) => Promise<boolean> = (errandId, assignedUserId, seen, status?, assigner?) =>
   // The assignment and the status it moves the errand to are one action, so one notification.
   withRequestGroup(async () => {
-    const data = { assignedUserId };
+    const data = { assignedUserId, seenFacts: seenSupportErrandFacts(seen) };
 
     try {
-      const ifMatch = toStrongSupportErrandETag(expectedVersion);
-      await apiService.patch<ApiSupportErrand, typeof data>(`supporterrands/${errandId}/admin`, data, {
-        headers: { 'If-Match': ifMatch },
-      });
+      await apiService.patch<ApiSupportErrand, typeof data>(`supporterrands/${errandId}/admin`, data);
     } catch (e) {
       console.error('Something went wrong when patching errand');
       throw e;
     }
 
-    if (status === undefined) return true;
+    // Only what changed is written: an errand already in the status the assignment leaves it in has none to change.
+    if (status === undefined || seen?.status === status) return true;
 
     try {
-      // The assignment above is ours and succeeded, so it is the write that moved the version on.
-      const afterAssignment = await readSupportErrandWriteSnapshot(errandId);
-      // Only what changed is written: an errand already in the status the assignment leaves it in has none to change.
-      if (afterAssignment.status === status) return true;
-      return await transitionSupportErrandStatus(errandId, status, afterAssignment);
+      return await transitionSupportErrandStatus(errandId, status, seen);
     } catch (e) {
       // Reported apart from the assignment: that one landed, and an errand left in Ny needs a
       // different answer from the user than one that was never assigned at all.
@@ -878,10 +858,10 @@ export const setSupportErrandAdmin: (
 const transitionSupportErrandStatus = async (
   errandId: string,
   status: Status,
-  expected: SupportErrandStatusSnapshot,
+  seen: SeenSupportErrand | undefined,
   changes: SupportErrandStatusTransitionChanges = {}
 ): Promise<boolean> => {
-  const command = buildSupportErrandStatusTransitionRequest(expected, status, changes);
+  const command = buildSupportErrandStatusTransitionRequest(seen, status, changes);
   await apiService.patch<ApiSupportErrand, SupportErrandStatusTransitionRequest>(
     `supporterrands/${errandId}/status`,
     command
@@ -889,13 +869,14 @@ const transitionSupportErrandStatus = async (
   return true;
 };
 
+/** Moves the errand to `status` from the status and the phase the handler saw it in (`seen`). */
 export const setSupportErrandStatus: (
   errandId: string,
   status: Status,
-  expected: SupportErrandStatusSnapshot,
+  seen: SeenSupportErrand | undefined,
   closingMotivation?: string
-) => Promise<boolean> = async (errandId, status, expected, closingMotivation) => {
-  return transitionSupportErrandStatus(errandId, status, expected, {
+) => Promise<boolean> = async (errandId, status, seen, closingMotivation) => {
+  return transitionSupportErrandStatus(errandId, status, seen, {
     suspension: { suspendedFrom: undefined, suspendedTo: undefined },
     ...(closingMotivation ? { closingMotivation } : {}),
   }).catch((e) => {

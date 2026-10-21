@@ -6,13 +6,13 @@ import {
   getSupportErrandById,
   setSupportErrandAdmin,
   setSupportErrandStatus,
+  type SupportErrand,
   updateSupportErrandPhase,
 } from '@supportmanagement/services/support-errand-service';
 import {
-  assertSupportErrandUnchangedSinceSeen,
   SupportErrandStatusAfterAssignmentError,
   supportErrandWriteErrorMessage,
-} from '@supportmanagement/services/support-errand-write-version';
+} from '@supportmanagement/services/support-errand-write-error';
 import {
   getActiveSupportPhaseId,
   getSupportPhases,
@@ -29,8 +29,8 @@ import { useFormContext } from 'react-hook-form';
  * leaves the phase it was registered in, in one press. The status is the phase's to set.
  *
  * `onSubmit` saves what the sidebar holds a draft of first, and writes nothing when the form is
- * untouched. Either way the errand is started as this page last saw it: a read confirms that nobody
- * changed it since, instead of a write that would change nothing.
+ * untouched. Either way the errand is started as this page last saw it: each write checks what it
+ * depends on of that errand - the assignee, the phase, the status - against the errand as it is now.
  */
 export const SupportPhaseStartProcessButtonComponent: FC<{
   disabled: boolean;
@@ -38,7 +38,6 @@ export const SupportPhaseStartProcessButtonComponent: FC<{
   onError: () => void;
 }> = ({ disabled, onSubmit, onError }) => {
   const user = useUserStore((s) => s.user);
-  const supportErrand = useSupportStore((s) => s.supportErrand);
   const administrators = useUserStore((s) => s.administrators);
   const setSupportErrand = useSupportStore((s) => s.setSupportErrand);
   const supportMetadata = useMetadataStore((s) => s.supportMetadata);
@@ -55,37 +54,20 @@ export const SupportPhaseStartProcessButtonComponent: FC<{
     try {
       if (!(await onSubmit())) return;
 
-      // A save puts the errand as saved in the store, so the store holds the version this page last saw.
-      const seenVersion = useSupportStore.getState().supportErrand?.version;
-      const afterSubmit = await getSupportErrandById(supportErrand!.id!);
-      if (afterSubmit.error) {
-        throw new Error('Could not reload the support errand before starting it');
-      }
-      assertSupportErrandUnchangedSinceSeen(seenVersion, afterSubmit.errand.version);
+      // A save puts the errand as saved in the store, so the store holds the errand this page last saw.
+      const seen = useSupportStore.getState().supportErrand;
+      if (!seen?.id) throw new Error('The support errand is not loaded');
 
       let assigned = false;
-      if (!afterSubmit.errand.assignedUserId) {
+      if (!seen.assignedUserId) {
         const currentAdmin = administrators.find((a) => a.adAccount === user.username);
         if (currentAdmin) {
           // Assignment only: the status is left to the steps below, because it is the phase that
           // declares which statuses the errand may have, and the phase an errand is registered in
           // allows nothing but Ny.
-          await setSupportErrandAdmin(
-            supportErrand!.id!,
-            currentAdmin.adAccount,
-            afterSubmit.errand.version,
-            undefined,
-            currentAdmin.adAccount
-          );
+          await setSupportErrandAdmin(seen.id, currentAdmin.adAccount, seen, undefined, currentAdmin.adAccount);
           assigned = true;
         }
-      }
-
-      const afterAssignment = assigned
-        ? await getSupportErrandById(supportErrand!.id!)
-        : { errand: afterSubmit.errand, error: undefined as string | undefined };
-      if (afterAssignment.error) {
-        throw new Error('Could not reload the support errand after assigning it');
       }
 
       // Taking the errand on is the same event as leaving the phase it was registered in, so the
@@ -93,7 +75,8 @@ export const SupportPhaseStartProcessButtonComponent: FC<{
       // needs both: entering lands it in the registered phase, which is where it should have been
       // all along, so the same press continues out of it. Once the errand is past that phase,
       // moving on is the handler's choice and this button makes none.
-      let started = afterAssignment.errand;
+      // The assignment moves neither the phase nor the status, so the moves start from the errand as it was seen.
+      let started: SupportErrand = seen;
       for (let move = 0; move < 2; move += 1) {
         const activePhaseId = getActiveSupportPhaseId(started.phases);
         if (activePhaseId && !isInitialSupportPhase(activePhaseId, phases)) break;
@@ -102,7 +85,7 @@ export const SupportPhaseStartProcessButtonComponent: FC<{
         if (!advance) break;
 
         started = await updateSupportErrandPhase(
-          supportErrand!.id!,
+          seen.id,
           advance.kind === 'transition' ? advance.transitionId : undefined,
           activePhaseId
         );
@@ -119,13 +102,13 @@ export const SupportPhaseStartProcessButtonComponent: FC<{
         isStatusAllowedInPhase(getOngoingStatus(), startedPhaseId, phases)
       ) {
         try {
-          await setSupportErrandStatus(supportErrand!.id!, getOngoingStatus(), started);
+          await setSupportErrandStatus(seen.id, getOngoingStatus(), started);
         } catch (statusError) {
           throw assigned ? new SupportErrandStatusAfterAssignmentError(statusError) : statusError;
         }
       }
 
-      const updated = await getSupportErrandById(supportErrand!.id!);
+      const updated = await getSupportErrandById(seen.id);
       if (updated.error) throw new Error('Could not confirm the started support errand');
       setSupportErrand(updated.errand);
       reset(updated.errand);
@@ -133,7 +116,7 @@ export const SupportPhaseStartProcessButtonComponent: FC<{
       toast({ message: 'Handläggning startad', status: 'success', position: 'bottom' });
     } catch (err) {
       console.error(err);
-      // Keep the caller's draft and its original version on every failure, including partial writes.
+      // Keep the caller's draft on every failure, including partial writes.
       toast({
         message: supportErrandWriteErrorMessage(err, 'Något gick fel vid start av handläggning'),
         status: 'error',

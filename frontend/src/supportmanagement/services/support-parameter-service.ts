@@ -1,7 +1,7 @@
 import { Parameter } from '@common/data-contracts/supportmanagement/data-contracts';
 import { apiService, withRequestGroup } from '@common/services/api-service';
 
-import { toStrongSupportErrandETag } from './support-errand-write-version';
+import { toStrongETag } from './strong-etag';
 
 interface ParametersObject {
   RECRUITMENT?: Parameter[];
@@ -151,7 +151,7 @@ const saveErrandParameter = (errandId: string, write: ErrandParameterWrite): Pro
       {
         headers:
           typeof write.version === 'number'
-            ? { 'If-Match': toStrongSupportErrandETag(write.version) }
+            ? { 'If-Match': toStrongETag(write.version, 'parameter') }
             : { 'If-None-Match': '*' },
       }
     )

@@ -48,11 +48,10 @@ import {
   Channels,
   getSupportErrandById,
   isSupportErrandLocked,
-  readSupportErrandWriteSnapshot,
   resolveAwaitingResponseStatus,
   setSupportErrandStatus,
 } from '@supportmanagement/services/support-errand-service';
-import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-version';
+import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-error';
 import { contactMeansCarriesAttachments } from '@supportmanagement/services/support-message-attachments';
 import {
   defaultSupportContactMeans,
@@ -338,8 +337,6 @@ export const SupportMessageForm: FC<{
         setValue('messageBody', emailBody);
 
         if (typeOfMessage === 'infoCompletion' || typeOfMessage === 'internalCompletion') {
-          // The send above is ours, so the version this form was opened with may already be stale.
-          const afterMessage = await readSupportErrandWriteSnapshot(supportErrand.id!);
           // A workflow namespace waits for any completion in its phase's AWAITING_RESPONSE; the others keep
           // their customer and internal waiting statuses.
           const nextStatus = resolveAwaitingResponseStatus(
@@ -347,7 +344,10 @@ export const SupportMessageForm: FC<{
             supportErrand.phases,
             useMetadataStore.getState().supportMetadata?.phases
           );
-          await setSupportErrandStatus(supportErrand.id!, nextStatus, afterMessage);
+          // The message moves neither the status nor the phase, so the status changes from the errand as the
+          // handler saw it - and only when it is not already waiting there.
+          if (supportErrand.status !== nextStatus)
+            await setSupportErrandStatus(supportErrand.id!, nextStatus, supportErrand);
         }
 
         const updated = await getSupportErrandById(supportErrand.id!);

@@ -6,7 +6,7 @@ import { isSupportErrandLocked, type SupportErrand } from '@supportmanagement/se
 import {
   isSupportErrandWriteConflict,
   supportErrandWriteErrorMessage,
-} from '@supportmanagement/services/support-errand-write-version';
+} from '@supportmanagement/services/support-errand-write-error';
 import { isInSupportPhase } from '@supportmanagement/services/support-phase-service';
 import { useCallback, useId, useRef, useState } from 'react';
 

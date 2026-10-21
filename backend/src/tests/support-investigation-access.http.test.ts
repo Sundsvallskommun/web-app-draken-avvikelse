@@ -54,7 +54,6 @@ beforeEach(() => {
     document: { key, ...body, version: 1 },
     etag: '"1"' as StrongVersionETag,
     status: 201,
-    parentErrandVersion: 2,
   });
 });
 

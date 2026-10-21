@@ -19,12 +19,11 @@ import {
 import { useErrandMeasureSummary } from '@supportmanagement/measures/measure-summary';
 import { getSupportAttachments } from '@supportmanagement/services/support-attachment-service';
 import {
-  getSupportErrandById,
-  readSupportErrandWriteSnapshot,
-  type SupportErrand,
-} from '@supportmanagement/services/support-errand-service';
-import { latestKnownSupportErrandVersion } from '@supportmanagement/services/support-errand-write-version';
-import { useAdvanceErrandVersion } from '@supportmanagement/services/use-advance-errand-version';
+  CLASSIFICATION_FACTS,
+  LABEL_FACTS,
+  takeSupportErrandFacts,
+} from '@supportmanagement/services/support-errand-facts';
+import { getSupportErrandById, type SupportErrand } from '@supportmanagement/services/support-errand-service';
 import { isAxiosError } from 'axios';
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -99,7 +98,6 @@ import {
   investigationSaveErrorMessage,
   type PreparedInvestigationClassification,
   prepareInvestigationClassification,
-  savedBeyondTheDocument,
   saveInvestigationClassificationStep,
   saveInvestigationDocumentStep,
 } from './support-investigation-save-workflow';
@@ -107,8 +105,8 @@ import {
   createSupportInvestigationReport,
   getSupportInvestigationDocument,
   isSupportInvestigationAccessDenied,
+  type LoadedSupportInvestigationDocument,
   previewSupportInvestigationReport,
-  type SavedSupportInvestigationDocument,
   saveSupportInvestigationDocument,
   type SupportInvestigationDocument as SavedInvestigationDocument,
 } from './support-investigation-service';
@@ -246,15 +244,11 @@ export function SupportInvestigationDocument({
   const [classificationDirty, setClassificationDirty] = useState(false);
   const [documentSavedPendingClassification, setDocumentSavedPendingClassification] = useState(false);
   const [showLexAssignmentPrompt, setShowLexAssignmentPrompt] = useState(false);
-  const [lexAssignmentVersion, setLexAssignmentVersion] = useState<number>();
-  const [ownWriteVersion, setOwnWriteVersion] = useState<number>();
   const sectionRef = useRef<HTMLElement>(null);
   // Spara ärende in the sidebar submits this document's form and waits here for the save to finish.
   const pendingSidebarSave = useRef<(saved: boolean) => void>(undefined);
   const [revealRequest, setRevealRequest] = useState(0);
 
-  // A version read for one errand says nothing about the next one opened in its place.
-  useEffect(() => setOwnWriteVersion(undefined), [errandId]);
   const classificationMethods = useForm<InvestigationClassificationDraft>({
     defaultValues: getClassificationDraft(supportErrand),
     mode: 'onChange',
@@ -267,7 +261,6 @@ export function SupportInvestigationDocument({
   const persistedClassification = useMemo(() => getClassificationDraft(supportErrand), [supportErrand]);
 
   const setDocumentDirty = useCallback((nextDirty: boolean) => setIsDirty(nextDirty), []);
-  const advanceParentVersion = useAdvanceErrandVersion(errandId);
 
   const applyInvestigationTemplateText = useCallback(
     (template: string, text: string) => {
@@ -529,7 +522,6 @@ export function SupportInvestigationDocument({
     : [];
 
   useEffect(() => {
-    registerErrandField('version');
     if (!classificationOwner) return;
 
     registerErrandField('classification');
@@ -624,10 +616,7 @@ export function SupportInvestigationDocument({
     );
   }
 
-  const applySavedDocument = (saved: SavedSupportInvestigationDocument, advanceVersion = true) => {
-    // Read now rather than from this render: a save from the sidebar can follow the errand's own save
-    // before the document has rendered the version that left.
-    const knownVersion = useSupportStore.getState().supportErrand?.version;
+  const applySavedDocument = (saved: LoadedSupportInvestigationDocument) => {
     setDocumentState((current) =>
       current
         ? {
@@ -649,16 +638,11 @@ export function SupportInvestigationDocument({
     );
     onSaved(saved.document);
     setDocumentDirty(false);
-    // A readback proves no parent baseline unless the BFF says how many of the version steps were this request's own.
-    return advanceVersion
-      ? advanceParentVersion(knownVersion, saved.parentErrandVersion, saved.ownErrandWrites)
-      : knownVersion;
   };
 
   const applySavedClassification = (
     savedErrand: SupportInvestigationClassificationResponse,
-    prepared: PreparedInvestigationClassification,
-    expectedVersion: number | undefined
+    prepared: PreparedInvestigationClassification
   ) => {
     const savedSelections = getAvvikelseGroupedClassificationSelection(
       prepared.model,
@@ -689,6 +673,8 @@ export function SupportInvestigationDocument({
           type: savedDraft.type,
           subType: savedDraft.subType,
           classificationHasSubTypes: savedDraft.classificationHasSubTypes,
+          // The page now shows the classification and the labels as saved, so it has seen them as they are.
+          facts: takeSupportErrandFacts(state.supportErrand.facts, savedErrand.facts, CLASSIFICATION_FACTS),
         },
       };
     });
@@ -699,13 +685,12 @@ export function SupportInvestigationDocument({
     resetErrandField('type', { defaultValue: savedDraft.type });
     resetErrandField('subType', { defaultValue: savedDraft.subType });
     resetErrandField('classificationHasSubTypes', { defaultValue: savedDraft.classificationHasSubTypes });
-    advanceParentVersion(expectedVersion, savedErrand.version);
   };
 
   /**
-   * Takes over the labels the errand has now, and nothing else of it. What is shown by the errand's labels - the HSL
-   * investigation for a manager, once the risk is high - then follows the save without the page being loaded again.
-   * The version is not read here: the save has already advanced it by its own steps.
+   * Takes over the labels the errand has now, and nothing else of it: the BFF marks the errand with what follows from
+   * a saved document - a high HSL risk - in the same call. What is shown by the errand's labels - the HSL investigation
+   * for a manager, once the risk is high - then follows the save without the page being loaded again.
    */
   const refreshErrandLabels = async () => {
     if (!errandId) return;
@@ -714,7 +699,13 @@ export function SupportInvestigationDocument({
     if (!reread?.labels) return;
     useSupportStore.setState((state) =>
       state.supportErrand?.id === errandId
-        ? { supportErrand: { ...state.supportErrand, labels: reread.labels } }
+        ? {
+            supportErrand: {
+              ...state.supportErrand,
+              labels: reread.labels,
+              facts: takeSupportErrandFacts(state.supportErrand.facts, reread.facts, LABEL_FACTS),
+            },
+          }
         : state
     );
     resetErrandField('labels', { defaultValue: reread.labels });
@@ -723,7 +714,7 @@ export function SupportInvestigationDocument({
   /**
    * A saved unit manager investigation that assesses a suspected misconduct has to be handed to a
    * LEX manager, and the dialog that does it opens here rather than during the save itself - the
-   * investigation is already stored, and the handover is a separate write against its new version.
+   * investigation is already stored, and the handover is a separate write on the errand.
    */
   const promptLexAssignmentIfNeeded = async (savedFormData: InvestigationFormData) => {
     if (definition.schemaName !== UNIT_MANAGER_INVESTIGATION_SCHEMA_NAME) return;
@@ -735,37 +726,7 @@ export function SupportInvestigationDocument({
       lexDeclined: hasLexDeclinedInvestigation(useSupportStore.getState().supportErrand, profile),
     });
     if (!needsLexAssignment) return;
-
-    // The handover is conditioned on the errand version, and the store is not a reliable source for it
-    // here: it only advances on a write that explains the whole version change, so after a save that
-    // moved the errand further - classification, a generated report - it still holds the version from
-    // before. The writes just made are this flow's own, so the version they left is causally ours and
-    // is read now, before the dialog opens, rather than when the manager eventually picks somebody -
-    // by then someone else's edit could have come between. A failed read leaves the version unset,
-    // and the dialog asks for a reload instead of sending a precondition it cannot vouch for.
-    try {
-      setLexAssignmentVersion((await readSupportErrandWriteSnapshot(errandId!)).version);
-    } catch {
-      setLexAssignmentVersion(undefined);
-    }
     setShowLexAssignmentPrompt(true);
-  };
-
-  /**
-   * The return to the manager is conditioned on the errand version, and after this document's own writes
-   * the store can lag behind them: it only advances on a write that explains the whole version change.
-   * The version those writes left is read right after them, while it is causally ours, and the button
-   * takes the later of it and the store's - so a reload elsewhere, a phase change say, is not undone.
-   * A failed read leaves the store's version standing; a stale one is refused with a conflict, never applied.
-   */
-  const rememberOwnWriteVersion = async () => {
-    // Asked of the document rather than of the saved answer, which this very save may just have given it.
-    if (!handsBackToManager || !errandId) return;
-    try {
-      setOwnWriteVersion((await readSupportErrandWriteSnapshot(errandId)).version);
-    } catch {
-      // The store's version stands.
-    }
   };
 
   const reportFailureNotice = (error: unknown, fallback: string) => {
@@ -786,10 +747,6 @@ export function SupportInvestigationDocument({
 
   const unlockDocument = async () => {
     if (!errandId || !completion || !documentState.persisted || isReporting || isSaving) return;
-    if (typeof supportErrand?.version !== 'number') {
-      setNotice({ type: 'error', message: 'Ärendets version saknas. Ladda om ärendet innan utredningen låses upp.' });
-      return;
-    }
     setIsReporting(true);
     setNotice(undefined);
     try {
@@ -797,12 +754,10 @@ export function SupportInvestigationDocument({
         errandId,
         definition.key,
         { schemaId: documentState.schemaId, value: { ...documentState.persistedFormData, [completion.field]: 'no' } },
-        supportErrand.version,
         documentState.etag
       );
       applySavedDocument(saved);
       toastSuccess(`${wording.noun} är upplåst och kan ändras igen.`);
-      await rememberOwnWriteVersion();
     } catch (error) {
       reportFailureNotice(error, `${wording.noun} kunde inte låsas upp. Försök igen.`);
     } finally {
@@ -821,10 +776,7 @@ export function SupportInvestigationDocument({
       sessionStorage.setItem(publicationKey, operationId);
       const created = await createSupportInvestigationReport(errandId, definition.key, operationId);
       sessionStorage.removeItem(publicationKey);
-      // The publication is several writes on the errand; the BFF says how many, and the page's version follows them
-      // so that the next errand write - handing the errand on, say - is not refused as somebody else's change.
-      applySavedDocument(created, created.ownErrandWrites !== undefined);
-      await rememberOwnWriteVersion();
+      applySavedDocument(created);
       toastSuccess(`Rapporten ${created.report.fileName} har skapats och lagts som en bilaga på ärendet.`);
       try {
         const attachments = await getSupportAttachments(errandId);
@@ -930,7 +882,6 @@ export function SupportInvestigationDocument({
       setValidationErrors(errors);
       if (errors.length > 0) return false;
 
-      const errandVersion = useSupportStore.getState().supportErrand?.version;
       const savedDocument = await saveInvestigationDocumentStep({
         errandId,
         documentKey: definition.key,
@@ -938,12 +889,11 @@ export function SupportInvestigationDocument({
         value: normalizedData,
         persisted: documentState.persisted,
         etag: documentState.etag,
-        parentErrandVersion: errandVersion,
         documentDirty: isDirty,
         classificationDirty,
         documentSavedPendingClassification,
       });
-      const classificationVersion = savedDocument ? applySavedDocument(savedDocument) : errandVersion;
+      if (savedDocument) applySavedDocument(savedDocument);
 
       if (savedDocument && classificationDirty) {
         documentSavedForClassification = true;
@@ -954,12 +904,14 @@ export function SupportInvestigationDocument({
         errandId,
         documentKey: definition.key,
         prepared: preparedClassification,
-        parentErrandVersion: classificationVersion,
+        // Read now rather than from this render: a save from the sidebar can follow the errand's own save before the
+        // document has rendered the errand that save left.
+        seen: useSupportStore.getState().supportErrand,
         documentETag: savedDocument?.etag ?? documentState.etag,
       });
       if (savedClassification && preparedClassification) {
-        applySavedClassification(savedClassification, preparedClassification, classificationVersion);
-      } else if (savedBeyondTheDocument(savedDocument)) {
+        applySavedClassification(savedClassification, preparedClassification);
+      } else if (savedDocument) {
         // A saved classification answers with the errand's labels; without one they are read again.
         await refreshErrandLabels();
       }
@@ -970,7 +922,6 @@ export function SupportInvestigationDocument({
 
       if (reportRequested) await generateReportNow();
       await promptLexAssignmentIfNeeded(normalizedData);
-      await rememberOwnWriteVersion();
       return true;
     } catch (error) {
       if (isSupportInvestigationAccessDenied(error)) refreshAccess();
@@ -1249,7 +1200,7 @@ export function SupportInvestigationDocument({
             <ReturnToManagerButton
               step={returnStep}
               errandId={errandId!}
-              expectedVersion={latestKnownSupportErrandVersion(supportErrand?.version, ownWriteVersion)}
+              seen={supportErrand}
               disabled={isSaving || isDirty || classificationDirty}
             />
           ) : undefined
@@ -1266,7 +1217,7 @@ export function SupportInvestigationDocument({
         <LexAssignmentPrompt
           show
           errandId={errandId!}
-          expectedVersion={lexAssignmentVersion}
+          seen={supportErrand}
           onClose={() => setShowLexAssignmentPrompt(false)}
         />
       )}

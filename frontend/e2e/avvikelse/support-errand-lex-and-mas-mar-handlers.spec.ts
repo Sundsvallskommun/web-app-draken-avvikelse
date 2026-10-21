@@ -175,9 +175,7 @@ test('giving the errand to LEX-ansvarig is the handover to LEX', async ({ page, 
 
   // The named step rather than an assignment, and the page leaves the errand it can no longer reach.
   await expect(page).toHaveURL(/\/oversikt/u);
-  expect(trace.handovers).toEqual([
-    { step: 'assign-lex', expectedVersion: expect.any(Number), assignedUserId: 'lena.lex' },
-  ]);
+  expect(trace.handovers).toEqual([{ step: 'assign-lex', seenFacts: expect.any(Object), assignedUserId: 'lena.lex' }]);
   expect(trace.parameterPuts).toEqual([]);
 });
 
@@ -225,7 +223,5 @@ test('offers LEX-ansvarig as soon as the investigation is saved with a suspected
   await saveButton(page).click();
 
   await expect(page).toHaveURL(/\/oversikt/u);
-  expect(trace.handovers).toEqual([
-    { step: 'assign-lex', expectedVersion: expect.any(Number), assignedUserId: 'lena.lex' },
-  ]);
+  expect(trace.handovers).toEqual([{ step: 'assign-lex', seenFacts: expect.any(Object), assignedUserId: 'lena.lex' }]);
 });

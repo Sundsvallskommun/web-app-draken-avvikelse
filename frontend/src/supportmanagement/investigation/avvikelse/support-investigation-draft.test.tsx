@@ -19,6 +19,7 @@ import { SupportErrandInvestigationTab } from './support-errand-investigation-ta
 
 const mocks = vi.hoisted(() => ({
   read: vi.fn(),
+  errand: vi.fn(),
   save: vi.fn(),
   preview: vi.fn(),
   generate: vi.fn(),
@@ -42,6 +43,7 @@ vi.mock('@stores/index', async () => ({
     selector({ supportMetadata: undefined }),
 }));
 vi.mock('@supportmanagement/services/support-errand-service', () => ({
+  getSupportErrandById: mocks.errand,
   isSupportErrandLocked: () => false,
   isSupportErrandOpenToHandover: () => true,
 }));
@@ -184,6 +186,7 @@ beforeEach(() => {
   mocks.snackbar.mockReset();
   mocks.attachments.mockReset().mockResolvedValue([]);
   mocks.save.mockReset();
+  mocks.errand.mockReset().mockResolvedValue({ errand: { id: 'one', labels: [] } });
   sessionStorage.clear();
   mocks.read.mockReset().mockImplementation(async (_errand: string, key: string) => ({
     document: { key, schemaId: 'schema', value: { answer: `Saved ${key}` } },
@@ -286,7 +289,7 @@ test('a new user cannot inherit the previous user draft', async () => {
   expect(screen.queryByDisplayValue('Private draft')).toBeNull();
 });
 
-test.each([2, 3])('a report readback at version %s does not authorize stale parent fields', async (version) => {
+test('a report leaves the errand as the page knows it', async () => {
   mocks.completion.mockReturnValue({ field: 'completed', reportsField: 'reports' });
   mocks.read.mockResolvedValue({
     document: { key: 'first', schemaId: 'schema', value: { answer: 'Saved first', completed: 'yes' } },
@@ -296,7 +299,6 @@ test.each([2, 3])('a report readback at version %s does not authorize stale pare
   mocks.generate.mockResolvedValue({
     document: { key: 'first', schemaId: 'schema', value: { answer: 'Saved first', completed: 'yes' } },
     etag: '"2"',
-    parentErrandVersion: version,
     report: { fileName: 'report.pdf' },
   });
   render(createElement(Harness, { access: grants('edit', 'hidden') }));
@@ -329,16 +331,31 @@ test('a report retry retains its publication identity after a lost response', as
   expect(operationId).toMatch(/^[a-f0-9-]{36}$/);
 });
 
-test.each([
-  [2, 2],
-  [3, 1],
-])('a document save at parent version %s retains the safe form version %s', async (received, expected) => {
+// The BFF marks the errand with what follows from a saved document - a high HSL risk - in the same call, so the page
+// takes in the labels the errand has now, and what it has seen of them. Nothing else of the errand: its other fields,
+// and what the page has seen of them, stay as the page shows them.
+test('a document save takes in the errand’s labels and leaves the rest of it as the page knows it', async () => {
+  const risk = { id: 'risk', resourcePath: 'RISK/HIGH_HSL' };
   mocks.save.mockResolvedValue({
     document: { key: 'first', schemaId: 'schema', value: { answer: 'New answer' } },
     etag: '"2"',
-    parentErrandVersion: received,
   });
-  useSupportStore.setState((state) => ({ supportErrand: { ...state.supportErrand!, title: 'Old title' } }));
+  mocks.errand.mockResolvedValue({
+    errand: {
+      id: 'one',
+      title: 'Somebody else’s title',
+      version: 5,
+      labels: [risk],
+      facts: { title: 'their-title', labels: 'with-risk', routingLabels: 'routed' },
+    },
+  });
+  useSupportStore.setState((state) => ({
+    supportErrand: {
+      ...state.supportErrand!,
+      title: 'Old title',
+      facts: { title: 'old-title', labels: 'without-risk', routingLabels: 'routed' },
+    },
+  }));
   render(createElement(Harness, { access: grants('edit', 'hidden') }));
   fireEvent.change(await screen.findByLabelText('first', { selector: 'textarea' }), {
     target: { value: 'New answer' },
@@ -346,9 +363,12 @@ test.each([
   fireEvent.click(screen.getByRole('button', { name: 'Save document' }));
   await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(screen.queryByText('Osparade ändringar')).toBeNull());
-  await waitFor(() =>
-    expect(useSupportStore.getState().supportErrand).toMatchObject({ title: 'Old title', version: expected })
-  );
+  await waitFor(() => expect(useSupportStore.getState().supportErrand?.labels).toEqual([risk]));
+  expect(useSupportStore.getState().supportErrand).toMatchObject({
+    title: 'Old title',
+    version: 1,
+    facts: { title: 'old-title', labels: 'with-risk', routingLabels: 'routed' },
+  });
 });
 
 test('a failed attachment refresh still reports the publication as successful', async () => {
@@ -360,7 +380,6 @@ test('a failed attachment refresh still reports the publication as successful', 
   mocks.generate.mockResolvedValue({
     document: { key: 'first', schemaId: 'schema', value: { answer: 'Saved first', completed: 'yes' } },
     etag: '"2"',
-    parentErrandVersion: 4,
     report: { fileName: 'report.pdf' },
   });
   mocks.attachments.mockRejectedValue(new Error('List unavailable'));
@@ -377,7 +396,6 @@ test('Spara ärende saves a document draft through its form', async () => {
   mocks.save.mockResolvedValue({
     document: { key: 'first', schemaId: 'schema', value: { answer: 'Sidebar answer' } },
     etag: '"2"',
-    parentErrandVersion: 2,
   });
   render(createElement(Harness, { access: grants('edit', 'hidden') }));
   expect(screen.queryByRole('button', { name: /Spara utredning/u })).toBeNull();
@@ -391,11 +409,9 @@ test('Spara ärende saves a document draft through its form', async () => {
     'one',
     'first',
     { schemaId: 'schema', value: { answer: 'Sidebar answer' } },
-    1,
     '"1"'
   );
   await waitFor(() => expect(dirtyParticipants()).toEqual([]));
-  expect(useSupportStore.getState().supportErrand).toMatchObject({ version: 2 });
 });
 
 test('a document Spara ärende could not save is shown with why', async () => {

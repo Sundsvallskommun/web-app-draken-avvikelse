@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import { IsObject, IsOptional, IsString, MinLength } from 'class-validator';
 import { Body, Controller, Get, HttpCode, Param, Post, Req, Res, UseBefore } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 
@@ -35,7 +35,8 @@ import {
   resolveErrandLocation,
   resolveInvestigationLocationTarget,
 } from '@/services/investigation-handover-label.service';
-import { assertRequestedErrandVersion, assertSupportErrandAdminAssignable, getErrandVersion } from '@/services/support-errand.service';
+import { assertSupportErrandAdminAssignable, getErrandVersion } from '@/services/support-errand.service';
+import { assertErrandFactsUnchanged, type ErrandFactKey, type SeenErrandFacts } from '@/services/support-errand-facts';
 import { SupportInvestigationAccessService } from '@/services/support-investigation-access.service';
 import { SupportInvestigationPolicyService } from '@/services/support-investigation-policy.service';
 import { supportMetadataCache } from '@/services/support-metadata-cache';
@@ -50,11 +51,16 @@ import { ManagerCandidate, ManagerRoleOption, managerRoleOptions, resolveLocatio
 import { logger } from '@/utils/logger';
 import { apiURL } from '@/utils/util';
 
+/**
+ * A handover gives the errand from the handler who holds it, in the status it is in, routed as it is - its access, its
+ * report type and its place. The errand's other labels may have moved: a document saved with the handover adds them.
+ */
+const HANDOVER_FACTS: readonly ErrandFactKey[] = ['assignedUserId', 'status', 'routingLabels'];
+
 export class InvestigationHandoverDto {
-  @IsInt()
-  @Min(0)
-  @Max(Number.MAX_SAFE_INTEGER)
-  expectedVersion!: number;
+  /** The fingerprints of the facts the handover depends on, as the handler saw them (`errandFacts`). */
+  @IsObject()
+  seenFacts!: SeenErrandFacts;
 
   /** Required by steps whose assignee is picked by the caller; ignored by the others. */
   @IsOptional()
@@ -244,11 +250,13 @@ export class SupportInvestigationAssignmentController {
     const authorizingDocumentKey = await this.assertStepAllowed(req, MUNICIPALITY_ID, id, step);
 
     let { errand, metadata, currentVersion } = await this.readErrandAndMetadata(req, MUNICIPALITY_ID, id);
-    assertRequestedErrandVersion(data.expectedVersion, currentVersion);
+    assertErrandFactsUnchanged(errand, data.seenFacts, HANDOVER_FACTS);
     assertSupportErrandAdminAssignable(errand, `the ${step.step} handover`);
     if (await this.carryOutSavedDecision(req, MUNICIPALITY_ID, id, step, authorizingDocumentKey, errand)) {
-      // The service note was this step's own write, so the handover applies to the errand as it now stands.
-      ({ errand, metadata, currentVersion } = await this.readErrandAfterOwnWrite(req, MUNICIPALITY_ID, id, currentVersion));
+      // The service note was this step's own write. It moves the errand's version but none of the facts the handover
+      // depends on, so they are read again and the handover applies to the errand as it now stands.
+      ({ errand, metadata, currentVersion } = await this.readErrandAndMetadata(req, MUNICIPALITY_ID, id));
+      assertErrandFactsUnchanged(errand, data.seenFacts, HANDOVER_FACTS);
     }
 
     let assignedUserId: string | undefined;
@@ -387,23 +395,6 @@ export class SupportInvestigationAssignmentController {
       req.user,
     );
     return true;
-  }
-
-  /**
-   * The errand after a write of this step's own. One version step is the step's own write; any more is somebody
-   * else's, and the handover is refused rather than applied over a change the handler has not seen.
-   */
-  private async readErrandAfterOwnWrite(
-    req: RequestWithUser,
-    municipalityId: string,
-    errandId: string,
-    versionBefore: number,
-  ): Promise<{ errand: SupportErrand; metadata: SupportMetadata; currentVersion: number }> {
-    const fresh = await this.readErrandAndMetadata(req, municipalityId, errandId);
-    if (fresh.currentVersion > versionBefore + 1) {
-      throw new HttpException(409, 'Ärendet har ändrats av någon annan. Ladda om ärendet och försök igen.');
-    }
-    return fresh;
   }
 
   private async readErrandAndMetadata(

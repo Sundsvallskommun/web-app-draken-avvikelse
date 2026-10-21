@@ -20,6 +20,7 @@ import {
   getErrandVersion,
   resolveSupportErrandPhaseTransition,
 } from '@/services/support-errand.service';
+import { withErrandFacts } from '@/services/support-errand-facts';
 import {
   assertHslAnalysisFinishedBeforeClose,
   assertInvestigationCompletedBeforeDecision,
@@ -187,7 +188,7 @@ export class SupportPhaseController {
       req.user,
     );
     return response.status(200).send({
-      ...savedErrand.data,
+      ...withErrandFacts(savedErrand.data),
       version: getErrandVersion(savedErrand.data, savedErrand.headers?.etag),
     });
   }

@@ -4,7 +4,7 @@ import { FormControl, FormErrorMessage, FormLabel, Select } from '@sk-web-gui/re
 import { useSupportStore, useUserStore } from '@stores/index';
 import { useErrandSaveParticipant } from '@supportmanagement/components/support-errand/errand-save/use-errand-save-participant';
 import { getSupportErrandById } from '@supportmanagement/services/support-errand-service';
-import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-version';
+import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-error';
 import { FC, useState } from 'react';
 
 import type { InvestigationHandlerFieldsProps } from '../../investigation-variant';

@@ -87,26 +87,40 @@ describe('conditional-write headers (over HTTP)', () => {
     apiPatch.mockResolvedValue({ data: { id: errandId, version: 3 } });
   });
 
-  it('accepts a canonical strong ETag and forwards the write', async () => {
-    const response = await request(server).patch(errandUrl).set('If-Match', '"2"').send({ title: 'Uppdaterad titel' });
+  // An errand change is conditioned on what the handler saw of the fields it writes, sent in the body, and upstream
+  // on the version the BFF read for that check - there is no errand If-Match to bind any more.
+  const seenTitle = async (title: string) => {
+    const { errandFacts } = await import('@/services/support-errand-facts');
+    return { title: errandFacts({ id: errandId, title }).title };
+  };
 
-    expect(JSON.stringify(response.body)).not.toContain('If-Match must contain one strong numeric ETag');
+  it('writes a change of the fields the handler saw as they are, on the version just read', async () => {
+    apiGet.mockResolvedValue({ data: { id: errandId, status: 'ONGOING', title: 'Titel', version: 2 }, headers: { etag: '"2"' } });
+
+    const response = await request(server)
+      .patch(errandUrl)
+      .send({ title: 'Uppdaterad titel', seenFacts: await seenTitle('Titel') });
+
     expect(response.status).toBe(200);
     expect(apiPatch).toHaveBeenCalledTimes(1);
+    expect(apiPatch.mock.calls[0][0]).toMatchObject({ data: { title: 'Uppdaterad titel' }, headers: { 'If-Match': '"2"' } });
   });
 
-  it('rejects a weak validator', async () => {
-    const response = await request(server).patch(errandUrl).set('If-Match', 'W/"2"').send({ title: 'x' });
+  it('refuses a change of a field somebody else changed since the handler saw it', async () => {
+    apiGet.mockResolvedValue({ data: { id: errandId, status: 'ONGOING', title: 'Ändrad av någon annan', version: 3 }, headers: { etag: '"3"' } });
 
-    expect(response.status).toBe(400);
-    expect(JSON.stringify(response.body)).toContain('If-Match must contain one strong numeric ETag');
+    const response = await request(server)
+      .patch(errandUrl)
+      .send({ title: 'Uppdaterad titel', seenFacts: await seenTitle('Titel') });
+
+    expect(response.status).toBe(409);
     expect(apiPatch).not.toHaveBeenCalled();
   });
 
-  it('demands a precondition when If-Match is absent', async () => {
-    const response = await request(server).patch(errandUrl).send({ title: 'x' });
+  it('demands what the handler saw of the fields a change writes', async () => {
+    const response = await request(server).patch(errandUrl).send({ title: 'x', seenFacts: {} });
 
-    expect(response.status).toBe(428);
+    expect(response.status).toBe(400);
     expect(apiPatch).not.toHaveBeenCalled();
   });
 
@@ -118,18 +132,6 @@ describe('conditional-write headers (over HTTP)', () => {
 
     // Whatever this endpoint decides about the key or the profile, the wildcard must reach the
     // handler intact rather than dying in parameter binding.
-    expect(JSON.stringify(response.body)).not.toContain('cannot be parsed into JSON');
-  });
-
-  it('does not try to JSON.parse a malformed X-Errand-Version', async () => {
-    const response = await request(server)
-      .put(`${errandUrl}/json-parameters/utredning-enhetschef`)
-      .set('If-None-Match', '*')
-      .set('X-Errand-Version', 'inte-ett-nummer')
-      .send({ schemaId: 'x', value: {} });
-
-    // Canonical digits survive the parse by coincidence - `JSON.parse('12')` is a number the
-    // pattern check coerces back - so only a non-JSON value exposes the binding bug.
     expect(JSON.stringify(response.body)).not.toContain('cannot be parsed into JSON');
   });
 });

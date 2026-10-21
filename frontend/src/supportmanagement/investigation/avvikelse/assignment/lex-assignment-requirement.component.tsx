@@ -12,15 +12,15 @@ import { LexAssignmentPrompt } from './lex-assignment-prompt.component';
  */
 export const LexAssignmentRequirement: FC<InvestigationPhaseEntryRequirementProps> = ({ onClose }) => {
   const errandId = useSupportStore((state) => state.supportErrand?.id);
-  const version = useSupportStore((state) => state.supportErrand?.version);
+  const seen = useSupportStore((state) => state.supportErrand);
   if (!errandId) return null;
 
   return (
     <LexAssignmentPrompt
       show
       errandId={errandId}
-      // The handover is the first write of this flow, so it is conditioned on the errand as the page shows it.
-      expectedVersion={version}
+      // The handover is conditioned on the errand as the page shows it.
+      seen={seen}
       description="Enhetschefens utredning bedömer ett misstänkt missförhållande, så ärendet ska tilldelas en LEX-ansvarig. Fasen byts inte nu: LEX-ansvarig skickar ärendet till beslut. Rapporttypen ändras från Avvikelse till Missförhållande, och när ärendet är tilldelat lämnar det din ärendelista."
       onClose={onClose}
     />

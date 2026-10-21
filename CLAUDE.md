@@ -258,35 +258,55 @@ CI runs both projects as separate matrix jobs in `.github/workflows/playwright.y
 | `frontend/src/config/appconfig.tsx`                                   | Application name and the related-reports toggle |
 | `frontend/next.config.js`                                             | Next.js configuration                           |
 
-## Writing to a Support Errand: scope the version check to what you write
+## Writing to a Support Errand: check what the write depends on
 
 Support Management versions an errand **and** the sub-resources beneath it. Versions roll up but not
-down: changing a parameter or a JSON parameter moves the errand's version too, while the errand's
-version moving says nothing about any particular child.
+down: writing a parameter, a JSON parameter, a measure or a note moves the errand's version too, and a
+child write answers with the child's own ETag only. The errand's version moving therefore says nothing
+about any particular field, and nothing in Draken counts how far it moved.
 
-So a write is conditioned on the version of **the resource it writes**, never on the errand around
-it. Conditioning a child write on the errand version rejects saves over fields nobody contended,
-and — worse — sending a whole collection rewrites entries another user just changed.
+So a write is conditioned on what it depends on, never on the errand's version as such:
+
+- **A child write is conditioned on the version of the resource it writes**, never on the errand around it.
+- **An errand-level write is conditioned on the facts it depends on.** The BFF hands every errand out with
+  `facts` (`errandFacts`, `backend/src/services/support-errand-facts.ts`): one fingerprint per fact - each of
+  the errand's own fields, its labels, its routing (`ACCESS`, `REPORT_TYPE` and `LOCATION` labels), its
+  classification (routing and permanent labels left out), its assignee, its status and its active phase.
+  Every errand-level command sends back the facts the handler saw as `seenFacts`. The BFF reads the errand
+  fresh, refuses with 409 when a fact the command depends on differs (`assertErrandFactsUnchanged`), and
+  writes upstream with `If-Match` on the version it just read, so a write that comes in between is a 412.
+  The client never sends an errand version and never computes a fact.
 
 | What you write | Route | Precondition |
 | --- | --- | --- |
 | One parameter | `PUT /supporterrands/:id/parameters/:key` | that parameter's version |
 | One JSON parameter | `PUT /supporterrands/:id/json-parameters/:key` | that document's ETag |
-| Errand-level fields (`title`, `stakeholders`, `labels`, `externalTags`, …) | `PATCH /supporterrands/:id` | the errand's version |
-| Assignee / status / classification / handover | their own command routes | the errand's version |
-| Phase | `PATCH /supporterrands/:id/phase` | the active phase the client saw; the BFF conditions the upstream write on the version it just read |
 | One measure (its fields, decision, end date, follow-up) | `PATCH /supporterrands/:id/measures/:measureId[/…]` | that measure's version (`requireMeasureVersion`, `readWritableMeasure`) |
+| Errand-level fields (`title`, `stakeholders`, `labels`, `externalTags`, …) | `PATCH /supporterrands/:id` | the facts of the fields written |
+| Assignee | `PATCH /supporterrands/:id/admin` | the assignee |
+| Status | `PATCH /supporterrands/:id/status` | the status and the active phase |
+| Classification | `PATCH /supporterrands/:id/classification` | the classification, and the owning document's ETag |
+| Handover | `POST /supporterrands/:id/investigation-handover/:step` | the assignee, the status and the routing |
+| Phase | `PATCH /supporterrands/:id/phase` | the active phase the client saw (`expectedActivePhaseId`) |
 
-Two consequences worth keeping:
+Consequences worth keeping:
 
 - **`parameters` must not go in the generic errand PATCH body.** It is written per key instead. The
   errand is still read fresh before a child write, but only for its **status** — a locked or closed
   errand accepts nothing.
 - **Only write what changed.** `saveChangedErrandParameters` skips parameters whose values are
   unchanged: rewriting one with the value it already has moves its version and can clobber a
-  concurrent edit. Likewise Starta handläggning saves the sidebar's errand fields only when they hold a
-  draft. An action that writes nothing of the errand but must act on the errand the user was shown checks
-  that by reading it (`assertSupportErrandUnchangedSinceSeen`), never by a PATCH that changes nothing.
+  concurrent edit. The errand PATCH carries only the fields the draft changed (`buildSupportErrandUpdateData`),
+  so somebody else's change to another field neither stops the save nor is written over. Starta
+  handläggning saves the sidebar's errand fields only when they hold a draft. No action writes something
+  that changes nothing to check the errand: each command checks the facts it depends on.
+- **The facts the page holds are the ones it shows.** The store's errand carries the facts it was loaded
+  with (`SeenSupportErrand`, `frontend/src/supportmanagement/services/support-errand-facts.ts`). When the
+  answer to an own write replaces some of the errand's fields in the store, the page takes the facts of those
+  fields alone (`takeSupportErrandFacts`): a change somebody else made to a field the page still shows as it
+  was stays theirs to find out about. A chain of writes in one action - an assignment and the status after
+  it, a save and the handover after it - sends the facts the handler saw when they acted, since no write in
+  the chain moves what the next one depends on.
 
 `notes`, `attachments` and `notifications` have their own routes but no version in the upstream model,
 so no conflict detection is available for them.

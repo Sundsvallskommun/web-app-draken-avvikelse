@@ -50,7 +50,6 @@ async function installPhases(
   let counted = 0;
   const snapshot: MeasuresSnapshot = {
     measures,
-    errandVersion: 7,
     metadata: { measureTypes: [], roles: [] },
     creationRoles: [],
     registration: { status: 'unconfigured', roleTypes: [] },

@@ -18,11 +18,12 @@ import { HttpException } from '@/exceptions/HttpException';
 import { RequestWithUser } from '@/interfaces/auth.interface';
 import { ExternalIdType } from '@/interfaces/externalIdType.interface';
 import authMiddleware from '@/middlewares/auth.middleware';
+import { ERRAND_CHANGED_ELSEWHERE_MESSAGE, errandFacts } from '@/services/support-errand-facts';
 import { SupportInvestigationAccessService } from '@/services/support-investigation-access.service';
 import { SupportErrandClassificationOwner, SupportInvestigationPolicyService } from '@/services/support-investigation-policy.service';
 import { SupportJsonParameterService } from '@/services/support-json-parameter.service';
 
-import { ABSENT_HEADER, mockReq, mockRes, mockUser } from './helpers/http';
+import { mockReq, mockRes, mockUser } from './helpers/http';
 import {
   mockAdUsername,
   mockCitizenPartyId,
@@ -60,6 +61,15 @@ interface OrgStub {
  * `apiService` and `organizationService` are plain instance properties (the `private` keyword is
  * erased at runtime), so they can be replaced directly instead of mocking the modules.
  */
+/** The errand the stubbed Support Management answers with, unless a test says otherwise. */
+const DEFAULT_ERRAND = { version: 7, status: 'ONGOING' };
+
+/** What the handler saw of an errand: the fingerprints its commands are checked against. */
+const seenOf = (errand: object = DEFAULT_ERRAND) => errandFacts(errand);
+
+/** A command as the client sends it: with what the handler saw of the errand. */
+const withSeen = <T extends object>(command: T, errand: object = DEFAULT_ERRAND) => ({ ...command, seenFacts: seenOf(errand) });
+
 const makeController = (classificationOwner: SupportErrandClassificationOwner = 'investigation') => {
   const controller = new SupportErrandController();
   const api: ApiStub = {
@@ -400,7 +410,8 @@ describe('SupportErrandController', () => {
         { url: `${SUPPORT_SERVICE}/${MUNICIPALITY_ID}/${NAMESPACE}/errands/${mockSupportErrandId}` },
         expect.anything(),
       );
-      expect(res.body).toEqual({ id: mockSupportErrandId });
+      // The errand carries the fingerprints of its facts, which the commands on it send back.
+      expect(res.body).toEqual({ id: mockSupportErrandId, facts: seenOf({ id: mockSupportErrandId }) });
     });
   });
 
@@ -416,7 +427,7 @@ describe('SupportErrandController', () => {
         { url: `${SUPPORT_SERVICE}/${MUNICIPALITY_ID}/${NAMESPACE}/errands?filter=errandNumber:'${mockSupportErrandNumber}'` },
         expect.anything(),
       );
-      expect(res.body).toEqual({ id: mockSupportErrandId });
+      expect(res.body).toEqual({ id: mockSupportErrandId, facts: seenOf({ id: mockSupportErrandId }) });
     });
   });
 
@@ -937,9 +948,14 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
       api.get.mockResolvedValue({ data: { version: 7, status: 'ONGOING', channel: 'ESERVICE' }, headers: { etag: '"7"' }, message: 'success' });
 
-      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { channel: 'WEB_UI' }, mockRes())).rejects.toMatchObject({
-        status: 409,
-      });
+      await expect(
+        controller.updateSupportErrand(
+          mockReq(),
+          mockSupportErrandId,
+          withSeen({ channel: 'WEB_UI' }, { status: 'ONGOING', channel: 'ESERVICE' }),
+          mockRes(),
+        ),
+      ).rejects.toMatchObject({ status: 409, message: expect.stringContaining('channel') });
       expect(api.patch).not.toHaveBeenCalled();
     });
 
@@ -947,7 +963,12 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
       api.get.mockResolvedValue({ data: { version: 7, status: 'ONGOING', channel: 'ESERVICE' }, headers: { etag: '"7"' }, message: 'success' });
 
-      await controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { channel: 'ESERVICE', title: 'Ny rubrik' }, mockRes());
+      await controller.updateSupportErrand(
+        mockReq(),
+        mockSupportErrandId,
+        withSeen({ channel: 'ESERVICE', title: 'Ny rubrik' }, { status: 'ONGOING', channel: 'ESERVICE' }),
+        mockRes(),
+      );
 
       expect(api.patch).toHaveBeenCalledTimes(1);
     });
@@ -957,7 +978,12 @@ describe('SupportErrandController', () => {
       (investigationPolicy as { profile: unknown }).profile = { documents: [] };
       api.get.mockResolvedValue({ data: { version: 7, status: 'ONGOING', channel: 'PHONE' }, headers: { etag: '"7"' }, message: 'success' });
 
-      await controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { channel: 'EMAIL' }, mockRes());
+      await controller.updateSupportErrand(
+        mockReq(),
+        mockSupportErrandId,
+        withSeen({ channel: 'EMAIL' }, { status: 'ONGOING', channel: 'PHONE' }),
+        mockRes(),
+      );
 
       expect(api.patch.mock.calls[0][0].data).toEqual({ channel: 'EMAIL' });
     });
@@ -969,7 +995,7 @@ describe('SupportErrandController', () => {
       api.patch.mockResolvedValue({ data: { id: mockSupportErrandId }, message: 'success' });
       const res = mockRes();
 
-      await controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { title: 'Ny titel' }, res);
+      await controller.updateSupportErrand(mockReq(), mockSupportErrandId, withSeen({ title: 'Ny titel' }), res);
 
       const [config] = api.patch.mock.calls[0];
       expect(config.url).toBe(`${MUNICIPALITY_ID}/${NAMESPACE}/errands/${mockSupportErrandId}`);
@@ -984,41 +1010,60 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
       api.patch.mockRejectedValue(new Error('upstream down'));
 
-      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { title: 'x' }, mockRes())).rejects.toThrow('upstream down');
+      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, withSeen({ title: 'x' }), mockRes())).rejects.toThrow(
+        'upstream down',
+      );
     });
 
-    it.each([
-      [ABSENT_HEADER, 428, 'If-Match is required when updating a support errand'],
-      ['7', 400, 'If-Match must contain one strong numeric ETag'],
-      ['W/"7"', 400, 'If-Match must contain one strong numeric ETag'],
-      ['"07"', 400, 'If-Match must contain one strong numeric ETag'],
-      ['"7", "8"', 400, 'If-Match must contain one strong numeric ETag'],
-    ] as const)('rejects a missing or malformed generic mutation precondition %s', async (ifMatch, status, message) => {
+    it('refuses a change that does not say what the handler saw of the fields it writes', async () => {
       const { controller, api } = makeController();
 
-      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, ifMatch, { title: 'x' }, mockRes())).rejects.toMatchObject({
-        status,
-        message,
+      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, { title: 'x', seenFacts: {} }, mockRes())).rejects.toMatchObject({
+        status: 400,
+        message: expect.stringContaining('title'),
       });
-      expect(api.get).not.toHaveBeenCalled();
       expect(api.patch).not.toHaveBeenCalled();
     });
 
-    it('rejects a stale generic mutation before patching upstream', async () => {
+    // Only the fields the change writes are checked: somebody else's change of another field, or beneath the errand,
+    // moves its version but stops nothing.
+    it('refuses a change of a field somebody else changed since the handler saw it', async () => {
       const { controller, api } = makeController();
-
-      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"6"', { title: 'x' }, mockRes())).rejects.toMatchObject({
-        status: 412,
-        message: 'If-Match does not match the current support errand version',
+      api.get.mockResolvedValue({
+        data: { version: 9, status: 'ONGOING', title: 'Någon annans titel' },
+        headers: { etag: '"9"' },
+        message: 'success',
       });
+
+      await expect(
+        controller.updateSupportErrand(mockReq(), mockSupportErrandId, withSeen({ title: 'x' }, { status: 'ONGOING', title: 'Titel' }), mockRes()),
+      ).rejects.toMatchObject({ status: 409 });
       expect(api.patch).not.toHaveBeenCalled();
+    });
+
+    it('writes over a change somebody else made to another field, on the version it read', async () => {
+      const { controller, api } = makeController();
+      api.get.mockResolvedValue({
+        data: { version: 9, status: 'ONGOING', title: 'Titel', description: 'Någon annans beskrivning' },
+        headers: { etag: '"9"' },
+        message: 'success',
+      });
+
+      await controller.updateSupportErrand(
+        mockReq(),
+        mockSupportErrandId,
+        withSeen({ title: 'Ny titel' }, { status: 'ONGOING', title: 'Titel' }),
+        mockRes(),
+      );
+
+      expect(api.patch.mock.calls[0][0]).toMatchObject({ data: { title: 'Ny titel' }, headers: { 'If-Match': '"9"' } });
     });
 
     it('rejects generic changes to a locked errand', async () => {
       const { controller, api } = makeController();
       api.get.mockResolvedValue({ data: { version: 7, status: 'SOLVED' }, headers: { etag: '"7"' }, message: 'success' });
 
-      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { title: 'x' }, mockRes())).rejects.toMatchObject({
+      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, withSeen({ title: 'x' }), mockRes())).rejects.toMatchObject({
         status: 409,
         message: 'Support errand status does not allow generic changes',
       });
@@ -1041,7 +1086,12 @@ describe('SupportErrandController', () => {
             : { data: { version: 7, status: 'ONGOING', labels: errandLabels }, headers: { etag: '"7"' }, message: 'success' },
         );
         const patched = controller
-          .updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { labels: sentLabels }, mockRes())
+          .updateSupportErrand(
+            mockReq(),
+            mockSupportErrandId,
+            withSeen({ labels: sentLabels }, { status: 'ONGOING', labels: errandLabels }),
+            mockRes(),
+          )
           .then(() => api.patch.mock.calls[0][0].data.labels);
         return { api, patched };
       };
@@ -1070,7 +1120,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
       api.get.mockResolvedValue({ data: { version: 7, status: 'ONGOING' }, headers: { etag: 'W/"7"' }, message: 'success' });
 
-      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { title: 'x' }, mockRes())).rejects.toMatchObject({
+      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, withSeen({ title: 'x' }), mockRes())).rejects.toMatchObject({
         status: 502,
         message: 'Support Management response contains an invalid errand ETag',
       });
@@ -1081,7 +1131,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
 
       await expect(
-        controller.updateSupportErrand(mockReq(), mockSupportErrandId, ABSENT_HEADER, { activePhaseId: 'unvalidated-target' }, mockRes()),
+        controller.updateSupportErrand(mockReq(), mockSupportErrandId, withSeen({ activePhaseId: 'unvalidated-target' }), mockRes()),
       ).rejects.toMatchObject({ status: 400, message: 'Use the phase transition endpoint to change the active phase' });
       expect(api.patch).not.toHaveBeenCalled();
     });
@@ -1093,7 +1143,7 @@ describe('SupportErrandController', () => {
     ])('rejects direct %s writes so workflow commands cannot bypass current-state validation', async (data, _field) => {
       const { controller, api } = makeController();
 
-      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, ABSENT_HEADER, data, mockRes())).rejects.toMatchObject({
+      await expect(controller.updateSupportErrand(mockReq(), mockSupportErrandId, withSeen(data), mockRes())).rejects.toMatchObject({
         status: 400,
         message: 'Use the status transition endpoint to change status, resolution or suspension',
       });
@@ -1104,7 +1154,7 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
 
       await expect(
-        controller.updateSupportErrand(mockReq(), mockSupportErrandId, ABSENT_HEADER, { assignedUserId: mockAdUsername }, mockRes()),
+        controller.updateSupportErrand(mockReq(), mockSupportErrandId, withSeen({ assignedUserId: mockAdUsername }), mockRes()),
       ).rejects.toMatchObject({ status: 400, message: 'Use the administrator endpoint to change the assigned user' });
       expect(api.get).not.toHaveBeenCalled();
       expect(api.patch).not.toHaveBeenCalled();
@@ -1117,8 +1167,7 @@ describe('SupportErrandController', () => {
         controller.updateSupportErrand(
           mockReq(),
           mockSupportErrandId,
-          '"7"',
-          { classification: { category: 'CATEGORY/HSL', type: 'CATEGORY/HSL/TYPE' }, labels: [] },
+          withSeen({ classification: { category: 'CATEGORY/HSL', type: 'CATEGORY/HSL/TYPE' }, labels: [] }),
           mockRes(),
         ),
       ).rejects.toMatchObject({
@@ -1128,63 +1177,19 @@ describe('SupportErrandController', () => {
       expect(api.patch).not.toHaveBeenCalled();
     });
 
-    it('rejects changing the parameter that selects the investigation classification owner', async () => {
+    // Each parameter is versioned on its own and written per key; the collection is never rewritten from here.
+    it('refuses parameters, which are written per key on their own versions', async () => {
       const { controller, api } = makeController('investigation');
-      api.get.mockResolvedValue({
-        data: { version: 7, status: 'ONGOING', parameters: [{ key: 'eventType', values: ['AVVIKELSE'] }] },
-        headers: { etag: '"7"' },
-        message: 'success',
-      });
 
       await expect(
         controller.updateSupportErrand(
           mockReq(),
           mockSupportErrandId,
-          '"7"',
-          { parameters: [{ key: 'eventType', values: ['MISSFORHALLANDE'] }] },
+          withSeen({ parameters: [{ key: 'eventType', values: ['MISSFORHALLANDE'] }] }),
           mockRes(),
         ),
-      ).rejects.toMatchObject({
-        status: 409,
-        message: 'The investigation classification owner parameter cannot be changed through the generic errand endpoint',
-      });
+      ).rejects.toMatchObject({ status: 400, message: "parameters cannot be changed with the errand's own fields" });
       expect(api.patch).not.toHaveBeenCalled();
-    });
-
-    it('allows unrelated parameter updates when the investigation owner selector is unchanged', async () => {
-      const { controller, api } = makeController('investigation');
-      api.get.mockResolvedValue({
-        data: {
-          version: 7,
-          status: 'ONGOING',
-          parameters: [
-            { key: 'eventType', values: ['AVVIKELSE'] },
-            { key: 'other', values: ['before'] },
-          ],
-        },
-        headers: { etag: '"7"' },
-        message: 'success',
-      });
-
-      await controller.updateSupportErrand(
-        mockReq(),
-        mockSupportErrandId,
-        '"7"',
-        {
-          parameters: [
-            { key: 'eventType', values: ['AVVIKELSE'], version: 7 },
-            { key: 'other', values: ['after'], version: 8 },
-          ],
-        },
-        mockRes(),
-      );
-
-      expect(api.patch.mock.calls[0][0].data).toEqual({
-        parameters: [
-          { key: 'eventType', values: ['AVVIKELSE'] },
-          { key: 'other', values: ['after'] },
-        ],
-      });
     });
 
     it('keeps generic classification writes where the investigation does not own classification, and strips server versions', async () => {
@@ -1194,21 +1199,18 @@ describe('SupportErrandController', () => {
       await controller.updateSupportErrand(
         mockReq(),
         mockSupportErrandId,
-        '"7"',
-        {
+        withSeen({
           version: 9,
           classification: { category: 'LEGACY', type: 'LEGACY/TYPE' },
           labels: [],
-          parameters: [{ key: 'legacy', values: ['value'], version: 3 }],
           stakeholders: [{ role: 'PRIMARY', contactChannels: [], parameters: [{ key: 'nested', values: [], version: 2 }] }],
-        },
+        }),
         res,
       );
 
       expect(api.patch.mock.calls[0][0].data).toEqual({
         classification: { category: 'LEGACY', type: 'LEGACY/TYPE' },
         labels: [],
-        parameters: [{ key: 'legacy', values: ['value'] }],
         stakeholders: [{ role: 'PRIMARY', contactChannels: [], parameters: [{ key: 'nested', values: [] }] }],
       });
     });
@@ -1338,11 +1340,11 @@ describe('SupportErrandController', () => {
       const unavailable = makeController('unavailable');
 
       await expect(
-        unavailable.controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { labels: [] }, mockRes()),
+        unavailable.controller.updateSupportErrand(mockReq(), mockSupportErrandId, withSeen({ labels: [] }), mockRes()),
       ).rejects.toMatchObject({ status: 503 });
       expect(unavailable.api.patch).not.toHaveBeenCalled();
 
-      await unavailable.controller.updateSupportErrand(mockReq(), mockSupportErrandId, '"7"', { title: 'Unrelated update' }, mockRes());
+      await unavailable.controller.updateSupportErrand(mockReq(), mockSupportErrandId, withSeen({ title: 'Unrelated update' }), mockRes());
       expect(unavailable.api.patch).toHaveBeenCalledTimes(1);
     });
   });
@@ -1353,7 +1355,7 @@ describe('SupportErrandController', () => {
       api.patch.mockResolvedValue({ data: { id: mockSupportErrandId }, message: 'success' });
       const response = mockRes();
 
-      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: mockAdUsername }, response);
+      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, withSeen({ assignedUserId: mockAdUsername }), response);
 
       expect(api.patch.mock.calls[0][0]).toEqual({
         url: `${MUNICIPALITY_ID}/${NAMESPACE}/errands/${mockSupportErrandId}`,
@@ -1366,23 +1368,38 @@ describe('SupportErrandController', () => {
       expect(response.body).toEqual({ id: mockSupportErrandId });
     });
 
-    it('rejects a missing assignment precondition before reading upstream', async () => {
+    it('refuses an assignment that does not say who the handler saw holding the errand', async () => {
       const { controller, api } = makeController();
 
       await expect(
-        controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, ABSENT_HEADER, { assignedUserId: mockAdUsername }, mockRes()),
-      ).rejects.toMatchObject({ status: 428, message: 'If-Match is required when updating a support errand' });
-      expect(api.get).not.toHaveBeenCalled();
+        controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, { assignedUserId: mockAdUsername, seenFacts: {} }, mockRes()),
+      ).rejects.toMatchObject({ status: 400, message: expect.stringContaining('assignedUserId') });
       expect(api.patch).not.toHaveBeenCalled();
     });
 
-    it('rejects a stale assignment before patching upstream', async () => {
+    // Somebody else took the errand after the handler saw it: the assignment would give away an errand they do not hold.
+    it('refuses to give away an errand somebody else took since the handler saw it', async () => {
       const { controller, api } = makeController();
+      api.get.mockResolvedValue({
+        data: { version: 9, status: 'ONGOING', assignedUserId: 'somebody.else' },
+        headers: { etag: '"9"' },
+        message: 'success',
+      });
 
       await expect(
-        controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"6"', { assignedUserId: mockAdUsername }, mockRes()),
-      ).rejects.toMatchObject({ status: 412, message: 'If-Match does not match the current support errand version' });
+        controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, withSeen({ assignedUserId: mockAdUsername }), mockRes()),
+      ).rejects.toMatchObject({ status: 409 });
       expect(api.patch).not.toHaveBeenCalled();
+    });
+
+    // A write beneath the errand, or to another of its fields, moves its version but stops no assignment.
+    it('assigns on the version it read, however the errand version moved since it was seen', async () => {
+      const { controller, api } = makeController();
+      api.get.mockResolvedValue({ data: { version: 12, status: 'ONGOING', title: 'Ändrad' }, headers: { etag: '"12"' }, message: 'success' });
+
+      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, withSeen({ assignedUserId: mockAdUsername }), mockRes());
+
+      expect(api.patch.mock.calls[0][0].headers).toEqual({ 'If-Match': '"12"' });
     });
 
     it('rejects administrator changes to a locked errand', async () => {
@@ -1390,7 +1407,7 @@ describe('SupportErrandController', () => {
       api.get.mockResolvedValue({ data: { version: 7, status: 'SOLVED' }, headers: { etag: '"7"' }, message: 'success' });
 
       await expect(
-        controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: mockAdUsername }, mockRes()),
+        controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, withSeen({ assignedUserId: mockAdUsername }), mockRes()),
       ).rejects.toMatchObject({ status: 409, message: 'Support errand status does not allow administrator changes' });
       expect(api.patch).not.toHaveBeenCalled();
     });
@@ -1400,10 +1417,13 @@ describe('SupportErrandController', () => {
       api.get.mockResolvedValue({ data: { version: 7, status }, headers: { etag: '"7"' }, message: 'success' });
       api.patch.mockResolvedValue({ data: { id: mockSupportErrandId, status }, message: 'success' });
 
-      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: mockAdUsername }, mockRes());
+      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, withSeen({ assignedUserId: mockAdUsername }), mockRes());
 
       expect(api.patch).toHaveBeenCalledTimes(1);
     });
+
+    /** The errand the signed-in user holds and follows. */
+    const followedErrand = { version: 7, status: 'ONGOING', assignedUserId: mockAdUsername };
 
     /** The errand as Support Management answers it, and the signed-in user's subscriber, which follows it. */
     const followedBySignedInUser = async ({ url }: { url: string }) => {
@@ -1413,7 +1433,7 @@ describe('SupportErrandController', () => {
       if (url.endsWith('/own-subscriber/subscriptions')) {
         return { data: [{ id: 'followed', target: { type: 'ERRAND', id: mockSupportErrandId } }], message: 'success' };
       }
-      return { data: { version: 7, status: 'ONGOING', assignedUserId: mockAdUsername }, headers: { etag: '"7"' }, message: 'success' };
+      return { data: followedErrand, headers: { etag: '"7"' }, message: 'success' };
     };
 
     it('stops the user following an errand they give to someone else, where the assignee alone follows it', async () => {
@@ -1421,7 +1441,12 @@ describe('SupportErrandController', () => {
       Object.assign(investigationPolicy, { assigneeFollowsErrand: true });
       api.get.mockImplementation(followedBySignedInUser);
 
-      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: 'next.handler' }, mockRes());
+      await controller.becomeAdminForSupportErrand(
+        mockReq(),
+        mockSupportErrandId,
+        withSeen({ assignedUserId: 'next.handler' }, followedErrand),
+        mockRes(),
+      );
 
       expect(api.delete.mock.calls.map(([config]) => config.url)).toEqual([expect.stringMatching(/\/own-subscriber\/subscriptions\/followed$/u)]);
       // Support Management subscribes the new assignee itself.
@@ -1433,7 +1458,12 @@ describe('SupportErrandController', () => {
       Object.assign(investigationPolicy, { assigneeFollowsErrand: true });
       api.get.mockImplementation(followedBySignedInUser);
 
-      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: mockAdUsername }, mockRes());
+      await controller.becomeAdminForSupportErrand(
+        mockReq(),
+        mockSupportErrandId,
+        withSeen({ assignedUserId: mockAdUsername }, followedErrand),
+        mockRes(),
+      );
 
       expect(api.delete).not.toHaveBeenCalled();
     });
@@ -1442,7 +1472,12 @@ describe('SupportErrandController', () => {
       const { controller, api } = makeController();
       api.get.mockImplementation(followedBySignedInUser);
 
-      await controller.becomeAdminForSupportErrand(mockReq(), mockSupportErrandId, '"7"', { assignedUserId: 'next.handler' }, mockRes());
+      await controller.becomeAdminForSupportErrand(
+        mockReq(),
+        mockSupportErrandId,
+        withSeen({ assignedUserId: 'next.handler' }, followedErrand),
+        mockRes(),
+      );
 
       expect(api.get.mock.calls.some(([config]) => config.url.includes('/subscribers'))).toBe(false);
       expect(api.delete).not.toHaveBeenCalled();
@@ -1583,9 +1618,10 @@ describe('SupportErrandDto write boundary', () => {
 
 describe('AssignSupportErrandDto write boundary', () => {
   it('accepts only an explicit assignee and rejects status changes on the admin route', async () => {
-    const valid = plainToInstance(AssignSupportErrandDto, { assignedUserId: mockAdUsername });
+    const valid = plainToInstance(AssignSupportErrandDto, { assignedUserId: mockAdUsername, seenFacts: {} });
     const invalid = plainToInstance(AssignSupportErrandDto, {
       assignedUserId: mockAdUsername,
+      seenFacts: {},
       status: 'ONGOING',
     });
 
@@ -1595,24 +1631,21 @@ describe('AssignSupportErrandDto write boundary', () => {
 });
 
 describe('UpdateSupportErrandStatusDto', () => {
-  it('requires exact source state and rejects unrelated errand fields', async () => {
+  it('requires what the handler saw of the source state and rejects unrelated errand fields', async () => {
     const valid = plainToInstance(UpdateSupportErrandStatusDto, {
-      expectedVersion: 7,
-      expectedStatus: 'ONGOING',
+      seenFacts: {},
       status: 'SOLVED',
       resolution: 'CLOSED',
     });
     const invalid = plainToInstance(UpdateSupportErrandStatusDto, {
-      expectedVersion: -1,
-      expectedStatus: '',
+      seenFacts: 'ONGOING',
       status: '',
       title: 'not writable here',
     });
 
     await expect(validate(valid, { whitelist: true, forbidNonWhitelisted: true })).resolves.toEqual([]);
     const serializedErrors = JSON.stringify(await validate(invalid, { whitelist: true, forbidNonWhitelisted: true }));
-    expect(serializedErrors).toMatch(/expectedVersion/u);
-    expect(serializedErrors).toMatch(/expectedStatus/u);
+    expect(serializedErrors).toMatch(/seenFacts/u);
     expect(serializedErrors).toMatch(/status/u);
     expect(serializedErrors).toMatch(/title/u);
   });
@@ -1642,7 +1675,7 @@ describe('updateSupportErrandStatus', () => {
       controller.updateSupportErrandStatus(
         mockReq(),
         mockSupportErrandId,
-        { expectedVersion: 7, expectedStatus: 'ONGOING', status: 'SOLVED', resolution: 'CLOSED' },
+        withSeen({ status: 'SOLVED', resolution: 'CLOSED' }, { status: 'ONGOING' }),
         mockRes(),
       );
 
@@ -1702,7 +1735,7 @@ describe('updateSupportErrandStatus', () => {
         controller.updateSupportErrandStatus(
           mockReq(),
           mockSupportErrandId,
-          { expectedVersion: 7, expectedStatus: 'REVIEW', status: 'SOLVED', closingMotivation: 'Dubblettanmälan.' },
+          withSeen({ status: 'SOLVED', closingMotivation: 'Dubblettanmälan.' }, { status: 'REVIEW', phases: [{ phaseId: 'review' }] }),
           mockRes(),
         ),
       ).rejects.toMatchObject({ status: 422, message: expect.stringContaining('väntar på beslut') });
@@ -1714,12 +1747,7 @@ describe('updateSupportErrandStatus', () => {
     it('does not read the measures for a transition that is not a close', async () => {
       const { controller, api } = makeClosingController([{ id: 'a' }]);
 
-      await controller.updateSupportErrandStatus(
-        mockReq(),
-        mockSupportErrandId,
-        { expectedVersion: 7, expectedStatus: 'ONGOING', status: 'ONGOING' },
-        mockRes(),
-      );
+      await controller.updateSupportErrandStatus(mockReq(), mockSupportErrandId, withSeen({ status: 'ONGOING' }, { status: 'ONGOING' }), mockRes());
 
       expect(api.get).not.toHaveBeenCalledWith(expect.objectContaining({ url: `${errandUrl}/measures` }), expect.anything());
     });
@@ -1750,7 +1778,7 @@ describe('updateSupportErrandStatus', () => {
     await controller.updateSupportErrandStatus(
       req,
       mockSupportErrandId,
-      { expectedVersion: 7, expectedStatus: 'ONGOING', status: 'SOLVED', resolution: 'CLOSED' },
+      withSeen({ status: 'SOLVED', resolution: 'CLOSED' }, { status: 'ONGOING' }),
       res,
     );
 
@@ -1794,7 +1822,7 @@ describe('updateSupportErrandStatus', () => {
     await controller.updateSupportErrandStatus(
       req,
       mockSupportErrandId,
-      { expectedVersion: 7, expectedStatus: 'REVIEW', status: 'SOLVED', closingMotivation: ' Dubblettanmälan. ' },
+      withSeen({ status: 'SOLVED', closingMotivation: ' Dubblettanmälan. ' }, { status: 'REVIEW', phases: [{ phaseId: 'review' }] }),
       mockRes(),
     );
 
@@ -1834,7 +1862,7 @@ describe('updateSupportErrandStatus', () => {
       controller.updateSupportErrandStatus(
         mockReq(),
         mockSupportErrandId,
-        { expectedVersion: 7, expectedStatus: status, status: 'SOLVED', ...(closingMotivation ? { closingMotivation } : {}) },
+        withSeen({ status: 'SOLVED', ...(closingMotivation ? { closingMotivation } : {}) }, { status, phases: [{ phaseId: activePhaseId }] }),
         mockRes(),
       );
     return { api, close };
@@ -1883,7 +1911,7 @@ describe('updateSupportErrandStatus', () => {
       controller.updateSupportErrandStatus(
         mockReq(mockUser({ groups: ['MOCK_LEX_MANAGERS'] })),
         mockSupportErrandId,
-        { expectedVersion: 7, expectedStatus: 'DECISION', status: 'SOLVED' },
+        withSeen({ status: 'SOLVED' }, { status: 'DECISION', phases: [{ phaseId: 'decision' }] }),
         mockRes(),
       ),
     ).rejects.toMatchObject({ status: 422, message: expect.stringContaining('Uppföljningen görs av enheten') });
@@ -1892,21 +1920,27 @@ describe('updateSupportErrandStatus', () => {
 
   it.each([
     {
-      name: 'stale version',
-      current: { status: 'ONGOING', version: 8 },
-      command: { expectedVersion: 7, expectedStatus: 'ONGOING', status: 'SOLVED' },
-      expected: { status: 409 },
+      name: 'a command that does not say what the handler saw',
+      current: { status: 'ONGOING', version: 7 },
+      command: { status: 'SOLVED', seenFacts: {} },
+      expected: { status: 400 },
     },
     {
       name: 'stale source status',
       current: { status: 'SOLVED', version: 7 },
-      command: { expectedVersion: 7, expectedStatus: 'ONGOING', status: 'ONGOING' },
+      command: withSeen({ status: 'ONGOING' }, { status: 'ONGOING' }),
+      expected: { status: 409 },
+    },
+    {
+      name: 'a phase moved since it was seen',
+      current: { status: 'ONGOING', version: 7, phases: [{ phaseId: 'decision' }] },
+      command: withSeen({ status: 'SOLVED' }, { status: 'ONGOING', phases: [{ phaseId: 'investigation' }] }),
       expected: { status: 409 },
     },
     {
       name: 'unconfigured target',
       current: { status: 'ONGOING', version: 7 },
-      command: { expectedVersion: 7, expectedStatus: 'ONGOING', status: 'UNKNOWN' },
+      command: withSeen({ status: 'UNKNOWN' }, { status: 'ONGOING' }),
       expected: { status: 400 },
     },
   ])('rejects $name before patching', async ({ current, command, expected }) => {
@@ -1923,7 +1957,7 @@ describe('updateSupportErrandStatus', () => {
 describe('UpdateSupportErrandClassificationDto', () => {
   it('accepts only classification and label id references', async () => {
     const validPayload = plainToInstance(UpdateSupportErrandClassificationDto, {
-      expectedVersion: 7,
+      seenFacts: {},
       classifications: [
         { classification: { category: 'HSL', type: 'REHAB' }, categoryLabels: [{ id: 'label-id' }] },
         { classification: { category: 'SOL_LSS', type: 'LEGAL_CERTAINTY' }, categoryLabels: [{ id: 'other-label-id' }] },
@@ -1932,7 +1966,7 @@ describe('UpdateSupportErrandClassificationDto', () => {
       documentETag: '"3"',
     });
     const invalidPayload = plainToInstance(UpdateSupportErrandClassificationDto, {
-      expectedVersion: -1,
+      seenFacts: 'stale',
       classifications: [
         {
           classification: { category: 'HSL', type: 'REHAB', displayName: 'Not writable' },
@@ -1955,7 +1989,7 @@ describe('UpdateSupportErrandClassificationDto', () => {
 
   it('rejects empty classification values and an empty label selection', async () => {
     const payload = plainToInstance(UpdateSupportErrandClassificationDto, {
-      expectedVersion: -1,
+      seenFacts: 'stale',
       classifications: [{ classification: { category: '', type: '' }, categoryLabels: [] }],
       documentKey: '',
       documentETag: 'W/"3"',
@@ -1966,14 +2000,14 @@ describe('UpdateSupportErrandClassificationDto', () => {
     expect(serializedErrors).toMatch(/category/);
     expect(serializedErrors).toMatch(/type/);
     expect(serializedErrors).toMatch(/categoryLabels/);
-    expect(serializedErrors).toMatch(/expectedVersion/);
+    expect(serializedErrors).toMatch(/seenFacts/);
     expect(serializedErrors).toMatch(/documentKey/);
     expect(serializedErrors).toMatch(/documentETag/);
   });
 
   it('rejects a command without any classification', async () => {
     const payload = plainToInstance(UpdateSupportErrandClassificationDto, {
-      expectedVersion: 7,
+      seenFacts: {},
       classifications: [],
       documentKey: 'utredning-enhetschef',
       documentETag: '"3"',
@@ -1993,8 +2027,9 @@ describe('updateSupportErrandClassification', () => {
     classification: { category: 'CATEGORY/HSL', type: 'CATEGORY/HSL/REHAB' },
     categoryLabels: [{ id: 'category-owner-id' }, { id: 'category-label-id' }, { id: 'type-label-id' }],
   });
-  const update = (): UpdateSupportErrandClassificationDto => ({
-    expectedVersion: 7,
+  /** The classification command, sent with what the handler saw of the errand's classification. */
+  const update = (seen: object = { labels: [] }): UpdateSupportErrandClassificationDto => ({
+    seenFacts: seenOf(seen),
     classifications: [hslClassification()],
     documentKey: 'utredning-enhetschef',
     documentETag: '"3"',
@@ -2134,11 +2169,17 @@ describe('updateSupportErrandClassification', () => {
     ]);
     const req = mockReq();
     const res = mockRes();
+    const command = update({
+      labels: [
+        { id: 'report-type-id', resourcePath: 'REPORT_TYPE/DEVIATION' },
+        { id: 'old-category-id', resourcePath: 'CATEGORY/HSL/OLD' },
+      ],
+    });
 
-    await controller.updateSupportErrandClassification(req, mockSupportErrandId, update(), res);
+    await controller.updateSupportErrandClassification(req, mockSupportErrandId, command, res);
 
     expect(investigationDocument.readJsonParameter).toHaveBeenCalledWith({
-      definition: expect.objectContaining({ key: update().documentKey }),
+      definition: expect.objectContaining({ key: command.documentKey }),
       municipalityId: MUNICIPALITY_ID,
       errandId: mockSupportErrandId,
       user: req.user,
@@ -2165,7 +2206,8 @@ describe('updateSupportErrandClassification', () => {
     expect(api.get.mock.calls[1][0].propagateClientError).toBe(true);
 
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual(savedErrand);
+    // The saved errand carries its facts, so the page can take in what the classification changed.
+    expect(res.body).toEqual({ ...savedErrand, facts: seenOf(savedErrand) });
   });
 
   describe('an errand under both HSL and SoL', () => {
@@ -2255,13 +2297,18 @@ describe('updateSupportErrandClassification', () => {
     });
   });
 
-  it('rejects a classification based on an older errand version before patching', async () => {
+  it('rejects a classification of an errand somebody else classified since it was seen, before patching', async () => {
     const { controller, api } = makeController();
-    routeClassificationGets(api, [{ data: { id: mockSupportErrandId, version: 8, labels: [] }, message: 'success' }]);
+    routeClassificationGets(api, [
+      {
+        data: { id: mockSupportErrandId, version: 8, labels: [{ id: 'other-category-id', resourcePath: 'CATEGORY/HSL/OTHER' }] },
+        message: 'success',
+      },
+    ]);
 
     await expect(controller.updateSupportErrandClassification(mockReq(), mockSupportErrandId, update(), mockRes())).rejects.toMatchObject({
       status: 409,
-      message: 'Support errand classification has changed since it was loaded',
+      message: ERRAND_CHANGED_ELSEWHERE_MESSAGE,
     });
 
     expect(api.patch).not.toHaveBeenCalled();

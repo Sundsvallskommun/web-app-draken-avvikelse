@@ -3,6 +3,7 @@
 import { withRequestGroup } from '@common/services/api-service';
 import { Button } from '@sk-web-gui/react';
 import { useMetadataStore, useSupportStore } from '@stores/index';
+import { LABEL_FACTS, takeSupportErrandFacts } from '@supportmanagement/services/support-errand-facts';
 import {
   getSupportErrandById,
   isSupportErrandLocked,
@@ -38,25 +39,27 @@ export const VcCommentRequest: FC = () => {
   const request = () =>
     withRequestGroup(async () => {
       const errandId = supportErrand?.id;
-      if (!errandId || typeof supportErrand.version !== 'number') {
-        setError('Ärendets version saknas. Ladda om ärendet och försök igen.');
-        return;
-      }
+      if (!errandId) return;
       setBusy(true);
       setError(undefined);
       try {
-        await applyInvestigationHandover(errandId, 'request-vc-comment', supportErrand.version);
-        // The label is this action's own write, read right after it: the page takes the labels and the version it
-        // left, so the tab opens and the next save is not refused as somebody else's change.
+        await applyInvestigationHandover(errandId, 'request-vc-comment', supportErrand);
+        // The label is this action's own write, read right after it: the page takes the labels it left, and what is
+        // read off them, so the tab opens.
         const { errand } = await getSupportErrandById(errandId);
         if (errand) {
           useSupportStore.setState((state) =>
             state.supportErrand?.id === errandId
-              ? { supportErrand: { ...state.supportErrand, labels: errand.labels, version: errand.version } }
+              ? {
+                  supportErrand: {
+                    ...state.supportErrand,
+                    labels: errand.labels,
+                    facts: takeSupportErrandFacts(state.supportErrand.facts, errand.facts, LABEL_FACTS),
+                  },
+                }
               : state
           );
           resetField('labels', { defaultValue: errand.labels });
-          resetField('version', { defaultValue: errand.version });
         }
       } catch (cause) {
         setError(investigationHandoverErrorMessage(cause, 'VC kommentar HSL kunde inte aktiveras. Försök igen.'));

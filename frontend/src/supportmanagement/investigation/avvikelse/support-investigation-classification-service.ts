@@ -1,5 +1,6 @@
 import type { Label } from '@common/data-contracts/supportmanagement/data-contracts';
 import { apiService } from '@common/services/api-service';
+import type { SeenSupportErrand, SupportErrandFacts } from '@supportmanagement/services/support-errand-facts';
 import type { AxiosError } from 'axios';
 
 import type { AvvikelseGroupedClassificationUpdate } from './label-classification';
@@ -18,14 +19,15 @@ interface SupportInvestigationClassificationSelection {
 }
 
 export interface SupportInvestigationClassificationRequest {
-  expectedVersion: number;
+  /** What the handler saw of the errand; the BFF checks the classification they changed against it. */
+  seenFacts: SupportErrandFacts;
   classifications: SupportInvestigationClassificationSelection[];
   documentKey: string;
   documentETag: string;
 }
 
 export interface SupportInvestigationClassificationResponse {
-  version: number;
+  facts?: SupportErrandFacts;
   classification: {
     category: string;
     type: string;
@@ -48,12 +50,12 @@ const requireLabelReferences = (labels: readonly Label[]): ErrandLabelReference[
 
 export const buildSupportInvestigationClassificationRequest = (
   update: AvvikelseGroupedClassificationUpdate,
-  expectedVersion: number | undefined,
+  seen: SeenSupportErrand | undefined,
   documentKey: string,
   documentETag: string | undefined
 ): SupportInvestigationClassificationRequest => {
-  if (typeof expectedVersion !== 'number' || !Number.isSafeInteger(expectedVersion) || expectedVersion < 0) {
-    throw new Error('Ärendets version saknas. Ladda om ärendet innan klassificeringen sparas.');
+  if (!seen?.facts) {
+    throw new Error('Ärendet är inte helt inläst. Ladda om ärendet innan klassificeringen sparas.');
   }
   if (update.classifications.length === 0) {
     throw new Error('Välj lagrum innan klassificeringen kan sparas.');
@@ -77,7 +79,7 @@ export const buildSupportInvestigationClassificationRequest = (
   }
 
   return {
-    expectedVersion,
+    seenFacts: seen.facts,
     classifications: update.classifications.map((classification) => ({
       classification: {
         category: classification.category,

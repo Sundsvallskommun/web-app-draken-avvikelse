@@ -16,7 +16,7 @@ import {
   SupportErrand,
   updateSupportErrandPhase,
 } from '@supportmanagement/services/support-errand-service';
-import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-version';
+import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-error';
 import {
   closesFromActivePhase,
   getActiveSupportPhaseId,
@@ -166,13 +166,10 @@ export const useSupportPhaseTransition = (hasUnsavedChanges: boolean) => {
    * the tab closes, as it does wherever an errand is closed.
    */
   const closeErrand = async () => {
-    if (!supportErrand?.id || typeof supportErrand.version !== 'number') return;
+    if (!supportErrand?.id || !supportErrand.facts) return;
     setIsSaving(true);
     try {
-      await setSupportErrandStatus(supportErrand.id, Status.SOLVED, {
-        status: supportErrand.status,
-        version: supportErrand.version,
-      });
+      await setSupportErrandStatus(supportErrand.id, Status.SOLVED, supportErrand);
       const closed = await getSupportErrandById(supportErrand.id);
       if (closed.error) throw new Error('Could not read back the closed support errand');
       setSupportErrand(closed.errand);
@@ -200,7 +197,7 @@ export const useSupportPhaseTransition = (hasUnsavedChanges: boolean) => {
   const canAdvance =
     !controlsDisabled &&
     Boolean(supportErrand?.id) &&
-    typeof supportErrand?.version === 'number' &&
+    Boolean(supportErrand?.facts) &&
     (entersWorkflow || (closesErrand && !closeRefusal) || Boolean(selectedTransition));
 
   /** The requirement that holds the move, shown while the handler deals with it. */

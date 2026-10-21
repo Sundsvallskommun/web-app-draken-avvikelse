@@ -1,4 +1,5 @@
 import { apiService } from '@common/services/api-service';
+import { type SeenSupportErrand, seenSupportErrandFacts } from '@supportmanagement/services/support-errand-facts';
 import type { AxiosError } from 'axios';
 
 /** The named handovers the backend implements. The client names the step and never composes it. */
@@ -53,7 +54,8 @@ export interface InvestigationHandoverOptions {
 }
 
 /**
- * Applies one handover step.
+ * Applies one handover step to the errand as the handler saw it (`seen`): the BFF refuses it when the errand's
+ * handler, status or routing has moved on since.
  *
  * Answers 204 and returns nothing to read back: a step that moves access has usually just taken the
  * errand away from the caller, so there is no errand left for them to fetch. The caller navigates
@@ -62,12 +64,12 @@ export interface InvestigationHandoverOptions {
 export const applyInvestigationHandover = async (
   errandId: string,
   step: InvestigationHandoverStep,
-  expectedVersion: number,
+  seen: SeenSupportErrand | undefined,
   assignedUserId?: string,
   options: InvestigationHandoverOptions = {}
 ): Promise<void> => {
   const body = {
-    expectedVersion,
+    seenFacts: seenSupportErrandFacts(seen),
     ...(assignedUserId ? { assignedUserId } : {}),
     ...(options.locationLabelId ? { locationLabelId: options.locationLabelId } : {}),
   };
@@ -80,7 +82,10 @@ const conflictMessages: Record<string, string> = {
   403: 'Du saknar behörighet att utföra det här steget.',
 };
 
-/** A stale errand version, which the backend reports as the HTTP precondition it is and not as anything to act on. */
+/**
+ * Somebody else's write came between the BFF's read of the errand and its own write. The backend reports it as the
+ * HTTP precondition it is and not as anything to act on.
+ */
 const VERSION_CONFLICT_STATUS = 412;
 
 /** Turns a failed handover into something a handler can act on, keeping the backend's own reason when it has one. */

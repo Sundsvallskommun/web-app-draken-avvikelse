@@ -21,7 +21,7 @@ import { HandlerAssignmentModal } from './handler-assignment-modal.component';
  */
 export const LexManagerHandoverRequirement: FC<InvestigationPhaseEntryRequirementProps> = ({ onClose }) => {
   const errandId = useSupportStore((state) => state.supportErrand?.id);
-  const version = useSupportStore((state) => state.supportErrand?.version);
+  const seen = useSupportStore((state) => state.supportErrand);
   const administrators = useUserStore((state) => state.administrators);
   const handlerDirectoryState = useUserStore((state) => state.handlerDirectoryState);
   const router = useRouter();
@@ -67,8 +67,8 @@ export const LexManagerHandoverRequirement: FC<InvestigationPhaseEntryRequiremen
     setIsSaving(true);
     setError(undefined);
     try {
-      // The first write of this flow, so it is conditioned on the errand as the page shows it.
-      await setSupportErrandAdmin(errandId, adAccount, version, Status.ASSIGNED);
+      // Conditioned on the handler the page shows holding the errand.
+      await setSupportErrandAdmin(errandId, adAccount, seen, Status.ASSIGNED);
       router.push('/oversikt');
     } catch (cause) {
       setError(investigationHandoverErrorMessage(cause, 'Ärendet kunde inte tilldelas en LEX-ansvarig. Försök igen.'));

@@ -8,6 +8,7 @@ import {
   SupportInvestigationAssignmentController,
 } from '@/controllers/supportmanagement/support-investigation-assignment.controller';
 import { Label } from '@/data-contracts/supportmanagement/data-contracts';
+import { errandFacts } from '@/services/support-errand-facts';
 
 import { mockReq, mockRes } from './helpers/http';
 import { mockAdUsername, mockMunicipalityId, mockSupportErrandId, mockSupportNamespace } from './helpers/mock-data';
@@ -47,18 +48,26 @@ interface Stubs {
 /** Errand labels arrive as bare ids; the metadata tree is what names them. */
 type ErrandLabel = Pick<Label, 'id'>;
 
-const makeController = ({
-  errandLabels = [{ id: 'category-hsl' }, { id: 'north' }, { id: 'north-unit' }],
-}: { errandLabels?: ErrandLabel[] } = {}) => {
+const DEFAULT_ERRAND_LABELS: ErrandLabel[] = [{ id: 'category-hsl' }, { id: 'north' }, { id: 'north-unit' }];
+
+/** The errand as the stubbed Support Management answers it. */
+const servedErrand = (errandLabels: ErrandLabel[] = DEFAULT_ERRAND_LABELS) => ({
+  id: mockSupportErrandId,
+  status: 'ONGOING',
+  version: 7,
+  labels: errandLabels,
+  jsonParameters: [katlaReport],
+});
+
+/** What the handler saw of an errand: the fingerprints a handover is checked against. */
+const seenOf = (errand: object = servedErrand()) => errandFacts(errand);
+
+const makeController = ({ errandLabels = DEFAULT_ERRAND_LABELS }: { errandLabels?: ErrandLabel[] } = {}) => {
   const controller = new SupportInvestigationAssignmentController();
   const stubs: Stubs = {
     get: vi.fn(async (config: { url?: string }) => {
       if (config.url === errandUrl) {
-        return {
-          data: { id: mockSupportErrandId, status: 'ONGOING', version: 7, labels: errandLabels, jsonParameters: [katlaReport] },
-          headers: { etag: '"7"' },
-          message: 'success',
-        };
+        return { data: servedErrand(errandLabels), headers: { etag: '"7"' }, message: 'success' };
       }
       if (config.url === metadataUrl) return { data: { labels: { labelStructure }, statuses: [] }, message: 'success' };
       if (config.url?.includes('/access/ad/south.manager')) {
@@ -93,8 +102,8 @@ const makeController = ({
 
 describe('InvestigationHandoverDto', () => {
   it('accepts the target place as an optional label id', async () => {
-    const valid = plainToInstance(InvestigationHandoverDto, { expectedVersion: 7, assignedUserId: 'south.manager', locationLabelId: 'south-unit' });
-    const invalid = plainToInstance(InvestigationHandoverDto, { expectedVersion: 7, locationLabelId: '' });
+    const valid = plainToInstance(InvestigationHandoverDto, { seenFacts: {}, assignedUserId: 'south.manager', locationLabelId: 'south-unit' });
+    const invalid = plainToInstance(InvestigationHandoverDto, { seenFacts: {}, locationLabelId: '' });
 
     await expect(validate(valid, { whitelist: true, forbidNonWhitelisted: true })).resolves.toEqual([]);
     expect(JSON.stringify(await validate(invalid, { whitelist: true, forbidNonWhitelisted: true }))).toMatch(/locationLabelId/);
@@ -110,7 +119,7 @@ describe('move-location', () => {
       mockReq(),
       mockSupportErrandId,
       'move-location',
-      { expectedVersion: 7, assignedUserId: 'south.manager', locationLabelId: 'south-unit' },
+      { seenFacts: seenOf(), assignedUserId: 'south.manager', locationLabelId: 'south-unit' },
       res,
     );
 
@@ -154,7 +163,7 @@ describe('move-location', () => {
       mockReq(),
       mockSupportErrandId,
       'move-location',
-      { expectedVersion: 7, assignedUserId: 'south.manager', locationLabelId: 'south-unit' },
+      { seenFacts: seenOf({ ...servedErrand(), assignedUserId: mockAdUsername }), assignedUserId: 'south.manager', locationLabelId: 'south-unit' },
       mockRes(),
     );
 
@@ -166,7 +175,7 @@ describe('move-location', () => {
     const { controller, stubs } = makeController();
 
     await expect(
-      controller.applyHandover(mockReq(), mockSupportErrandId, 'move-location', { expectedVersion: 7, assignedUserId: 'x' }, mockRes()),
+      controller.applyHandover(mockReq(), mockSupportErrandId, 'move-location', { seenFacts: seenOf(), assignedUserId: 'x' }, mockRes()),
     ).rejects.toMatchObject({ status: 400, message: expect.stringContaining('target place') });
 
     await expect(
@@ -174,7 +183,7 @@ describe('move-location', () => {
         mockReq(),
         mockSupportErrandId,
         'move-location',
-        { expectedVersion: 7, assignedUserId: 'south.nurse', locationLabelId: 'south-unit' },
+        { seenFacts: seenOf(), assignedUserId: 'south.nurse', locationLabelId: 'south-unit' },
         mockRes(),
       ),
     ).rejects.toMatchObject({ status: 400, message: expect.stringContaining('not a manager') });
@@ -183,21 +192,24 @@ describe('move-location', () => {
   });
 
   it('refuses to move an errand that is with the LEX roles', async () => {
-    const { controller, stubs } = makeController({ errandLabels: [{ id: 'north' }, { id: 'north-unit' }, { id: 'access-lex' }] });
+    const lexLabels = [{ id: 'north' }, { id: 'north-unit' }, { id: 'access-lex' }];
+    const { controller, stubs } = makeController({ errandLabels: lexLabels });
 
     await expect(
       controller.applyHandover(
         mockReq(),
         mockSupportErrandId,
         'move-location',
-        { expectedVersion: 7, assignedUserId: 'south.manager', locationLabelId: 'south-unit' },
+        { seenFacts: seenOf(servedErrand(lexLabels)), assignedUserId: 'south.manager', locationLabelId: 'south-unit' },
         mockRes(),
       ),
     ).rejects.toMatchObject({ status: 409, message: expect.stringContaining('LEX') });
     expect(stubs.patch).not.toHaveBeenCalled();
   });
 
-  it('rejects a stale errand version before resolving anybody', async () => {
+  // Somebody gave the errand to someone else after the handler saw it: the handover would hand away an errand they no
+  // longer hold.
+  it('refuses a handover of an errand whose holder changed since it was seen, before resolving anybody', async () => {
     const { controller, stubs } = makeController();
 
     await expect(
@@ -205,10 +217,10 @@ describe('move-location', () => {
         mockReq(),
         mockSupportErrandId,
         'move-location',
-        { expectedVersion: 6, assignedUserId: 'south.manager', locationLabelId: 'south-unit' },
+        { seenFacts: seenOf({ ...servedErrand(), assignedUserId: 'somebody.else' }), assignedUserId: 'south.manager', locationLabelId: 'south-unit' },
         mockRes(),
       ),
-    ).rejects.toMatchObject({ status: 412 });
+    ).rejects.toMatchObject({ status: 409 });
     expect(stubs.findLocationAccessCandidates).not.toHaveBeenCalled();
     expect(stubs.patch).not.toHaveBeenCalled();
   });
@@ -252,19 +264,20 @@ describe('decline-lex', () => {
   const setup = ({
     decision = 'not_investigate',
     existingNotes = [] as { context: string; body: string }[],
-    versionAfterNote = 8,
-  }: { decision?: string; existingNotes?: { context: string; body: string }[]; versionAfterNote?: number } = {}) => {
+    changedAfterNote = {},
+  }: { decision?: string; existingNotes?: { context: string; body: string }[]; changedAfterNote?: Record<string, unknown> } = {}) => {
     const { controller, stubs } = makeController();
     let version = 7;
+    const seenErrand = {
+      id: mockSupportErrandId,
+      status: 'INQUIRY',
+      assignedUserId: mockReq().user.username,
+      labels: [{ id: 'report-root' }, { id: 'abuse' }, { id: 'access-root' }, { id: 'access-lex' }, { id: 'north' }, { id: 'north-unit' }],
+      jsonParameters: [{ key: assessmentKey, value: { lexInvestigationDecision: decision, notInvestigatedMotivation: motivation } }],
+    };
+    let changed = {};
     const errandRead = () => ({
-      data: {
-        id: mockSupportErrandId,
-        status: 'INQUIRY',
-        assignedUserId: mockReq().user.username,
-        version,
-        labels: [{ id: 'report-root' }, { id: 'abuse' }, { id: 'access-root' }, { id: 'access-lex' }, { id: 'north' }, { id: 'north-unit' }],
-        jsonParameters: [{ key: assessmentKey, value: { lexInvestigationDecision: decision, notInvestigatedMotivation: motivation } }],
-      },
+      data: { ...seenErrand, ...changed, version },
       headers: { etag: `"${version}"` },
       message: 'success',
     });
@@ -280,7 +293,9 @@ describe('decline-lex', () => {
       return (stubs.get as (request: { url?: string }) => Promise<unknown>)(config);
     });
     const post = vi.fn(async () => {
-      version = versionAfterNote;
+      // The note moves the errand's version, by however many steps Support Management takes for it.
+      version += 3;
+      changed = changedAfterNote;
       return { data: {}, message: 'success' };
     });
     const internals = controller as unknown as Record<string, unknown>;
@@ -291,7 +306,13 @@ describe('decline-lex', () => {
       getClassificationOwner: vi.fn(async () => 'investigation'),
     };
     const decline = () =>
-      controller.applyHandover(mockReq(), mockSupportErrandId, 'decline-lex', { expectedVersion: 7, assignedUserId: 'south.manager' }, mockRes());
+      controller.applyHandover(
+        mockReq(),
+        mockSupportErrandId,
+        'decline-lex',
+        { seenFacts: seenOf(seenErrand), assignedUserId: 'south.manager' },
+        mockRes(),
+      );
     return { decline, post, stubs };
   };
 
@@ -307,8 +328,8 @@ describe('decline-lex', () => {
     );
     expect(stubs.patch).toHaveBeenCalledTimes(1);
     const [config] = stubs.patch.mock.calls[0] as [{ data: { labels: { id: string }[] }; headers: Record<string, string> }];
-    // Conditioned on the errand as the note left it, the note being this step's own write.
-    expect(config.headers).toEqual({ 'If-Match': '"8"' });
+    // Conditioned on the errand as the note left it, however far the note moved its version.
+    expect(config.headers).toEqual({ 'If-Match': '"10"' });
     expect(config.data).toMatchObject({ assignedUserId: 'south.manager', status: 'ASSIGNED' });
     const labelIds = config.data.labels.map(({ id }) => id);
     expect(labelIds).toContain('deviation');
@@ -334,8 +355,8 @@ describe('decline-lex', () => {
     expect(config.headers).toEqual({ 'If-Match': '"7"' });
   });
 
-  it("refuses to hand over an errand somebody else changed beside the note's own write", async () => {
-    const { decline, stubs } = setup({ versionAfterNote: 9 });
+  it("refuses to hand over an errand somebody else gave away beside the note's own write", async () => {
+    const { decline, stubs } = setup({ changedAfterNote: { assignedUserId: 'somebody.else' } });
 
     await expect(decline()).rejects.toMatchObject({ status: 409 });
     expect(stubs.patch).not.toHaveBeenCalled();
@@ -364,11 +385,12 @@ describe('request-vc-comment', () => {
       profile: { documents: [{ key: analysisKey, schemaName: 'utredning-hsl' }] },
       getClassificationOwner: vi.fn(async () => 'investigation'),
     };
-    const request = () => controller.applyHandover(mockReq(), mockSupportErrandId, 'request-vc-comment', { expectedVersion: 7 }, mockRes());
+    const request = () =>
+      controller.applyHandover(mockReq(), mockSupportErrandId, 'request-vc-comment', { seenFacts: seenOf(servedErrand(errandLabels)) }, mockRes());
     return { request, stubs };
   };
 
-  it('writes the request label alone, conditioned on the errand version, and assigns nobody', async () => {
+  it('writes the request label alone, conditioned on the errand version just read, and assigns nobody', async () => {
     const { request, stubs } = setup();
 
     await request();

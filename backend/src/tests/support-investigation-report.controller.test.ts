@@ -46,7 +46,7 @@ const makeController = (value: Record<string, unknown>, state: 'active' | 'unava
     readJsonParameter: vi.fn().mockImplementation(async () => current),
     readBoundSchema: vi.fn().mockResolvedValue(schema),
     readUiSchema: vi.fn().mockResolvedValue(uiSchema),
-    readParentErrandWithVersion: vi.fn().mockResolvedValue({ errand: { errandNumber: 'IAF-2026-0001', title: 'Avvikelse', labels: [] }, version: 9 }),
+    readParentErrandSnapshot: vi.fn().mockResolvedValue({ errandNumber: 'IAF-2026-0001', title: 'Avvikelse', labels: [] }),
     writeJsonParameter: vi.fn().mockImplementation(async (request: WriteJsonParameterRequest) => {
       if (request.preconditions.ifMatch !== current.etag) throw new HttpException(412, 'Document changed');
       const version = current.document.version + 1;
@@ -55,7 +55,7 @@ const makeController = (value: Record<string, unknown>, state: 'active' | 'unava
         etag: `"${version}"`,
         status: 200,
       };
-      return { ...current, parentErrandVersion: version + 6 };
+      return current;
     }),
   };
   const policyService = { getState: vi.fn(async () => state) };
@@ -117,7 +117,7 @@ describe('SupportInvestigationReportController', () => {
     expect(documentService.writeJsonParameter).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { schemaId: schema.id, value: expect.objectContaining({ completed: 'yes' }) },
-        preconditions: { ifMatch: '"4"', parentErrandVersion: '9' },
+        preconditions: { ifMatch: '"4"' },
         internal: {
           allowLocked: true,
           serverOwnedOverrides: {
@@ -138,9 +138,9 @@ describe('SupportInvestigationReportController', () => {
     );
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.setHeader).toHaveBeenCalledWith('ETag', '"5"');
-    expect(res.setHeader).toHaveBeenCalledWith('X-Errand-Version', '11');
-    // The reservation, and whatever moved the errand from there to the confirmation: all of it this request's own.
-    expect(res.setHeader).toHaveBeenCalledWith('X-Errand-Writes', '2');
+    // The publication moves the errand's version but no fact an errand-level command depends on: the page follows none of it.
+    expect(res.setHeader).not.toHaveBeenCalledWith('X-Errand-Version', expect.anything());
+    expect(res.setHeader).not.toHaveBeenCalledWith('X-Errand-Writes', expect.anything());
     expect(res.send).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -273,8 +273,6 @@ describe('durable report publication', () => {
     await controller.createReport(mockReq(), mockSupportErrandId, KEY, { operationId: OPERATION_ID }, retry);
     expect(uploaded(apiService)).toHaveLength(1);
     expect(documentService.writeJsonParameter).toHaveBeenCalledTimes(2);
-    // The retry wrote nothing, and says so: none of the errand's version steps are its own.
-    expect(retry.setHeader).toHaveBeenCalledWith('X-Errand-Writes', '0');
   });
 
   it('serializes concurrent publication attempts on the document ETag', async () => {

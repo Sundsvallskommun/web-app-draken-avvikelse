@@ -1,5 +1,6 @@
 import type { Label } from '@common/data-contracts/supportmanagement/data-contracts';
 import { apiService } from '@common/services/api-service';
+import { Priority } from '@supportmanagement/interfaces/priority';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
@@ -46,9 +47,11 @@ const label = (classification: string, resourcePath: string, labels?: Label[]): 
 });
 const apiErrand = (overrides: Partial<ApiSupportErrand>): ApiSupportErrand =>
   ({ id: 'errand-1', stakeholders: [], ...overrides } as ApiSupportErrand);
-// The version of the errand the form was loaded from; every errand write is conditioned on it.
-const loadedErrandVersion = 3;
-const patchedBody = () => vi.mocked(apiService.patch).mock.calls[0][1] as Partial<ApiSupportErrand>;
+// The errand as the handler saw it: the facts the BFF handed out with it, and the status it shows. Every errand-level
+// command sends the facts back, and the BFF checks the ones it depends on against the errand as it is now.
+const seenFacts = { title: 'title-fingerprint', status: 'status-fingerprint', assignedUserId: 'assignee-fingerprint' };
+const seenErrand = { facts: seenFacts, status: Status.ONGOING };
+const patchedBody = () => vi.mocked(apiService.patch).mock.calls[0][1] as Record<string, unknown>;
 
 describe('classification', () => {
   test('fills the form fields from the classification, blanking NONE, and keeps the labels on the errand', () => {
@@ -63,7 +66,7 @@ describe('classification', () => {
   test('never sends the classification or the labels with the errand', async () => {
     await updateSupportErrand(
       { id: 'errand-1', title: 'Titel', category: 'BOU', type: 'OTHER' },
-      loadedErrandVersion,
+      seenErrand,
       undefined,
       { title: true }
     );
@@ -77,7 +80,7 @@ describe('classification', () => {
 // told to whoever follows the errand as one.
 describe('updateSupportErrand', () => {
   test('writes the errand when one of its own fields changed', async () => {
-    const result = await updateSupportErrand({ id: 'errand-1', title: 'Ny titel' }, loadedErrandVersion, undefined, {
+    const result = await updateSupportErrand({ id: 'errand-1', title: 'Ny titel' }, seenErrand, undefined, {
       title: true,
     });
 
@@ -85,10 +88,37 @@ describe('updateSupportErrand', () => {
     expect(result.wrote).toBe(true);
   });
 
+  // The BFF checks each field written against what the handler saw of it, so a field the draft left alone is never
+  // sent: somebody else may have changed it meanwhile, and that is no reason to stop this save or to write over it.
+  test('writes only the fields the draft changed, with what the handler saw of the errand', async () => {
+    await updateSupportErrand(
+      {
+        id: 'errand-1',
+        title: 'Ny titel',
+        description: 'Beskrivning',
+        priority: Priority.HIGH,
+        businessRelated: false,
+      },
+      seenErrand,
+      undefined,
+      { title: true }
+    );
+
+    expect(patchedBody()).toEqual({ title: 'Ny titel', seenFacts });
+    expect(vi.mocked(apiService.patch).mock.calls[0][2]).toBeUndefined();
+  });
+
+  test('refuses to write an errand loaded without its facts', async () => {
+    await expect(
+      updateSupportErrand({ id: 'errand-1', title: 'Ny titel' }, { status: Status.ONGOING }, undefined, { title: true })
+    ).rejects.toThrow('facts');
+    expect(apiService.patch).not.toHaveBeenCalled();
+  });
+
   test('writes nothing of the errand when only fields it does not carry changed', async () => {
     const result = await updateSupportErrand(
       { id: 'errand-1', title: 'Titel', category: 'BOU' },
-      loadedErrandVersion,
+      seenErrand,
       undefined,
       { admin: true, category: true, contacts: [{}] }
     );
@@ -119,19 +149,26 @@ describe('setSupportErrandAdmin', () => {
   const statusWrites = () =>
     vi.mocked(apiService.patch).mock.calls.filter(([url]) => String(url).endsWith('/status')).length;
 
-  test('moves the errand to the status the assignment leaves it in', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: { status: Status.ONGOING, version: 4 } } as never);
+  // The assignment moves neither the status nor the phase, so both writes start from the errand as the handler saw it,
+  // and nothing is read between them.
+  test('moves the errand to the status the assignment leaves it in, from the errand as the handler saw it', async () => {
+    await setSupportErrandAdmin('errand-1', 'lex.utredare', seenErrand, Status.ASSIGNED);
 
-    await setSupportErrandAdmin('errand-1', 'lex.utredare', loadedErrandVersion, Status.ASSIGNED);
-
-    expect(statusWrites()).toBe(1);
+    expect(vi.mocked(apiService.patch).mock.calls.map(([url, body]) => [url, body])).toEqual([
+      ['supporterrands/errand-1/admin', { assignedUserId: 'lex.utredare', seenFacts }],
+      ['supporterrands/errand-1/status', { seenFacts, status: Status.ASSIGNED }],
+    ]);
+    expect(apiService.get).not.toHaveBeenCalled();
   });
 
   // Only what changed is written: an errand already in that status has no status to change.
   test('writes no status for an errand already in the status the assignment leaves it in', async () => {
-    vi.mocked(apiService.get).mockResolvedValue({ data: { status: Status.ASSIGNED, version: 4 } } as never);
-
-    await setSupportErrandAdmin('errand-1', 'lex.utredare', loadedErrandVersion, Status.ASSIGNED);
+    await setSupportErrandAdmin(
+      'errand-1',
+      'lex.utredare',
+      { ...seenErrand, status: Status.ASSIGNED },
+      Status.ASSIGNED
+    );
 
     expect(apiService.patch).toHaveBeenCalledOnce();
     expect(statusWrites()).toBe(0);

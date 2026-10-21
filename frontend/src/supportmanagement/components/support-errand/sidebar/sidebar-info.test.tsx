@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { useSupportStore } from '../../../../stores/support-store';
 import { useUserStore } from '../../../../stores/user-store';
 import type { SupportErrand } from '../../../services/support-errand-service';
-import { SUPPORT_ERRAND_WRITE_CONFLICT_MESSAGE } from '../../../services/support-errand-write-version';
+import { SUPPORT_ERRAND_WRITE_CONFLICT_MESSAGE } from '../../../services/support-errand-write-error';
 import { useErrandSaveParticipantsStore } from '../errand-save/errand-save-participants';
 import { SidebarInfo } from './sidebar-info.component';
 
@@ -90,7 +90,6 @@ vi.mock('@supportmanagement/services/support-errand-service', () => ({
   validateAction: () => true,
   updateSupportErrand: mocks.save,
   getSupportErrandById: mocks.read,
-  readSupportErrandWriteSnapshot: mocks.read,
   setSupportErrandAdmin: mocks.assign,
   setSupportErrandStatus: mocks.status,
   updateSupportErrandPhase: mocks.phase,
@@ -115,7 +114,11 @@ const loaded: SupportErrand = {
   subType: '',
   customer: [],
   contacts: [],
+  // What the BFF fingerprinted of the errand when it handed it out.
+  facts: { title: 'loaded-title', status: 'loaded-status', assignedUserId: 'loaded-assignee' },
 };
+/** The errand as the page loaded it, which every command of the save sends what it saw of. */
+const asLoaded = expect.objectContaining({ facts: loaded.facts });
 function Harness() {
   const form = useForm<SupportErrand & { admin: string }>({
     defaultValues: { ...loaded, admin: 'Välj handläggare' },
@@ -149,7 +152,7 @@ afterEach(() => {
   useErrandSaveParticipantsStore.setState({ participants: {}, dirty: {} });
 });
 
-test.each([409, 412])('a save conflict (%s) retains the dirty draft and its original version', async (status) => {
+test.each([409, 412])('a save conflict (%s) retains the dirty draft and the errand as loaded', async (status) => {
   mocks.save.mockRejectedValue({ response: { status } });
   render(<Harness />);
   fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'My unsaved title' } });
@@ -176,7 +179,8 @@ test('Starta handläggning stops when the prerequisite save fails', async () => 
   expect(screen.getByLabelText('Title')).toHaveProperty('value', 'My draft');
 });
 
-// Starting writes nothing of an untouched form: a read, not a write that changes nothing, confirms the errand is as loaded.
+// Starting writes nothing of an untouched form, and reads nothing before it starts: each write it makes checks what it
+// depends on of the errand as the page loaded it.
 test('Starta handläggning writes nothing of an untouched form and starts the errand as loaded', async () => {
   mocks.read.mockResolvedValue({ errand: { ...loaded } });
   render(<Harness />);
@@ -188,9 +192,12 @@ test('Starta handläggning writes nothing of an untouched form and starts the er
   );
   expect(mocks.save).not.toHaveBeenCalled();
   expect(mocks.status).toHaveBeenCalledOnce();
+  expect(mocks.status).toHaveBeenCalledWith('one', 'ONGOING', asLoaded);
 });
 
-test('Starta handläggning stops, writing nothing, when somebody else changed the errand since it was loaded', async () => {
+// The BFF refuses the write whose facts moved since the page loaded the errand, and the handler is told to reload.
+test('Starta handläggning says so when somebody else changed the errand since it was loaded', async () => {
+  mocks.status.mockRejectedValueOnce({ response: { status: 409 } });
   render(<Harness />);
   fireEvent.click(screen.getByRole('button', { name: 'Starta handläggning' }));
   await waitFor(() =>
@@ -199,9 +206,7 @@ test('Starta handläggning stops, writing nothing, when somebody else changed th
     )
   );
   expect(mocks.save).not.toHaveBeenCalled();
-  expect(mocks.assign).not.toHaveBeenCalled();
-  expect(mocks.phase).not.toHaveBeenCalled();
-  expect(mocks.status).not.toHaveBeenCalled();
+  expect(mocks.status).toHaveBeenCalledWith('one', 'ONGOING', asLoaded);
 });
 
 test('Starta handläggning saves a draft first, and starts the errand as saved', async () => {
@@ -217,11 +222,12 @@ test('Starta handläggning saves a draft first, and starts the errand as saved',
   expect(mocks.save).toHaveBeenCalledOnce();
   expect(mocks.save).toHaveBeenCalledWith(
     expect.objectContaining({ title: 'My draft' }),
-    1,
+    asLoaded,
     undefined,
     expect.objectContaining({ title: true })
   );
   expect(mocks.status).toHaveBeenCalledOnce();
+  expect(mocks.status).toHaveBeenCalledWith('one', 'ONGOING', expect.objectContaining({ title: 'My draft' }));
 });
 
 test('only a fully confirmed save replaces the form baseline', async () => {
@@ -317,28 +323,29 @@ const chooseManagerWhoIsAlsoLex = async (roleKey: string) => {
 test('giving the errand to someone under their LEX heading is the handover, not an assignment', async () => {
   await chooseManagerWhoIsAlsoLex('lex-ansvarig');
 
-  await waitFor(() => expect(mocks.handover).toHaveBeenCalledWith('one', 'assign-lex', 3, 'nora.chef'));
+  await waitFor(() => expect(mocks.handover).toHaveBeenCalledWith('one', 'assign-lex', asLoaded, 'nora.chef'));
   expect(mocks.assign).not.toHaveBeenCalled();
 });
 
 test('giving the errand to the same person under their manager heading is an ordinary assignment', async () => {
   await chooseManagerWhoIsAlsoLex('verksamhetschef');
 
-  await waitFor(() => expect(mocks.assign).toHaveBeenCalledWith('one', 'nora.chef', 1, 'ASSIGNED', 'handler'));
+  await waitFor(() => expect(mocks.assign).toHaveBeenCalledWith('one', 'nora.chef', asLoaded, 'ASSIGNED', 'handler'));
   expect(mocks.handover).not.toHaveBeenCalled();
 });
 
 // Only what changed is written: Ansvarig is the assignment, and the errand itself holds no draft, so nothing of it
-// is written and the assignment is conditioned on the version the page loaded.
+// is written and the assignment is conditioned on the handler the page loaded the errand with.
 test('choosing a new handler alone writes the assignment and nothing of the errand', async () => {
   await chooseManagerWhoIsAlsoLex('verksamhetschef');
 
   await waitFor(() => expect(mocks.assign).toHaveBeenCalledOnce());
   expect(mocks.save).not.toHaveBeenCalled();
-  expect(mocks.assign).toHaveBeenCalledWith('one', 'nora.chef', loaded.version, 'ASSIGNED', 'handler');
+  expect(mocks.assign).toHaveBeenCalledWith('one', 'nora.chef', asLoaded, 'ASSIGNED', 'handler');
 });
 
-test('a draft of the errand is written before the assignment, which follows the version it left', async () => {
+// Neither write moves what the other depends on, so both start from the errand as the handler saw it.
+test('a draft of the errand is written before the assignment, both from the errand as loaded', async () => {
   const nora = { displayName: 'Nora Chef', firstName: 'Nora', lastName: 'Chef', adAccount: 'nora.chef', id: 'nora' };
   mocks.assignable = {
     administrators: [{ ...nora, roleKeys: ['verksamhetschef'] }],
@@ -370,11 +377,11 @@ test('a draft of the errand is written before the assignment, which follows the 
   await waitFor(() => expect(mocks.assign).toHaveBeenCalledOnce());
   expect(mocks.save).toHaveBeenCalledWith(
     expect.objectContaining({ title: 'My draft' }),
-    loaded.version,
+    asLoaded,
     undefined,
     expect.not.objectContaining({ admin: expect.anything() })
   );
-  expect(mocks.assign).toHaveBeenCalledWith('one', 'nora.chef', 3, 'ASSIGNED', 'handler');
+  expect(mocks.assign).toHaveBeenCalledWith('one', 'nora.chef', asLoaded, 'ASSIGNED', 'handler');
 });
 
 /** A part of the errand holding a draft, as the MAS/MAR select or an investigation document would. */
@@ -384,10 +391,13 @@ const registerDraft = (save: () => Promise<boolean>) => {
   setDirty('draft', true);
 };
 
+// The handover is conditioned on the errand as the handler saw it: a change made elsewhere since the page loaded stops
+// it, rather than being read in just before it.
 test('giving the errand to a candidate whose assignment is a handover takes that step and leaves the errand', async () => {
   await handToLex();
 
-  await waitFor(() => expect(mocks.handover).toHaveBeenCalledWith('one', 'assign-lex', 3, 'lena.lex'));
+  await waitFor(() => expect(mocks.handover).toHaveBeenCalledWith('one', 'assign-lex', asLoaded, 'lena.lex'));
+  expect(mocks.save).not.toHaveBeenCalled();
   expect(mocks.assign).not.toHaveBeenCalled();
   expect(mocks.push).toHaveBeenCalledWith('/oversikt');
 });
@@ -408,9 +418,9 @@ test('a handover is the last write of a save, since the errand is out of reach a
   await handToLex({ editTitle: true });
 
   await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/oversikt'));
-  // The errand's own fields first: they are conditioned on the version the form was loaded with,
-  // which the drafts' writes would move on.
   expect(order).toEqual(['errand', 'draft', 'handover']);
+  // The save's own writes move none of what the handover depends on, so it is still made from the errand as loaded.
+  expect(mocks.handover).toHaveBeenCalledWith('one', 'assign-lex', asLoaded, 'lena.lex');
 });
 
 test('a draft that cannot be saved stops the handover', async () => {

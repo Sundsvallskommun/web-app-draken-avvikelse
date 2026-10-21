@@ -97,7 +97,7 @@ describe('SupportErrandJsonParameterController', () => {
     expect(documentService.readJsonParameter).not.toHaveBeenCalled();
   });
 
-  it('writes through the deep document boundary and returns status, ETag and fresh parent version', async () => {
+  it('writes through the deep document boundary and returns status and ETag', async () => {
     const update: UpdateSupportErrandJsonParameterDto = {
       schemaId: '2281_utredning-hsl_1.0',
       value: { assessment: 'Test' },
@@ -108,12 +108,11 @@ describe('SupportErrandJsonParameterController', () => {
       document: updated,
       etag: '"8"',
       status: 200,
-      parentErrandVersion: 13,
     });
     const req = mockReq();
     const res = resDouble();
 
-    await controller.updateJsonParameter(req, mockSupportErrandId, updated.key, '"7"', ABSENT_HEADER, '12', update, res);
+    await controller.updateJsonParameter(req, mockSupportErrandId, updated.key, '"7"', ABSENT_HEADER, update, res);
 
     expect(policyService.getState).toHaveBeenCalled();
     expect(documentService.writeJsonParameter).toHaveBeenCalledWith({
@@ -122,11 +121,13 @@ describe('SupportErrandJsonParameterController', () => {
       errandId: mockSupportErrandId,
       user: req.user,
       data: update,
-      preconditions: { ifMatch: '"7"', ifNoneMatch: undefined, parentErrandVersion: '12' },
+      preconditions: { ifMatch: '"7"', ifNoneMatch: undefined },
     });
     expect(res.statusCode).toBe(200);
     expect(res.headers.ETag).toBe('"8"');
-    expect(res.headers['X-Errand-Version']).toBe('13');
+    // The document write moves the errand's version but no fact an errand-level command depends on.
+    expect(res.headers).not.toHaveProperty('X-Errand-Version');
+    expect(res.headers).not.toHaveProperty('X-Errand-Writes');
     expect(res.body).toEqual(updated);
   });
 
@@ -138,16 +139,14 @@ describe('SupportErrandJsonParameterController', () => {
       document,
       etag: '"0"',
       status: 201,
-      parentErrandVersion: 4,
     });
     const res = resDouble();
 
-    await controller.updateJsonParameter(mockReq(), mockSupportErrandId, document.key, ABSENT_HEADER, '*', '3', update, res);
+    await controller.updateJsonParameter(mockReq(), mockSupportErrandId, document.key, ABSENT_HEADER, '*', update, res);
 
     expect(documentService.writeJsonParameter.mock.calls[0][0].preconditions).toEqual({
       ifMatch: undefined,
       ifNoneMatch: '*',
-      parentErrandVersion: '3',
     });
     expect(res.statusCode).toBe(201);
   });
@@ -163,10 +162,9 @@ describe('SupportErrandJsonParameterController', () => {
       document: { key: 'utredning-enhetschef', ...update, version: 8 },
       etag: '"8"',
       status: 200,
-      parentErrandVersion: 13,
     });
 
-    await controller.updateJsonParameter(mockReq(), mockSupportErrandId, 'utredning-enhetschef', '"7"', ABSENT_HEADER, '12', update, resDouble());
+    await controller.updateJsonParameter(mockReq(), mockSupportErrandId, 'utredning-enhetschef', '"7"', ABSENT_HEADER, update, resDouble());
 
     // The errand answers, whatever the browser sent: the document service writes server-owned values from here.
     expect(documentService.writeJsonParameter.mock.calls[0][0].internal).toEqual({ serverOwnedOverrides: { reportedMisconduct } });
@@ -185,7 +183,6 @@ describe('SupportErrandJsonParameterController', () => {
         'utredning-enhetschef',
         ABSENT_HEADER,
         '*',
-        '10',
         { schemaId: '2281_utredning-enhetschef_1.0', value: {} },
         resDouble(),
       ),
@@ -205,7 +202,6 @@ describe('SupportErrandJsonParameterController', () => {
         'utredning-hsl',
         ABSENT_HEADER,
         '*',
-        '10',
         { schemaId: '2281_utredning-hsl_1.0', value: {} },
         resDouble(),
       ),
@@ -243,7 +239,6 @@ describe('SupportErrandJsonParameterController', () => {
         'utredning-hsl',
         '"3"',
         ABSENT_HEADER,
-        '10',
         { schemaId: '2281_utredning-hsl_1.0', value: {} },
         resDouble(),
       ),
@@ -258,7 +253,6 @@ describe('SupportErrandJsonParameterController', () => {
       document: { key: 'utredning-hsl', schemaId: '2281_utredning-hsl_1.0', value: {}, version: 2 },
       etag: '"2"',
       status: 200,
-      parentErrandVersion: 11,
     });
 
     await controller.updateJsonParameter(
@@ -267,7 +261,6 @@ describe('SupportErrandJsonParameterController', () => {
       'utredning-hsl',
       ABSENT_HEADER,
       '*',
-      '10',
       { schemaId: '2281_utredning-hsl_1.0', value: {} },
       resDouble(),
     );
@@ -295,12 +288,11 @@ describe('SupportErrandJsonParameterController', () => {
         document: { key: decisionKey, ...update, version: 2 },
         etag: '"2"',
         status: 200,
-        parentErrandVersion: 5,
       });
       const req = mockReq();
 
       await controller.getJsonParameter(req, mockSupportErrandId, decisionKey, resDouble());
-      await controller.updateJsonParameter(req, mockSupportErrandId, decisionKey, '"1"', ABSENT_HEADER, '4', update, resDouble());
+      await controller.updateJsonParameter(req, mockSupportErrandId, decisionKey, '"1"', ABSENT_HEADER, update, resDouble());
 
       // One parent read per call: the prerequisite check reuses the applicability snapshot.
       expect(documentService.readParentErrandSnapshot).toHaveBeenCalledTimes(2);
@@ -320,7 +312,7 @@ describe('SupportErrandJsonParameterController', () => {
 
       await expect(controller.getJsonParameter(mockReq(), mockSupportErrandId, decisionKey, resDouble())).rejects.toMatchObject(NOT_APPLICABLE_ERROR);
       await expect(
-        controller.updateJsonParameter(mockReq(), mockSupportErrandId, decisionKey, ABSENT_HEADER, '*', '4', update, resDouble()),
+        controller.updateJsonParameter(mockReq(), mockSupportErrandId, decisionKey, ABSENT_HEADER, '*', update, resDouble()),
       ).rejects.toMatchObject(NOT_APPLICABLE_ERROR);
 
       expect(documentService.readJsonParameter).not.toHaveBeenCalled();
@@ -334,7 +326,7 @@ describe('SupportErrandJsonParameterController', () => {
 
       await controller.getJsonParameter(mockReq(), mockSupportErrandId, decisionKey, resDouble());
       await expect(
-        controller.updateJsonParameter(mockReq(), mockSupportErrandId, decisionKey, ABSENT_HEADER, '*', '4', update, resDouble()),
+        controller.updateJsonParameter(mockReq(), mockSupportErrandId, decisionKey, ABSENT_HEADER, '*', update, resDouble()),
       ).rejects.toMatchObject({ status: 409, message: 'This investigation document requires utredning-sol-lss to be saved on the errand first' });
 
       expect(documentService.writeJsonParameter).not.toHaveBeenCalled();
@@ -412,12 +404,11 @@ describe('SupportErrandJsonParameterController', () => {
         document: { key: decisionKey, ...update, version: 2 },
         etag: '"2"',
         status: 200,
-        parentErrandVersion: 5,
       });
       const req = mockReq();
 
       await controller.getJsonParameter(req, mockSupportErrandId, decisionKey, resDouble());
-      await controller.updateJsonParameter(req, mockSupportErrandId, decisionKey, '"1"', ABSENT_HEADER, '4', update, resDouble());
+      await controller.updateJsonParameter(req, mockSupportErrandId, decisionKey, '"1"', ABSENT_HEADER, update, resDouble());
 
       expect(documentService.readParentErrandSnapshot).toHaveBeenCalledWith(
         expect.objectContaining({ definition: expect.objectContaining({ key: decisionKey, appliesTo: 'hsl-deviation', placement: 'decision' }) }),
@@ -436,7 +427,7 @@ describe('SupportErrandJsonParameterController', () => {
 
       await expect(controller.getJsonParameter(mockReq(), mockSupportErrandId, decisionKey, resDouble())).rejects.toMatchObject(NOT_APPLICABLE_ERROR);
       await expect(
-        controller.updateJsonParameter(mockReq(), mockSupportErrandId, decisionKey, ABSENT_HEADER, '*', '4', update, resDouble()),
+        controller.updateJsonParameter(mockReq(), mockSupportErrandId, decisionKey, ABSENT_HEADER, '*', update, resDouble()),
       ).rejects.toMatchObject(NOT_APPLICABLE_ERROR);
 
       expect(documentService.readJsonParameter).not.toHaveBeenCalled();
@@ -497,7 +488,7 @@ describe('SupportErrandJsonParameterController', () => {
 
         await expect(controller.getJsonParameter(mockReq(), mockSupportErrandId, key, resDouble())).rejects.toMatchObject(NOT_APPLICABLE_ERROR);
         await expect(
-          controller.updateJsonParameter(mockReq(), mockSupportErrandId, key, ABSENT_HEADER, '*', '4', update, resDouble()),
+          controller.updateJsonParameter(mockReq(), mockSupportErrandId, key, ABSENT_HEADER, '*', update, resDouble()),
         ).rejects.toMatchObject(NOT_APPLICABLE_ERROR);
         expect(documentService.readJsonParameter).not.toHaveBeenCalled();
         expect(documentService.writeJsonParameter).not.toHaveBeenCalled();
@@ -518,7 +509,6 @@ describe('SupportErrandJsonParameterController', () => {
         'other-document',
         ABSENT_HEADER,
         '*',
-        '10',
         { schemaId: '2281_other-document_1.0', value: {} },
         resDouble(),
       ),
@@ -578,7 +568,6 @@ describe('SupportErrandJsonParameterController report', () => {
         document: { key: REPORT_KEY, ...report, version: 1 },
         etag: '"1"',
         status: 201,
-        parentErrandVersion: 5,
       })),
       readParentErrandSnapshot: vi.fn(async () => errand),
     };
@@ -614,7 +603,7 @@ describe('SupportErrandJsonParameterController report', () => {
     const req = mockReq();
     const res = resDouble();
 
-    await controller.updateJsonParameter(req, mockSupportErrandId, REPORT_KEY, ABSENT_HEADER, '*', ABSENT_HEADER, report, res);
+    await controller.updateJsonParameter(req, mockSupportErrandId, REPORT_KEY, ABSENT_HEADER, '*', report, res);
 
     expect(documentService.writeJsonParameter).toHaveBeenCalledWith({
       definition: expect.objectContaining({ key: REPORT_KEY, schemaName: 'avvikelse-plats-handelse' }),
@@ -622,18 +611,17 @@ describe('SupportErrandJsonParameterController report', () => {
       errandId: mockSupportErrandId,
       user: req.user,
       data: report,
-      preconditions: { ifMatch: undefined, ifNoneMatch: '*', parentErrandVersion: undefined },
+      preconditions: { ifMatch: undefined, ifNoneMatch: '*' },
     });
     expect(res.statusCode).toBe(201);
     expect(res.headers.ETag).toBe('"1"');
-    expect(res.headers['X-Errand-Version']).toBe('5');
   });
 
   it('never writes the report Katla brought in', async () => {
     const { controller, documentService } = makeReportController(errandIn('ESERVICE', 'phase-received'));
 
     await expect(
-      controller.updateJsonParameter(mockReq(), mockSupportErrandId, REPORT_KEY, '"1"', ABSENT_HEADER, ABSENT_HEADER, report, resDouble()),
+      controller.updateJsonParameter(mockReq(), mockSupportErrandId, REPORT_KEY, '"1"', ABSENT_HEADER, report, resDouble()),
     ).rejects.toMatchObject({ status: 409, message: expect.stringContaining('record of what was reported') });
     expect(documentService.writeJsonParameter).not.toHaveBeenCalled();
   });
@@ -642,7 +630,7 @@ describe('SupportErrandJsonParameterController report', () => {
     const { controller, documentService } = makeReportController(errandIn('WEB_UI', 'phase-investigation'));
 
     await expect(
-      controller.updateJsonParameter(mockReq(), mockSupportErrandId, REPORT_KEY, '"1"', ABSENT_HEADER, ABSENT_HEADER, report, resDouble()),
+      controller.updateJsonParameter(mockReq(), mockSupportErrandId, REPORT_KEY, '"1"', ABSENT_HEADER, report, resDouble()),
     ).rejects.toMatchObject({ status: 409, message: 'The report can no longer be changed once the investigation has started' });
     expect(documentService.writeJsonParameter).not.toHaveBeenCalled();
   });
@@ -651,7 +639,7 @@ describe('SupportErrandJsonParameterController report', () => {
     const { controller, documentService } = makeReportController(errandIn('WEB_UI', 'phase-received'), 'unavailable');
 
     await expect(
-      controller.updateJsonParameter(mockReq(), mockSupportErrandId, REPORT_KEY, '"1"', ABSENT_HEADER, ABSENT_HEADER, report, resDouble()),
+      controller.updateJsonParameter(mockReq(), mockSupportErrandId, REPORT_KEY, '"1"', ABSENT_HEADER, report, resDouble()),
     ).rejects.toMatchObject({ status: 503 });
     expect(documentService.readParentErrandSnapshot).not.toHaveBeenCalled();
     expect(documentService.writeJsonParameter).not.toHaveBeenCalled();
@@ -661,11 +649,11 @@ describe('SupportErrandJsonParameterController report', () => {
 describe('the labels a saved investigation document decides', () => {
   const managerSchemaId = '2281_utredning-enhetschef_1.6';
 
-  const makeLabelController = (applied: number | undefined | Error = 14) => {
+  const makeLabelController = (applied: boolean | Error = true) => {
     const made = makeController();
     const documentService = made.documentService as DocumentServiceStub;
     const labelService = {
-      applyDerivedLabel: vi.fn(async (): Promise<number | undefined> => {
+      applyDerivedLabel: vi.fn(async (): Promise<boolean> => {
         if (applied instanceof Error) throw applied;
         return applied;
       }),
@@ -698,18 +686,17 @@ describe('the labels a saved investigation document decides', () => {
       document: { key, ...update, version: 8 },
       etag: '"8"',
       status: 200,
-      parentErrandVersion: 13,
     });
     const req = mockReq();
     const res = resDouble();
-    await controller.updateJsonParameter(req, mockSupportErrandId, key, '"7"', ABSENT_HEADER, '12', update, res);
+    await controller.updateJsonParameter(req, mockSupportErrandId, key, '"7"', ABSENT_HEADER, update, res);
     return { req, res };
   };
 
   it('sets the label when the investigation is saved as completed with an HSL risk of 4 or more', async () => {
-    const { controller, documentService, labelService } = makeLabelController(14);
+    const { controller, documentService, labelService } = makeLabelController();
 
-    const { req, res } = await save(controller, documentService, 'utredning-enhetschef', {
+    const { req } = await save(controller, documentService, 'utredning-enhetschef', {
       completed: 'yes',
       riskAssessmentHsl: { calculatedRiskValue: 6 },
     });
@@ -719,63 +706,29 @@ describe('the labels a saved investigation document decides', () => {
       errandId: mockSupportErrandId,
       user: req.user,
       resourcePath: 'RISK/HIGH_HSL',
-      expectedVersion: 13,
     });
-    // Two writes of this request's own: the client advances past both.
-    expect(res.headers['X-Errand-Version']).toBe('14');
-    expect(res.headers['X-Errand-Writes']).toBe('2');
-  });
-
-  // The document write left the errand at 13. The label write is every step from there, as Support Management took
-  // them: the client is told all of them are this request's own, or it could not follow the errand past them.
-  it('counts every version step the label write took as its own', async () => {
-    const { controller, documentService } = makeLabelController(15);
-
-    const { res } = await save(controller, documentService, 'utredning-enhetschef', {
-      riskAssessmentHsl: { calculatedRiskValue: 6 },
-    });
-
-    expect(res.headers['X-Errand-Version']).toBe('15');
-    expect(res.headers['X-Errand-Writes']).toBe('3');
   });
 
   it('sets the label as soon as a draft assesses an HSL risk of 4 or more, so MAS/MAR reach the errand at once', async () => {
-    const { controller, documentService, labelService } = makeLabelController(14);
+    const { controller, documentService, labelService } = makeLabelController();
 
-    const { res } = await save(controller, documentService, 'utredning-enhetschef', {
+    await save(controller, documentService, 'utredning-enhetschef', {
       completed: 'no',
       riskAssessmentHsl: { calculatedRiskValue: 16 },
     });
 
-    expect(labelService.applyDerivedLabel).toHaveBeenCalledWith(expect.objectContaining({ resourcePath: 'RISK/HIGH_HSL', expectedVersion: 13 }));
-    expect(res.headers['X-Errand-Version']).toBe('14');
-    expect(res.headers['X-Errand-Writes']).toBe('2');
+    expect(labelService.applyDerivedLabel).toHaveBeenCalledWith(expect.objectContaining({ resourcePath: 'RISK/HIGH_HSL' }));
   });
 
   it.each([
     ['a lower HSL risk', { completed: 'yes', riskAssessmentHsl: { calculatedRiskValue: 3 } }],
     ['no HSL assessment', { completed: 'no' }],
   ])('never clears the label once set: a save assessing %s writes no label', async (_situation, value) => {
-    const { controller, documentService, labelService } = makeLabelController(14);
+    const { controller, documentService, labelService } = makeLabelController();
 
-    const { res } = await save(controller, documentService, 'utredning-enhetschef', value);
+    await save(controller, documentService, 'utredning-enhetschef', value);
 
     expect(labelService.applyDerivedLabel).not.toHaveBeenCalled();
-    expect(res.headers['X-Errand-Version']).toBe('13');
-    expect(res.headers['X-Errand-Writes']).toBe('1');
-  });
-
-  it('counts one write when the errand already carries the label', async () => {
-    const { controller, documentService, labelService } = makeLabelController();
-    // No label write was needed.
-    labelService.applyDerivedLabel.mockResolvedValue(undefined);
-
-    const { res } = await save(controller, documentService, 'utredning-enhetschef', {
-      riskAssessmentHsl: { calculatedRiskValue: 6 },
-    });
-
-    expect(res.headers['X-Errand-Version']).toBe('13');
-    expect(res.headers['X-Errand-Writes']).toBe('1');
   });
 
   it('only reads the unit manager investigation for it', async () => {
@@ -795,8 +748,6 @@ describe('the labels a saved investigation document decides', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(res.headers['X-Errand-Version']).toBe('13');
-    expect(res.headers['X-Errand-Writes']).toBe('1');
   });
 
   // D2. The head of operations is e-mailed when MAS/MAR decides to make an HSL event analysis. Support Management's
@@ -804,19 +755,15 @@ describe('the labels a saved investigation document decides', () => {
   // analysed. It is permanent: a later decision against the analysis leaves it.
   describe('the HSL analysis label on a saved HSL event analysis', () => {
     it('marks the errand when MAS/MAR decides that the event is analysed', async () => {
-      const { controller, documentService, labelService } = makeLabelController(14);
+      const { controller, documentService, labelService } = makeLabelController();
 
-      const { res } = await save(controller, documentService, 'utredning-hsl', { analysisDecision: 'analyze' });
+      await save(controller, documentService, 'utredning-hsl', { analysisDecision: 'analyze' });
 
-      expect(labelService.applyDerivedLabel).toHaveBeenCalledWith(
-        expect.objectContaining({ resourcePath: 'ANALYSIS/HSL_STARTED', expectedVersion: 13 }),
-      );
-      expect(res.headers['X-Errand-Version']).toBe('14');
-      expect(res.headers['X-Errand-Writes']).toBe('2');
+      expect(labelService.applyDerivedLabel).toHaveBeenCalledWith(expect.objectContaining({ resourcePath: 'ANALYSIS/HSL_STARTED' }));
     });
 
     it('never takes the mark off: a decision against the analysis, or none yet, writes no label', async () => {
-      const { controller, documentService, labelService } = makeLabelController(14);
+      const { controller, documentService, labelService } = makeLabelController();
 
       await save(controller, documentService, 'utredning-hsl', { analysisDecision: 'not_analyze', notAnalyzedMotivation: 'Text' });
       await save(controller, documentService, 'utredning-hsl', { methodology: '<p>Utkast</p>' });
@@ -825,7 +772,7 @@ describe('the labels a saved investigation document decides', () => {
     });
 
     it('reads the decision from the HSL event analysis alone', async () => {
-      const { controller, documentService, labelService } = makeLabelController(14);
+      const { controller, documentService, labelService } = makeLabelController();
 
       await save(controller, documentService, 'utredning-sol-lss', { analysisDecision: 'analyze' });
 

@@ -48,7 +48,6 @@ const measure: Measure = {
 };
 const snapshot: MeasuresSnapshot = {
   measures: [measure],
-  errandVersion: 4,
   metadata: {
     measureTypes: [{ id: 'type-one', name: 'EDUCATION', displayName: 'Utbildning', measureGroups: ['PREVENTIVE'] }],
     roles: [{ name: 'MANAGER', displayName: 'Enhetschef' }],
@@ -403,9 +402,9 @@ test('lists the latest added measure first, and gathers the measures per person 
   expect(screen.getByRole('list', { name: /^creator \(2\)$/i })).toBeTruthy();
 });
 
-// B3. The handler saves the errand with the tab open and then changes a measure: both are their own writes, and the
-// next save must not be refused as somebody else's change.
-test('the errand’s known version follows a measure changed after the errand was saved with the tab open', async () => {
+// B3. The handler saves the errand with the tab open and then changes a measure. A measure is a resource of its own:
+// its write is conditioned on the measure's version, and the errand as the page knows it neither stops nor follows it.
+test('a measure changed after the errand was saved with the tab open leaves the errand as the page knows it', async () => {
   const moveEndDate = async (date: string) => {
     fireEvent.click(await screen.findByRole('button', { name: 'Ändra slutdatum Utbildning' }));
     const dialog = await screen.findByRole('dialog');
@@ -422,15 +421,11 @@ test('the errand’s known version follows a measure changed after the errand wa
 
   // Spara ärende in the sidebar: the errand is at 5 now, and the list on screen was read at 4.
   act(() => useSupportStore.setState({ supportErrand: { ...errand, version: 5 } }));
-  mocks.read.mockResolvedValue({ ...snapshot, errandVersion: 6 });
   await moveEndDate('2026-10-15');
-  await waitFor(() => expect(knownVersion()).toBe(6));
+  await waitFor(() => expect(mocks.read).toHaveBeenCalledTimes(2));
 
-  // Two steps where the handler made one: somebody else wrote too, and the errand has to find that out itself.
-  mocks.read.mockResolvedValue({ ...snapshot, errandVersion: 8 });
-  await moveEndDate('2026-10-20');
-  await waitFor(() => expect(mocks.read).toHaveBeenCalledTimes(3));
-  expect(knownVersion()).toBe(6);
+  expect(mocks.changeEnd).toHaveBeenCalledWith(errand.id, measure.id, measure.version, expect.anything(), undefined);
+  expect(knownVersion()).toBe(5);
 });
 
 test('returning to a tab reloads measures changed in the other view', async () => {

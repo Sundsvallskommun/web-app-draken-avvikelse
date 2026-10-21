@@ -15,7 +15,7 @@ import { User } from '@/interfaces/users.interface';
 import { supportMetadataCache } from '@/services/support-metadata-cache';
 
 import ApiService from './api.service';
-import { assertSupportErrandWritable, getActiveErrandPhaseId, getErrandVersion } from './support-errand.service';
+import { assertSupportErrandWritable, getActiveErrandPhaseId } from './support-errand.service';
 import { MEASURE_ACCESS_RESOURCE, SupportInvestigationAccessService } from './support-investigation-access.service';
 import { undecidedProposalsMessage, unhandledMeasuresMessage } from './support-measure-closing';
 import {
@@ -37,7 +37,6 @@ import { collectOpenPlannedMeasures, OPEN_PLANNED_MEASURES_FILTER, type PlannedS
 
 export interface SupportMeasuresSnapshot {
   measures: Measure[];
-  errandVersion: number;
   metadata: { measureTypes: MeasureType[]; roles: Role[] };
   creationRoles: Role[];
   registration: MeasureRegistrationPolicy;
@@ -153,12 +152,7 @@ export class SupportMeasureService {
 
   async read(municipalityId: string, errandId: string, user: User): Promise<SupportMeasuresSnapshot> {
     const url = this.errandUrl(municipalityId, errandId);
-    // Parent version is only used to synchronize the surrounding errand form after our own edit.
     // Each measure carries the version used for its own writes.
-    const errand = await this.apiService.get<Errand>(
-      { url, includeResponseHeaders: true, propagateClientError: true, mapUnauthorizedToForbidden: true },
-      user,
-    );
     const result = await this.apiService.get<Measure[]>(
       { url: `${url}/measures`, propagateClientError: true, mapUnauthorizedToForbidden: true },
       user,
@@ -185,7 +179,6 @@ export class SupportMeasureService {
     const followUpRefusal = undecidedProposalsMessage(result.data ?? []);
     return {
       measures: result.data,
-      errandVersion: getErrandVersion(errand.data, errand.headers?.etag),
       metadata: { measureTypes: metadata.measureTypes ?? [], roles: metadata.roles ?? [] },
       ...registration,
       canWrite,

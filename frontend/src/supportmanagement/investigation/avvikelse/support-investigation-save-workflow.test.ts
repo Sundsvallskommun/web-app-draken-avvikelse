@@ -3,7 +3,6 @@ import { expect, test, vi } from 'vitest';
 import {
   investigationClassificationWriteBlock,
   prepareInvestigationClassification,
-  savedBeyondTheDocument,
 } from './support-investigation-save-workflow';
 
 // The classification is what a finished investigation is filed under, so its rules are asserted on
@@ -145,13 +144,4 @@ test('a classification the handler edited is validated even in a draft', async (
 
   await expect(prepareInvestigationClassification(request)).rejects.toThrow('för varje valt lagrum');
   expect(request.triggerValidation).toHaveBeenCalled();
-});
-
-test('a save that took more of the errand than the document leaves the labels on the page behind', () => {
-  // The BFF's own second write: the label for a high HSL risk.
-  expect(savedBeyondTheDocument({ ownErrandWrites: 2 })).toBe(true);
-  expect(savedBeyondTheDocument({ ownErrandWrites: 1 })).toBe(false);
-  // A BFF that does not say how many steps were its own made one, and nothing was saved where nothing came back.
-  expect(savedBeyondTheDocument({})).toBe(false);
-  expect(savedBeyondTheDocument(undefined)).toBe(false);
 });

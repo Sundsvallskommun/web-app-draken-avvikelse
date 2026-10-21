@@ -464,7 +464,6 @@ test.describe('README', () => {
         ? route.fulfill({
             json: {
               measures,
-              errandVersion: 7,
               metadata: measureMetadata,
               creationRoles: measureMetadata.roles.slice(0, 1),
               registration: {

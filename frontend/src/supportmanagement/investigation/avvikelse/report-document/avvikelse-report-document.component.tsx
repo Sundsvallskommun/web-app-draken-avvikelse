@@ -7,7 +7,6 @@ import type { RJSFSchema, UiSchema } from '@rjsf/utils';
 import { Alert, Spinner, useSnackbar } from '@sk-web-gui/react';
 import { useMetadataStore, useSupportStore } from '@stores/index';
 import { isSupportErrandLocked } from '@supportmanagement/services/support-errand-service';
-import { useAdvanceErrandVersion } from '@supportmanagement/services/use-advance-errand-version';
 import { isAxiosError } from 'axios';
 import { FC, useEffect, useState } from 'react';
 
@@ -74,7 +73,6 @@ export const AvvikelseReportDocument: FC<InvestigationDetailsHeaderProps> = () =
   const phases = useMetadataStore((s) => s.supportMetadata?.phases);
   const reportDocument = useInvestigationProfileStore((state) => state.profile?.reportDocument);
   const setJsonParameterHandled = useInvestigationProfileStore((state) => state.setJsonParameterHandled);
-  const advanceErrandVersion = useAdvanceErrandVersion(supportErrand?.id);
   const [report, setReport] = useState<LoadedReport>();
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -134,17 +132,14 @@ export const AvvikelseReportDocument: FC<InvestigationDetailsHeaderProps> = () =
     setSaving(true);
     setSaveError(undefined);
     try {
-      const expectedVersion = supportErrand?.version;
       const saved = await saveSupportInvestigationDocument(
         errandId,
         reportDocument.key,
         { schemaId: report.schemaId, value: formData },
-        expectedVersion,
         report.etag
       );
       setReport({ ...report, formData: saved.document.value, etag: saved.etag });
       recordSavedReport(saved.document);
-      advanceErrandVersion(expectedVersion, saved.parentErrandVersion);
       toastMessage(getToastOptions({ message: 'Rapporten har sparats.', status: 'success' }));
     } catch (error) {
       setSaveError(reportSaveErrorMessage(isAxiosError(error) ? error.response?.status : undefined));

@@ -15,8 +15,6 @@ interface ApplyDerivedLabelRequest {
   readonly user: User;
   /** The label the saved document decides the errand carries. */
   readonly resourcePath: string;
-  /** The errand version the document write left; the label write follows it directly or not at all. */
-  readonly expectedVersion: number;
 }
 
 /**
@@ -27,9 +25,10 @@ interface ApplyDerivedLabelRequest {
  * it notifies like the save it follows: a subscription profile on the label is how MAS/MAR and the head of
  * operations hear of the errand.
  *
- * The write is conditioned on the version that document write left, so it lands directly on top of it or not at
- * all: anybody else having written in between leaves the label for the next save rather than racing them. A
- * namespace without the label in its metadata is left alone.
+ * The label is added to the labels as they are read right before the write, which is conditioned on the version that
+ * read found: it keeps every label somebody else set meanwhile, and a write landing between the read and the label
+ * leaves the label for the next save rather than racing it. A namespace without the label in its metadata is left
+ * alone.
  */
 export class InvestigationDerivedLabelService {
   constructor(
@@ -37,17 +36,11 @@ export class InvestigationDerivedLabelService {
     private readonly namespace: string = SUPPORTMANAGEMENT_NAMESPACE ?? '',
   ) {}
 
-  /**
-   * Answers the errand version after its own write, or `undefined` when it wrote nothing.
-   *
-   * The version is read back, never counted: how many steps Support Management takes for a label write is its
-   * own business, and a version one step short makes the caller's next errand write - the classification saved
-   * with the investigation - somebody else's change.
-   */
-  async applyDerivedLabel({ municipalityId, errandId, user, resourcePath, expectedVersion }: ApplyDerivedLabelRequest): Promise<number | undefined> {
+  /** Answers whether the label was written. */
+  async applyDerivedLabel({ municipalityId, errandId, user, resourcePath }: ApplyDerivedLabelRequest): Promise<boolean> {
     const baseURL = apiURL(apiServiceName('supportmanagement'));
     const url = `${municipalityId}/${this.namespace}/errands/${errandId}`;
-    const readErrandVersion = async (): Promise<{ version: number; labels: Errand['labels'] }> => {
+    const readErrand = async (): Promise<{ version: number; labels: Errand['labels'] }> => {
       const errand = await this.apiService.get<Errand>(
         { url, baseURL, includeResponseHeaders: true, propagateClientError: true, mapUnauthorizedToForbidden: true },
         user,
@@ -55,34 +48,40 @@ export class InvestigationDerivedLabelService {
       return { version: getErrandVersion(errand.data, errand.headers?.etag), labels: errand.data.labels };
     };
     const [errand, labels] = await Promise.all([
-      readErrandVersion(),
+      readErrand(),
       supportMetadataCache.read<Labels | null>(
         this.apiService,
         { url: `${municipalityId}/${this.namespace}/metadata/labels`, baseURL, propagateClientError: true, mapUnauthorizedToForbidden: true },
         user,
       ),
     ]);
-    if (errand.version !== expectedVersion) return undefined;
-
     const update = buildLabelAdditionUpdate({
       currentLabels: errand.labels,
       labelStructure: labels.data?.labelStructure,
       resourcePath,
     });
-    if (!update) return undefined;
+    if (!update) return false;
 
-    await this.apiService.patch<Errand, { labels: { id: string }[] }>(
-      {
-        url,
-        baseURL,
-        data: { labels: update },
-        headers: { 'If-Match': `"${errand.version}"` },
-        followLocation: false,
-        propagateClientError: true,
-        mapUnauthorizedToForbidden: true,
-      },
-      user,
-    );
-    return (await readErrandVersion()).version;
+    try {
+      await this.apiService.patch<Errand, { labels: { id: string }[] }>(
+        {
+          url,
+          baseURL,
+          data: { labels: update },
+          headers: { 'If-Match': `"${errand.version}"` },
+          followLocation: false,
+          propagateClientError: true,
+          mapUnauthorizedToForbidden: true,
+        },
+        user,
+      );
+    } catch (error) {
+      // Somebody wrote between the read and the label; the next save adds it.
+      if (isRecord(error) && error.status === 412) return false;
+      throw error;
+    }
+    return true;
   }
 }
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;

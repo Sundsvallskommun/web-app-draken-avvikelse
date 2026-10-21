@@ -23,8 +23,8 @@ interface ScopedAccess {
 /**
  * One request for the whole errand, shared by the investigation and decision tabs. Responses from
  * an old errand or identity are never rendered: another errand or user invalidates the previous answer
- * immediately. A recheck of the same errand - after a save moved its version, or on returning to the
- * window - keeps the previous answer on screen until the new one arrives, so the documents are not
+ * immediately. A recheck of the same errand - after the errand is loaded anew or a document saved, or on returning to
+ * the window - keeps the previous answer on screen until the new one arrives, so the documents are not
  * emptied out from under the handler and the page does not jump to the top. The BFF decides every
  * read and write whichever answer is shown. Document components own their drafts independently of this state.
  */
@@ -35,7 +35,12 @@ export function useInvestigationAccess(enabled: boolean): {
   const errandId = useSupportStore((state) => state.supportErrand?.id);
   const username = useUserStore((state) => state.user.username);
   const revision = useSupportStore((state) =>
-    JSON.stringify([state.supportErrand?.version, state.supportErrand?.labels, state.supportErrand?.classification])
+    JSON.stringify([
+      state.supportErrand?.version,
+      state.supportErrand?.labels,
+      state.supportErrand?.classification,
+      state.supportErrand?.jsonParameters?.map((document) => [document.key, document.version]),
+    ])
   );
   const [attempt, setAttempt] = useState(0);
   const refresh = useCallback(() => setAttempt((current) => current + 1), []);

@@ -6,14 +6,12 @@ import { useMetadataStore, useSupportStore, useUserStore } from '@stores/index';
 import { getInvestigationEarlyClose } from '@supportmanagement/investigation/investigation-variant-registry';
 import {
   getSupportErrandById,
-  readSupportErrandWriteSnapshot,
   setSupportErrandAdmin,
   setSupportErrandStatus,
   Status,
   SupportErrand,
 } from '@supportmanagement/services/support-errand-service';
-import { SupportErrandStatusSnapshot } from '@supportmanagement/services/support-errand-status-transition';
-import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-version';
+import { supportErrandWriteErrorMessage } from '@supportmanagement/services/support-errand-write-error';
 import {
   closesFromActivePhase,
   getActiveSupportPhaseId,
@@ -53,31 +51,15 @@ export const SupportCloseErrandButtonComponent: React.FC<{ disabled: boolean }> 
   };
 
   // When an errand is closed without a handler (e.g. directly from status NEW), the user who
-  // closes it becomes the handler so the errand has a responsible person. Returns the resulting
-  // assigned user (the existing handler if one is already set) together with the snapshot the
-  // close must be conditional on: the loaded errand when nothing was written, and the version our
-  // own assignment produced when it was.
-  const ensureHandlerAssigned = async (
-    errandId: string
-  ): Promise<{ assignedUserId?: string; expected: SupportErrandStatusSnapshot }> => {
-    if (supportErrand?.assignedUserId) {
-      return { assignedUserId: supportErrand.assignedUserId, expected: supportErrand };
-    }
+  // closes it becomes the handler so the errand has a responsible person. The assignment moves
+  // neither the status nor the phase the close starts from, so the close is still made from the
+  // errand as the handler saw it.
+  const ensureHandlerAssigned = async (errandId: string): Promise<void> => {
+    if (supportErrand?.assignedUserId) return;
     const currentAdmin = administrators.find((a) => a.adAccount === user.username);
-    if (!currentAdmin) return { assignedUserId: undefined, expected: supportErrand ?? {} };
+    if (!currentAdmin) return;
 
-    await setSupportErrandAdmin(
-      errandId,
-      currentAdmin.adAccount,
-      supportErrand?.version,
-      undefined,
-      currentAdmin.adAccount
-    );
-
-    return {
-      assignedUserId: currentAdmin.adAccount,
-      expected: await readSupportErrandWriteSnapshot(errandId),
-    };
+    await setSupportErrandAdmin(errandId, currentAdmin.adAccount, supportErrand, undefined, currentAdmin.adAccount);
   };
 
   /**
@@ -90,8 +72,8 @@ export const SupportCloseErrandButtonComponent: React.FC<{ disabled: boolean }> 
     const errandId = supportErrand.id;
     setIsLoading(true);
     try {
-      const assignment = await ensureHandlerAssigned(errandId);
-      await setSupportErrandStatus(errandId, Status.SOLVED, assignment.expected, closingMotivation);
+      await ensureHandlerAssigned(errandId);
+      await setSupportErrandStatus(errandId, Status.SOLVED, supportErrand, closingMotivation);
       const closed = await getSupportErrandById(errandId);
       if (closed.error) throw new Error('Could not read back the closed support errand');
       setSupportErrand(closed.errand);

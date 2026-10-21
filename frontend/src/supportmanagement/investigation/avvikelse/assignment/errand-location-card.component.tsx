@@ -33,7 +33,5 @@ export const ErrandLocationCard: FC<InvestigationDetailsHeaderProps> = ({ access
 
   if (!canMoveLocation) return null;
 
-  return (
-    <MoveLocationButton errandId={supportErrand!.id!} expectedVersion={supportErrand?.version} disabled={disabled} />
-  );
+  return <MoveLocationButton errandId={supportErrand!.id!} seen={supportErrand} disabled={disabled} />;
 };

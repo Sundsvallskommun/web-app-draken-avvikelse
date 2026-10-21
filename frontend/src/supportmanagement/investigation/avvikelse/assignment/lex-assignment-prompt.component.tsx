@@ -1,4 +1,5 @@
 import { useUserStore } from '@stores/index';
+import type { SeenSupportErrand } from '@supportmanagement/services/support-errand-facts';
 import { useRouter } from 'next/navigation';
 import { FC, useMemo, useState } from 'react';
 
@@ -9,8 +10,8 @@ import { HandlerAssignmentModal } from './handler-assignment-modal.component';
 interface LexAssignmentPromptProps {
   show: boolean;
   errandId: string;
-  /** The errand version the handover is conditioned on; the backend rejects a stale one. */
-  expectedVersion: number | undefined;
+  /** The errand as the handler saw it; the backend refuses the handover when its handler, status or routing moved since. */
+  seen: SeenSupportErrand | undefined;
   /** Why the handover is asked for now; the dialog explains the classification when left out. */
   description?: string;
   /** Puts the handover off. It is still required before the errand can be sent to the decision. */
@@ -31,7 +32,7 @@ interface LexAssignmentPromptProps {
 export const LexAssignmentPrompt: FC<LexAssignmentPromptProps> = ({
   show,
   errandId,
-  expectedVersion,
+  seen,
   description = 'Ärendet är nu klassificerat som ett misstänkt missförhållande och ska tilldelas en LEX-ansvarig, som sedan skickar det till beslut. Rapporttypen ändras från Avvikelse till Missförhållande, och när ärendet är tilldelat lämnar det din ärendelista.',
   onClose,
 }) => {
@@ -58,15 +59,15 @@ export const LexAssignmentPrompt: FC<LexAssignmentPromptProps> = ({
       : undefined;
 
   const assign = async (adAccount: string) => {
-    if (typeof expectedVersion !== 'number') {
-      setError('Ärendets version saknas. Ladda om ärendet innan du tilldelar en LEX-ansvarig.');
+    if (!seen?.facts) {
+      setError('Ärendet är inte helt inläst. Ladda om ärendet innan du tilldelar en LEX-ansvarig.');
       return;
     }
 
     setIsSaving(true);
     setError(undefined);
     try {
-      await applyInvestigationHandover(errandId, 'assign-lex', expectedVersion, adAccount);
+      await applyInvestigationHandover(errandId, 'assign-lex', seen, adAccount);
       router.push('/oversikt');
     } catch (e) {
       setError(investigationHandoverErrorMessage(e, 'Ärendet kunde inte tilldelas en LEX-ansvarig. Försök igen.'));

@@ -17,7 +17,7 @@ import {
   SchemaBoundJsonService,
   type SchemaBoundJsonServiceDependencies,
 } from './schema-bound-json.service';
-import { assertSupportErrandWritable, getErrandVersion } from './support-errand.service';
+import { assertSupportErrandWritable } from './support-errand.service';
 
 /**
  * The application profile injects this definition. The json-parameter service never
@@ -70,7 +70,6 @@ export interface ReadJsonParameterResult<TKey extends string = string> {
 export interface JsonParameterWritePreconditions {
   readonly ifMatch?: string;
   readonly ifNoneMatch?: string;
-  readonly parentErrandVersion?: string;
 }
 
 export interface WriteJsonParameterRequest<TKey extends string = string, TSchemaName extends string = string> extends JsonParameterRequest<
@@ -99,8 +98,6 @@ export interface WriteJsonParameterResult<TKey extends string = string> {
   readonly document: SupportJsonParameter<TKey>;
   readonly etag: StrongVersionETag;
   readonly status: 200 | 201;
-  /** Fresh optimistic-locking version read from the parent errand after the document write. */
-  readonly parentErrandVersion: number;
 }
 
 type JsonParameterApiService = Pick<ApiService, 'get' | 'put'>;
@@ -130,7 +127,6 @@ interface ValidatedDocumentResponse<TKey extends string, TStatus extends 200 | 2
 }
 
 const STRONG_VERSION_ETAG_PATTERN = /^"(0|[1-9]\d*)"$/u;
-const VERSION_HEADER_PATTERN = /^(0|[1-9]\d*)$/u;
 
 /**
  * Support Management 14.14 exposes no If-None-Match parameter. Its upsert does,
@@ -215,7 +211,7 @@ const requireDocumentResponse = <TKey extends string, TStatus extends 200 | 201>
 };
 
 const validateProvidedPreconditionSyntax = (preconditions: JsonParameterWritePreconditions): void => {
-  const { ifMatch, ifNoneMatch, parentErrandVersion } = preconditions;
+  const { ifMatch, ifNoneMatch } = preconditions;
   if (ifMatch !== undefined && ifNoneMatch !== undefined) {
     throw new HttpException(400, 'If-Match and If-None-Match must not be combined');
   }
@@ -224,20 +220,6 @@ const validateProvidedPreconditionSyntax = (preconditions: JsonParameterWritePre
   }
   if (ifNoneMatch !== undefined && ifNoneMatch !== '*') {
     throw new HttpException(400, 'If-None-Match must be exactly *');
-  }
-  // The parent errand's version is not a precondition for writing a document: version checks are
-  // scoped to the resource being written, and the document's own ETag already covers that. Versions
-  // roll up rather than down - changing this document moves the errand's version too, but the
-  // errand's version moving says nothing about this document. Requiring them to match would reject
-  // a save over an unrelated field somebody else changed, without protecting anything.
-  //
-  // The header is still accepted, and still validated when present, because the client sends the
-  // version it loaded and a malformed one is worth reporting rather than ignoring.
-  if (
-    parentErrandVersion !== undefined &&
-    (!VERSION_HEADER_PATTERN.test(parentErrandVersion) || !Number.isSafeInteger(Number(parentErrandVersion)))
-  ) {
-    throw new HttpException(400, 'X-Errand-Version must contain one canonical non-negative version');
   }
 };
 
@@ -487,14 +469,6 @@ export class SupportJsonParameterService {
     return response.data;
   }
 
-  /** The parent errand together with its current optimistic-locking version. */
-  async readParentErrandWithVersion<TKey extends string, TSchemaName extends string>(
-    request: JsonParameterRequest<TKey, TSchemaName>,
-  ): Promise<{ errand: Errand; version: number }> {
-    const response = await this.readParentErrand(request, 'parent errand report read');
-    return { errand: response.data, version: getErrandVersion(response.data, readResponseHeader(response.headers, 'etag')) };
-  }
-
   /** The bound schema of a stored document, for callers that render it rather than write it. */
   async readBoundSchema<TKey extends string, TSchemaName extends string>(
     request: JsonParameterRequest<TKey, TSchemaName>,
@@ -589,8 +563,7 @@ export class SupportJsonParameterService {
       throw new HttpException(502, 'Support Management returned a different JSON parameter schemaId');
     }
 
-    const parentErrandVersion = await this.readFreshParentErrandVersion(request);
-    return { ...written, parentErrandVersion };
+    return written;
   }
 
   /**
@@ -648,13 +621,6 @@ export class SupportJsonParameterService {
       mismatchStatus,
       user: request.user,
     });
-  }
-
-  private async readFreshParentErrandVersion<TKey extends string, TSchemaName extends string>(
-    request: JsonParameterRequest<TKey, TSchemaName>,
-  ): Promise<number> {
-    const response = await this.readParentErrand(request, 'parent errand readback');
-    return getErrandVersion(response.data, readResponseHeader(response.headers, 'etag'));
   }
 
   private async readParentErrand<TKey extends string, TSchemaName extends string>(

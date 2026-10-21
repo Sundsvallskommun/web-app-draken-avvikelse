@@ -1934,14 +1934,17 @@ test.describe('IAF/VOF:s riktiga utredningsflöde', () => {
       .click();
 
     await expect(toast(page, 'Ärendet uppdaterades')).toBeVisible();
-    // Version 7 as loaded, 8 once taken up, 9 once the investigation was saved.
+    // The classification is checked against what the handler saw of it: neither taking the errand up nor the
+    // investigation's own save moved it, so the save goes through.
     expect(trace.classificationPatches).toHaveLength(1);
-    expect(trace.classificationPatches[0].body).toMatchObject({ expectedVersion: 9 });
+    expect(trace.classificationPatches[0].body).toMatchObject({
+      seenFacts: expect.objectContaining({ classification: expect.any(String) }),
+    });
   });
 
   /**
-   * An investigation can be long, and the handler saves from wherever they are in it. The save's own writes move
-   * the errand's version and the document access is checked again, but the form stays where it is: no alert is put
+   * An investigation can be long, and the handler saves from wherever they are in it. The save's own writes are
+   * taken in and the document access is checked again, but the form stays where it is: no alert is put
    * at its top and the documents are not emptied out while the check runs, so the page does not jump to the top.
    */
   test('stannar där handläggaren är i utredningen när den sparas', async ({ page, dismissCookieConsent }) => {
@@ -2029,7 +2032,7 @@ test.describe('IAF/VOF:s riktiga utredningsflöde', () => {
     }
 
     expect(trace.classificationPatches[0].body).toEqual({
-      expectedVersion: 8,
+      seenFacts: expect.objectContaining({ classification: expect.any(String) }),
       classifications: [
         {
           classification: {
@@ -2051,7 +2054,7 @@ test.describe('IAF/VOF:s riktiga utredningsflöde', () => {
       'classifications',
       'documentETag',
       'documentKey',
-      'expectedVersion',
+      'seenFacts',
     ]);
     await expect(typeSelect).toHaveValue(iafLabelFixture.classification.medication.resourcePath);
     await expect(subtypeSelect).toHaveValue(iafLabelFixture.classification.incorrectAdministration.resourcePath);
@@ -2064,7 +2067,8 @@ test.describe('IAF/VOF:s riktiga utredningsflöde', () => {
     expect(trace.puts).toHaveLength(1);
     expect(trace.classificationPatches[1].body).toEqual(
       expect.objectContaining({
-        expectedVersion: 9,
+        // What the first save left of the classification: the page took it in from the saved errand.
+        seenFacts: expect.objectContaining({ classification: expect.any(String) }),
         classifications: [
           expect.objectContaining({
             classification: {
@@ -2102,7 +2106,7 @@ test.describe('IAF/VOF:s riktiga utredningsflöde', () => {
     await expect(toast(page, 'Ärendet uppdaterades')).toBeVisible();
     expect(trace.classificationPatches).toHaveLength(1);
     expect(trace.classificationPatches[0].body).toEqual({
-      expectedVersion: 7,
+      seenFacts: expect.objectContaining({ classification: expect.any(String) }),
       classifications: [
         {
           classification: { category: 'HSL', type: 'MEDICATION' },
@@ -2234,7 +2238,7 @@ test.describe('IAF/VOF:s riktiga utredningsflöde', () => {
     );
     expect(trace.puts).toHaveLength(1);
     expect(trace.classificationPatches).toHaveLength(1);
-    expect(trace.classificationPatches[0].body).toEqual(expect.objectContaining({ expectedVersion: 8 }));
+    expect(trace.classificationPatches[0].body).toEqual(expect.objectContaining({ seenFacts: expect.any(Object) }));
   });
 
   test('behåller lokala ändringar när Support Management svarar med versionskonflikt', async ({
@@ -2310,7 +2314,7 @@ test.describe('IAF/VOF:s riktiga utredningsflöde', () => {
 
     await expect.poll(() => trace.classificationPatches.length).toBe(1);
     expect(trace.classificationPatches[0].body).toEqual({
-      expectedVersion: 7,
+      seenFacts: expect.objectContaining({ classification: expect.any(String) }),
       classifications: [
         {
           classification: {

@@ -82,10 +82,10 @@ for (const roleKey of ['enhetschef', 'verksamhetschef']) {
   });
 }
 
-// Ä4. MAS/MAR asks the head of operations for their comment from the analysis. The request is one handover step,
-// conditioned on the errand's version; it opens VC kommentar HSL, and the page follows the version it left - here two
-// steps on, as Support Management may take for a label - so the next save is not refused as somebody else's change.
-test('MAS/MAR opens VC kommentar HSL from the analysis, and the errand version follows', async ({
+// Ä4. MAS/MAR asks the head of operations for their comment from the analysis. The request is one handover step, made
+// on the errand as the page shows it; it opens VC kommentar HSL. The label it writes moves the errand's version but
+// none of the fields the next save writes, so that save goes through as the handler's own.
+test('MAS/MAR opens VC kommentar HSL from the analysis, and the errand’s next save goes through', async ({
   page,
   dismissCookieConsent,
 }) => {
@@ -106,15 +106,20 @@ test('MAS/MAR opens VC kommentar HSL from the analysis, and the errand version f
 
   await expect(commentTab).toBeVisible();
   await expect(analysis.locator('[data-cy="vc-comment-requested"]')).toContainText('Verksamhetschefen har aviserats');
-  expect(trace.handovers).toEqual([{ step: 'request-vc-comment', expectedVersion: 7 }]);
+  expect(trace.handovers).toEqual([{ step: 'request-vc-comment', seenFacts: expect.any(Object) }]);
 
-  // The errand's own next save is conditioned on the version the request left.
+  // The errand's own next save writes the priority alone, checked against what the handler saw of it.
   const errandWrite = page.waitForRequest(
     (request) => request.method() === 'PATCH' && /\/supporterrands\/[^/]+$/u.test(new URL(request.url()).pathname)
   );
   await page.locator('[data-cy="priority-input"]').selectOption('HIGH');
   await page.locator('[data-cy="manage-sidebar"] [data-cy="save-button"]').filter({ hasText: 'Spara ärende' }).click();
-  expect((await errandWrite).headers()['if-match']).toBe('"9"');
+  const write = await errandWrite;
+  expect(write.postDataJSON()).toEqual({
+    priority: 'HIGH',
+    seenFacts: expect.objectContaining({ priority: expect.any(String) }),
+  });
+  expect(write.headers()['if-match']).toBeUndefined();
   await expect(toast(page, 'Ärendet uppdaterades')).toBeVisible();
 });
 

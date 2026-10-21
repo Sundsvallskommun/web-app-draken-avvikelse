@@ -210,11 +210,7 @@ export interface InvestigationClassificationSelectionDto {
 }
 
 export interface UpdateSupportErrandClassificationDto {
-  /**
-   * @min 0
-   * @max 9007199254740991
-   */
-  expectedVersion: number;
+  seenFacts: object;
   /** @minItems 1 */
   classifications: any;
   /** @minLength 1 */
@@ -229,13 +225,7 @@ export interface CSuspension {
 }
 
 export interface UpdateSupportErrandStatusDto {
-  /**
-   * @min 0
-   * @max 9007199254740991
-   */
-  expectedVersion: number;
-  /** @minLength 1 */
-  expectedStatus: string;
+  seenFacts: object;
   /** @minLength 1 */
   status: string;
   resolution?: string;
@@ -247,6 +237,7 @@ export interface UpdateSupportErrandStatusDto {
 export interface AssignSupportErrandDto {
   /** @minLength 1 */
   assignedUserId: string;
+  seenFacts: object;
 }
 
 export interface CErrandAction {
@@ -327,11 +318,7 @@ export interface UnitFollowUpQueryDto {
 }
 
 export interface InvestigationHandoverDto {
-  /**
-   * @min 0
-   * @max 9007199254740991
-   */
-  expectedVersion: number;
+  seenFacts: object;
   /** @minLength 1 */
   assignedUserId?: string;
   /** @minLength 1 */

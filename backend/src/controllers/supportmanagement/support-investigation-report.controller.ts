@@ -133,9 +133,9 @@ export class SupportInvestigationReportController {
       throw new HttpException(409, 'Mark the investigation as completed before generating a report');
     }
 
-    const [uiSchema, parent] = await Promise.all([
+    const [uiSchema, parentErrand] = await Promise.all([
       this.documentService.readUiSchema(request, schemaId),
-      this.documentService.readParentErrandWithVersion(request),
+      this.documentService.readParentErrandSnapshot(request),
     ]);
     const reports = readInvestigationReportEntries(stored?.document.value[completion.reportsField]);
     const publication = new InvestigationReportPublicationService({
@@ -146,13 +146,11 @@ export class SupportInvestigationReportController {
     });
     const operationId = body.operationId?.toLowerCase();
     if (!preview && !isUUID(operationId ?? '', '4')) throw new HttpException(400, 'A report operationId (UUID v4) is required');
-    const publicationInput = stored ? { request, stored, reportsField: completion.reportsField, parentVersion: parent.version } : undefined;
+    const publicationInput = stored ? { request, stored, reportsField: completion.reportsField } : undefined;
     if (!preview && publicationInput && operationId) {
       const recovered = await publication.recover(publicationInput, operationId);
       if (recovered) {
         response.setHeader('ETag', recovered.etag);
-        response.setHeader('X-Errand-Version', String(recovered.parentErrandVersion));
-        response.setHeader('X-Errand-Writes', String(recovered.ownErrandWrites));
         return response
           .status(201)
           .send({ data: { document: recovered.document, report: recovered.report }, message: 'Investigation report attached' });
@@ -166,7 +164,7 @@ export class SupportInvestigationReportController {
       schema,
       uiSchema,
       value,
-      errand: parent.errand,
+      errand: parentErrand,
       definition,
       sequence,
       generatedAt: formatTimestamp(generatedAt),
@@ -190,9 +188,6 @@ export class SupportInvestigationReportController {
     const written = await publication.publish(publicationInput, { generatedAt, generatedBy: req.user.username, fileName }, pdfBase64);
 
     response.setHeader('ETag', written.etag);
-    response.setHeader('X-Errand-Version', String(written.parentErrandVersion));
-    // How many of the errand's version steps were this publication's own, so the page can follow the version.
-    response.setHeader('X-Errand-Writes', String(written.ownErrandWrites));
     return response.status(201).send({
       data: { document: written.document, report: written.report },
       message: 'Investigation report attached',

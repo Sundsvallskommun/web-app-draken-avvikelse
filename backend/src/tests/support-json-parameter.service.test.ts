@@ -98,7 +98,7 @@ const request = {
 const writeRequest = (preconditions: JsonParameterWritePreconditions, schemaId = SCHEMA_ID, value: JsonObject = { assessment: 'saved' }) => ({
   ...request,
   data: { schemaId, value },
-  preconditions: { parentErrandVersion: '10', ...preconditions },
+  preconditions,
 });
 
 describe('SupportJsonParameterService', () => {
@@ -173,24 +173,17 @@ describe('SupportJsonParameterService', () => {
 
   it('updates with the exact preflight ETag and returns the upstream status, ETag and fresh parent version', async () => {
     const { api, service } = makeSubject(
-      [
-        writableParentResponse(11),
-        response(document(7), 200, '"7"'),
-        response(schema(), 200),
-        writableParentResponse(11),
-        writableParentResponse(12),
-      ],
+      [writableParentResponse(11), response(document(7), 200, '"7"'), response(schema(), 200), writableParentResponse(11)],
       [response(document(8), 200, '"8"')],
     );
 
-    await expect(service.writeJsonParameter(writeRequest({ ifMatch: '"7"', parentErrandVersion: '11' }))).resolves.toEqual({
+    await expect(service.writeJsonParameter(writeRequest({ ifMatch: '"7"' }))).resolves.toEqual({
       document: document(8),
       etag: '"8"',
       status: 200,
-      parentErrandVersion: 12,
     });
 
-    expect(api.getCalls.map(call => call.url)).toEqual([ERRAND_URL, DOCUMENT_URL, SCHEMA_URL, ERRAND_URL, ERRAND_URL]);
+    expect(api.getCalls.map(call => call.url)).toEqual([ERRAND_URL, DOCUMENT_URL, SCHEMA_URL, ERRAND_URL]);
     expect(api.putCalls).toHaveLength(1);
     expect(api.putCalls[0]).toMatchObject({
       url: DOCUMENT_URL,
@@ -205,15 +198,14 @@ describe('SupportJsonParameterService', () => {
 
   it('translates the client create-only condition to an impossible upstream If-Match and keeps 201 and ETag', async () => {
     const { api, service } = makeSubject(
-      [writableParentResponse(3), new HttpException(404, 'Not found'), response(schema(), 200), writableParentResponse(3), writableParentResponse(4)],
+      [writableParentResponse(3), new HttpException(404, 'Not found'), response(schema(), 200), writableParentResponse(3)],
       [response(document(0), 201, '"0"')],
     );
 
-    await expect(service.writeJsonParameter(writeRequest({ ifNoneMatch: '*', parentErrandVersion: '3' }))).resolves.toEqual({
+    await expect(service.writeJsonParameter(writeRequest({ ifNoneMatch: '*' }))).resolves.toEqual({
       document: document(0),
       etag: '"0"',
       status: 201,
-      parentErrandVersion: 4,
     });
 
     expect(api.putCalls).toHaveLength(1);
@@ -227,7 +219,6 @@ describe('SupportJsonParameterService', () => {
   });
 
   it.each([
-    { name: 'a malformed parent version', preconditions: { ifMatch: '"7"', parentErrandVersion: '01' }, status: 400, getCalls: 0 },
     { name: 'a missing precondition', preconditions: {}, status: 428, getCalls: 2 },
     { name: 'a wildcard If-Match', preconditions: { ifMatch: '*' }, status: 400, getCalls: 0 },
     { name: 'a weak If-Match', preconditions: { ifMatch: 'W/"7"' }, status: 400, getCalls: 0 },
@@ -586,25 +577,15 @@ describe('SupportJsonParameterService', () => {
   // Version checks are scoped to the resource being written. The errand's version moving means
   // somebody changed some other part of the errand, which this document write neither reads nor
   // overwrites - the document's own ETag is what protects it.
-  it.each([
-    { name: 'moved between load and write', preconditions: { ifMatch: '"7"', parentErrandVersion: '3' } },
-    { name: 'was never sent', preconditions: { ifMatch: '"7"', parentErrandVersion: undefined } },
-  ])('writes the document when the parent errand version $name', async ({ preconditions }) => {
+  it('writes the document on its own ETag alone, however the errand version moved meanwhile', async () => {
     const { api, service } = makeSubject(
-      [
-        writableParentResponse(10),
-        response(document(7), 200, '"7"'),
-        response(schema(), 200),
-        writableParentResponse(11),
-        writableParentResponse(12),
-      ],
+      [writableParentResponse(10), response(document(7), 200, '"7"'), response(schema(), 200), writableParentResponse(11)],
       [response(document(8), 200, '"8"')],
     );
 
-    await expect(service.writeJsonParameter(writeRequest(preconditions))).resolves.toMatchObject({
+    await expect(service.writeJsonParameter(writeRequest({ ifMatch: '"7"' }))).resolves.toMatchObject({
       status: 200,
       etag: '"8"',
-      parentErrandVersion: 12,
     });
 
     expect(api.putCalls).toHaveLength(1);

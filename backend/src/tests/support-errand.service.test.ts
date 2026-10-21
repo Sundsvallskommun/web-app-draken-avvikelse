@@ -305,7 +305,6 @@ describe('support-errand.service', () => {
     it('keeps optional resolution and suspension inside the resolved status command', () => {
       expect(
         resolveSupportErrandStatusTransition({ status: 'ONGOING' }, statuses, {
-          expectedStatus: 'ONGOING',
           status: 'SOLVED',
           resolution: 'CLOSED',
           suspension: { suspendedFrom: undefined, suspendedTo: undefined },
@@ -317,17 +316,10 @@ describe('support-errand.service', () => {
       });
     });
 
-    it('rejects a command whose source status no longer matches', () => {
-      expect(() => resolveSupportErrandStatusTransition({ status: 'SOLVED' }, statuses, { expectedStatus: 'ONGOING', status: 'ONGOING' })).toThrow(
-        expect.objectContaining({ status: 409, message: 'Support errand status has changed since it was loaded' }),
-      );
-    });
-
     it('rejects unknown and deprecated target statuses without inventing app-specific rules', () => {
       for (const status of ['UNKNOWN', 'RETIRED']) {
         expect(() =>
           resolveSupportErrandStatusTransition({ status: 'ONGOING' }, statuses, {
-            expectedStatus: 'ONGOING',
             status,
           }),
         ).toThrow(expect.objectContaining({ status: 400 }));
@@ -335,10 +327,8 @@ describe('support-errand.service', () => {
     });
 
     it('fails explicitly when upstream state or metadata is incomplete', () => {
-      expect(() => resolveSupportErrandStatusTransition({}, statuses, { expectedStatus: 'ONGOING', status: 'SOLVED' })).toThrow(
-        expect.objectContaining({ status: 502 }),
-      );
-      expect(() => resolveSupportErrandStatusTransition({ status: 'ONGOING' }, undefined, { expectedStatus: 'ONGOING', status: 'SOLVED' })).toThrow(
+      expect(() => resolveSupportErrandStatusTransition({}, statuses, { status: 'SOLVED' })).toThrow(expect.objectContaining({ status: 502 }));
+      expect(() => resolveSupportErrandStatusTransition({ status: 'ONGOING' }, undefined, { status: 'SOLVED' })).toThrow(
         expect.objectContaining({ status: 502 }),
       );
     });
@@ -761,12 +751,7 @@ describe('resolveClosingPhaseId', () => {
 
   it('steps a closed errand along the transitions, each phase setting the status it requires', () => {
     expect(
-      resolveSupportErrandStatusTransition(
-        { status: 'REVIEW', phases: [{ phaseId: 'review' }] },
-        [{ name: 'SOLVED' }],
-        { expectedStatus: 'REVIEW', status: 'SOLVED' },
-        chain,
-      ),
+      resolveSupportErrandStatusTransition({ status: 'REVIEW', phases: [{ phaseId: 'review' }] }, [{ name: 'SOLVED' }], { status: 'SOLVED' }, chain),
     ).toEqual({
       status: 'SOLVED',
       activePhaseId: 'follow-up',
@@ -813,7 +798,7 @@ describe('resolveClosingPhaseId', () => {
       resolveSupportErrandStatusTransition(
         { status: 'REVIEW', phases: [{ phaseId: 'review' }] },
         [{ name: 'SOLVED' }],
-        { expectedStatus: 'REVIEW', status: 'SOLVED' },
+        { status: 'SOLVED' },
         workflow,
       ),
     ).toEqual({ status: 'SOLVED', activePhaseId: 'follow-up' });

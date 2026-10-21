@@ -60,7 +60,6 @@ async function installMeasures(
   const writes: Array<{ method: string; data: unknown; version?: string }> = [];
   let reads = 0;
   let conflicted = false;
-  let errandVersion = 7;
   const measures: Measure[] = [
     {
       id: 'existing',
@@ -135,7 +134,6 @@ async function installMeasures(
           : {
               json: {
                 measures,
-                errandVersion,
                 metadata,
                 creationRoles,
                 registration,
@@ -162,7 +160,6 @@ async function installMeasures(
             version: (measures[0].version ?? 0) + 1,
           }
         : { ...measures[0], goal: 'Mål satt av någon annan', version: (measures[0].version ?? 0) + 1 };
-      errandVersion++;
       await route.fulfill({ status: 412, json: { message: 'Stale version' } });
       return;
     }
@@ -172,14 +169,12 @@ async function installMeasures(
         measures.findIndex((measure) => measure.id === removedId),
         1
       );
-      errandVersion++;
       await route.fulfill({ status: 204 });
       return;
     }
     if (new URL(request.url()).pathname.endsWith('/decision')) {
       const decision: MeasureDecisionInput = request.postDataJSON();
       measures[0] = { ...measures[0], ...decision, version: (measures[0].version ?? 0) + 1 };
-      errandVersion++;
       await route.fulfill({ status: 204 });
       return;
     }
@@ -192,7 +187,6 @@ async function installMeasures(
         accept: body.addedByRole === 'MANAGER' ? 'TRUE' : undefined,
         version: 0,
       });
-      errandVersion++;
       await route.fulfill({ status: 204 });
       return;
     }
@@ -202,7 +196,6 @@ async function installMeasures(
       ...body,
       version: (measures[0].version ?? 0) + 1,
     };
-    errandVersion++;
     await route.fulfill({ status: 204 });
   });
   return { writes, trace, reads: () => reads };

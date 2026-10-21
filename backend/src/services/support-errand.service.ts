@@ -495,31 +495,6 @@ export const buildSupportErrandClassificationUpdateBody = (
 const STRONG_ERRAND_ETAG_PATTERN = /^"(0|[1-9]\d*)"$/u;
 
 /**
- * Parses the required optimistic-locking precondition for every errand mutation.
- * Weak validators, wildcard validators, lists and non-canonical numeric values are rejected.
- */
-export const requireStrongErrandVersion = (ifMatch: string | undefined): number => {
-  if (ifMatch === undefined) {
-    throw new HttpException(428, 'If-Match is required when updating a support errand');
-  }
-
-  const match = STRONG_ERRAND_ETAG_PATTERN.exec(ifMatch);
-  const version = match ? Number(match[1]) : Number.NaN;
-  if (!match || !Number.isSafeInteger(version)) {
-    throw new HttpException(400, 'If-Match must contain one strong numeric ETag');
-  }
-
-  return version;
-};
-
-/** Ensures the caller edited the same errand version that is current upstream. */
-export const assertRequestedErrandVersion = (requestedVersion: number, currentVersion: number): void => {
-  if (requestedVersion !== currentVersion) {
-    throw new HttpException(412, 'If-Match does not match the current support errand version');
-  }
-};
-
-/**
  * Reads the errand's optimistic locking version from the ETag header, falling back to the body.
  * Both are checked against each other so a stale or malformed version never reaches an If-Match.
  */
@@ -569,7 +544,6 @@ export const assertSupportErrandAdminAssignable = (errand: Pick<Errand, 'status'
 };
 
 export interface SupportErrandStatusTransitionCommand {
-  expectedStatus: string;
   status: string;
   resolution?: string;
   suspension?: Suspension;
@@ -598,10 +572,10 @@ export interface ResolvedSupportErrandStatusTransition {
 /**
  * Resolves a status command against the freshly read errand and namespace metadata.
  *
- * Support Management does not expose a status-transition graph. Requiring the exact current
- * status prevents a caller from applying a command whose source state has changed, while the
- * metadata check prevents arbitrary or deprecated target values without inventing app-specific
- * transition rules in Draken.
+ * Support Management does not expose a status-transition graph. The caller has already refused a
+ * command whose source state - the status and the phase - changed since the handler saw it
+ * (`assertErrandFactsUnchanged`), while the metadata check prevents arbitrary or deprecated target
+ * values without inventing app-specific transition rules in Draken.
  */
 export const resolveSupportErrandStatusTransition = (
   errand: Pick<Errand, 'status' | 'phases'>,
@@ -611,9 +585,6 @@ export const resolveSupportErrandStatusTransition = (
 ): ResolvedSupportErrandStatusTransition => {
   if (!errand.status) {
     throw new HttpException(502, 'Support Management response is missing the current errand status');
-  }
-  if (errand.status !== command.expectedStatus) {
-    throw new HttpException(409, 'Support errand status has changed since it was loaded');
   }
   if (!statuses) {
     throw new HttpException(502, 'Support Management metadata is missing statuses');

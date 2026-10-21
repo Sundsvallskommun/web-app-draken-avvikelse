@@ -94,7 +94,7 @@ test.describe('Fel plats: flytta ärendet utan att ändra det inrapporterade', (
     expect(trace.handovers).toEqual([
       {
         step: 'move-location',
-        expectedVersion: 7,
+        seenFacts: expect.objectContaining({ routingLabels: expect.any(String) }),
         assignedUserId: 'south.head',
         locationLabelId: iafPlaceFixture.southBlue.id,
       },
@@ -105,7 +105,7 @@ test.describe('Fel plats: flytta ärendet utan att ändra det inrapporterade', (
     expect(trace.classificationPatches).toEqual([]);
   });
 
-  test('en inaktuell ärendeversion stoppar flytten och behåller ärendet på sidan', async ({
+  test('en ändring som någon annan hann göra stoppar flytten och behåller ärendet på sidan', async ({
     page,
     dismissCookieConsent,
   }) => {
