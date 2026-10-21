@@ -91,7 +91,8 @@ describe('conditional-write headers (over HTTP)', () => {
   // on the version the BFF read for that check - there is no errand If-Match to bind any more.
   const seenTitle = async (title: string) => {
     const { errandFacts } = await import('@/services/support-errand-facts');
-    return { title: errandFacts({ id: errandId, title }).title };
+    const { indexLabelPathsById } = await import('@/services/support-errand-label-paths');
+    return { title: errandFacts({ id: errandId, title }, indexLabelPathsById(undefined)).title };
   };
 
   it('writes a change of the fields the handler saw as they are, on the version just read', async () => {

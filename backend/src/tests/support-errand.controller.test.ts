@@ -19,6 +19,7 @@ import { RequestWithUser } from '@/interfaces/auth.interface';
 import { ExternalIdType } from '@/interfaces/externalIdType.interface';
 import authMiddleware from '@/middlewares/auth.middleware';
 import { ERRAND_CHANGED_ELSEWHERE_MESSAGE, errandFacts } from '@/services/support-errand-facts';
+import { indexLabelPathsById } from '@/services/support-errand-label-paths';
 import { SupportInvestigationAccessService } from '@/services/support-investigation-access.service';
 import { SupportErrandClassificationOwner, SupportInvestigationPolicyService } from '@/services/support-investigation-policy.service';
 import { SupportJsonParameterService } from '@/services/support-json-parameter.service';
@@ -65,7 +66,8 @@ interface OrgStub {
 const DEFAULT_ERRAND = { version: 7, status: 'ONGOING' };
 
 /** What the handler saw of an errand: the fingerprints its commands are checked against. */
-const seenOf = (errand: object = DEFAULT_ERRAND) => errandFacts(errand);
+// The tests answer the label metadata with no tree, so each label is read by its own path.
+const seenOf = (errand: object = DEFAULT_ERRAND) => errandFacts(errand, indexLabelPathsById(undefined));
 
 /** A command as the client sends it: with what the handler saw of the errand. */
 const withSeen = <T extends object>(command: T, errand: object = DEFAULT_ERRAND) => ({ ...command, seenFacts: seenOf(errand) });
@@ -416,9 +418,21 @@ describe('SupportErrandController', () => {
   });
 
   describe('getSupportErrandByErrandNumber', () => {
-    it('filters on errandNumber and returns the first hit', async () => {
+    // The search only finds the errand. It is read by its id, as every command reads it before it writes, so the facts
+    // it is handed out with compare with that read.
+    it('finds the errand by its number and hands out the errand read by its id', async () => {
       const { controller, api } = makeController();
-      api.get.mockResolvedValue({ data: { content: [{ id: mockSupportErrandId }, { id: `${mockSupportErrandId}-second` }] }, message: 'success' });
+      const errand = { id: mockSupportErrandId, title: 'Läst på id' };
+      api.get.mockImplementation(async (config: { url: string }) => {
+        if (config.url.includes('?filter=')) {
+          return {
+            data: { content: [{ id: mockSupportErrandId, title: 'Sökträffen' }, { id: `${mockSupportErrandId}-second` }] },
+            message: 'success',
+          };
+        }
+        if (config.url.endsWith('/metadata/labels')) return { data: { labelStructure: [] }, message: 'success' };
+        return { data: errand, message: 'success' };
+      });
       const res = mockRes();
 
       await controller.getSupportErrandByErrandNumber(mockReq(), mockSupportErrandNumber, res);
@@ -427,7 +441,20 @@ describe('SupportErrandController', () => {
         { url: `${SUPPORT_SERVICE}/${MUNICIPALITY_ID}/${NAMESPACE}/errands?filter=errandNumber:'${mockSupportErrandNumber}'` },
         expect.anything(),
       );
-      expect(res.body).toEqual({ id: mockSupportErrandId, facts: seenOf({ id: mockSupportErrandId }) });
+      expect(api.get).toHaveBeenCalledWith(
+        { url: `${SUPPORT_SERVICE}/${MUNICIPALITY_ID}/${NAMESPACE}/errands/${mockSupportErrandId}` },
+        expect.anything(),
+      );
+      expect(res.body).toEqual({ ...errand, facts: seenOf(errand) });
+    });
+
+    it('answers 404 when no errand has the number', async () => {
+      const { controller, api } = makeController();
+      api.get.mockResolvedValue({ data: { content: [] }, message: 'success' });
+
+      await expect(controller.getSupportErrandByErrandNumber(mockReq(), mockSupportErrandNumber, mockRes())).rejects.toMatchObject({
+        status: 404,
+      });
     });
   });
 
@@ -1102,11 +1129,12 @@ describe('SupportErrandController', () => {
         await expect(patched).resolves.toEqual([deviation, riskRoot, highHslRisk]);
       });
 
-      it('reads no label metadata when the write keeps every label the errand carries', async () => {
-        const { api, patched } = patchLabels([deviation, riskRoot, highHslRisk], [riskRoot, highHslRisk, deviation]);
+      // The facts and the permanent labels both ask what the errand's labels are; the label metadata is read once for both.
+      it('reads the label metadata once for both the facts and the permanent labels', async () => {
+        const { api, patched } = patchLabels([deviation, riskRoot, highHslRisk], [deviation]);
 
-        await expect(patched).resolves.toEqual([riskRoot, highHslRisk, deviation]);
-        expect(api.get).toHaveBeenCalledTimes(1);
+        await expect(patched).resolves.toEqual([deviation, riskRoot, highHslRisk]);
+        expect(api.get.mock.calls.filter(([config]) => config.url.endsWith('/metadata/labels'))).toHaveLength(1);
       });
 
       it('lets the write take off a label that is not permanent', async () => {

@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import { expect, test } from '../fixtures/base.fixture';
+import { toast } from '../utils/toast';
 import { errandNumber, installIafApiMock } from './fixtures/investigation-flow.mock';
 
 /**
@@ -43,7 +44,7 @@ for (const errandStatus of ['ASSIGNED', 'ONGOING']) {
     await saveButton(page).click();
 
     await expect.poll(() => trace.adminPatches).toEqual(['iaf.test']);
-    await expect(page.getByText('Ärendet uppdaterades')).toBeVisible();
+    await expect(toast(page, 'Ärendet uppdaterades')).toBeVisible();
     if (errandStatus === 'ASSIGNED') {
       // A waiting errand accepts nothing but its new handler, who then works on it without resuming it first.
       expect(trace.errandPatches).toEqual([]);

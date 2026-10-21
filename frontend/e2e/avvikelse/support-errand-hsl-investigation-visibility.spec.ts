@@ -213,8 +213,8 @@ test('enhetschef is shown Händelseanalys HSL as soon as the investigation is sa
   await expect(page.locator('[data-cy="investigation-document-utredning-hsl"]')).toBeVisible();
 });
 
-// The label write is the save's own, however many of the errand's version steps it takes. The classification saved
-// with the investigation is conditioned on the version after all of them, or it is refused as somebody else's change.
+// The save adds the high HSL risk, with the level above it, before the classification saved with it. Neither label is
+// part of the classification, so the classification goes through rather than being refused as somebody else's change.
 test('enhetschef saves the classification together with a high HSL risk', async ({ page, dismissCookieConsent }) => {
   const documents = allExistingInvestigationDocuments();
   documents['utredning-enhetschef'].value.riskAssessmentHsl = {

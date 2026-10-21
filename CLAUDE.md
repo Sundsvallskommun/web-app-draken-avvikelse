@@ -271,11 +271,17 @@ So a write is conditioned on what it depends on, never on the errand's version a
 - **An errand-level write is conditioned on the facts it depends on.** The BFF hands every errand out with
   `facts` (`errandFacts`, `backend/src/services/support-errand-facts.ts`): one fingerprint per fact - each of
   the errand's own fields, its labels, its routing (`ACCESS`, `REPORT_TYPE` and `LOCATION` labels), its
-  classification (routing and permanent labels left out), its assignee, its status and its active phase.
-  Every errand-level command sends back the facts the handler saw as `seenFacts`. The BFF reads the errand
-  fresh, refuses with 409 when a fact the command depends on differs (`assertErrandFactsUnchanged`), and
-  writes upstream with `If-Match` on the version it just read, so a write that comes in between is a 412.
-  The client never sends an errand version and never computes a fact.
+  classification (the errand's classification field and the labels of the classification's own `CATEGORY`
+  tree, nothing else), its assignee, its status and its active phase. Every errand-level command sends back
+  the facts the handler saw as `seenFacts`. The BFF reads the errand fresh, refuses with 409 when a fact the
+  command depends on differs (`assertErrandFactsUnchanged`), and writes upstream with `If-Match` on the
+  version it just read, so a write that comes in between is a 412. The client never sends an errand version
+  and never computes a fact.
+- **A fact compares with the read a command makes.** Labels on an errand often arrive as bare ids, so what a
+  label is - a place, an access, a category - is read by its id from the namespace's label tree
+  (`readLabelPathsById`, `support-errand-label-paths.ts`), never from the label's own path alone. The errand
+  page is handed its errand read by id (`GET errands/{id}`), as every command reads it: the errand-number
+  search only finds the id.
 
 | What you write | Route | Precondition |
 | --- | --- | --- |

@@ -21,6 +21,7 @@ import {
   resolveSupportErrandPhaseTransition,
 } from '@/services/support-errand.service';
 import { withErrandFacts } from '@/services/support-errand-facts';
+import { indexLabelPathsById } from '@/services/support-errand-label-paths';
 import {
   assertHslAnalysisFinishedBeforeClose,
   assertInvestigationCompletedBeforeDecision,
@@ -188,7 +189,7 @@ export class SupportPhaseController {
       req.user,
     );
     return response.status(200).send({
-      ...withErrandFacts(savedErrand.data),
+      ...withErrandFacts(savedErrand.data, indexLabelPathsById(metadata.data.labels?.labelStructure)),
       version: getErrandVersion(savedErrand.data, savedErrand.headers?.etag),
     });
   }

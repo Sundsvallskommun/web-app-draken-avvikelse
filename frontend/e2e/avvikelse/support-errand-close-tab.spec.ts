@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import { expect, test } from '../fixtures/base.fixture';
+import { toast } from '../utils/toast';
 import { errandNumber, installIafApiMock, type WorkflowPhaseName } from './fixtures/investigation-flow.mock';
 
 /**
@@ -48,7 +49,7 @@ test('closing the errand from its last phase closes the tab', async ({ page, dis
   await phaseButton.click();
 
   expect((await written).postDataJSON()).toMatchObject({ status: 'SOLVED' });
-  await expect(page.getByText('Ärendet avslutades')).toBeVisible();
+  await expect(toast(page, 'Ärendet avslutades')).toBeVisible();
   await expect.poll(() => closeCalls(page), { timeout: 5000 }).toBe(1);
 });
 

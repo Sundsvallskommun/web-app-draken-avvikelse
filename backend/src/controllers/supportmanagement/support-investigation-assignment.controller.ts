@@ -37,6 +37,7 @@ import {
 } from '@/services/investigation-handover-label.service';
 import { assertSupportErrandAdminAssignable, getErrandVersion } from '@/services/support-errand.service';
 import { assertErrandFactsUnchanged, type ErrandFactKey, type SeenErrandFacts } from '@/services/support-errand-facts';
+import { indexLabelPathsById } from '@/services/support-errand-label-paths';
 import { SupportInvestigationAccessService } from '@/services/support-investigation-access.service';
 import { SupportInvestigationPolicyService } from '@/services/support-investigation-policy.service';
 import { supportMetadataCache } from '@/services/support-metadata-cache';
@@ -250,13 +251,13 @@ export class SupportInvestigationAssignmentController {
     const authorizingDocumentKey = await this.assertStepAllowed(req, MUNICIPALITY_ID, id, step);
 
     let { errand, metadata, currentVersion } = await this.readErrandAndMetadata(req, MUNICIPALITY_ID, id);
-    assertErrandFactsUnchanged(errand, data.seenFacts, HANDOVER_FACTS);
+    assertErrandFactsUnchanged(errand, data.seenFacts, HANDOVER_FACTS, indexLabelPathsById(metadata.labels?.labelStructure));
     assertSupportErrandAdminAssignable(errand, `the ${step.step} handover`);
     if (await this.carryOutSavedDecision(req, MUNICIPALITY_ID, id, step, authorizingDocumentKey, errand)) {
       // The service note was this step's own write. It moves the errand's version but none of the facts the handover
       // depends on, so they are read again and the handover applies to the errand as it now stands.
       ({ errand, metadata, currentVersion } = await this.readErrandAndMetadata(req, MUNICIPALITY_ID, id));
-      assertErrandFactsUnchanged(errand, data.seenFacts, HANDOVER_FACTS);
+      assertErrandFactsUnchanged(errand, data.seenFacts, HANDOVER_FACTS, indexLabelPathsById(metadata.labels?.labelStructure));
     }
 
     let assignedUserId: string | undefined;

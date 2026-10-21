@@ -949,7 +949,8 @@ const OWN_FIELD_FACTS = [
   'externalTags',
 ] as const;
 const ROUTING_LABEL_ROOTS: ReadonlySet<string> = new Set(['ACCESS', 'REPORT_TYPE', 'LOCATION']);
-const PERMANENT_LABEL_ROOTS: ReadonlySet<string> = new Set(['RISK', 'ANALYSIS']);
+/** The root of the label tree the classification is kept in. */
+const CLASSIFICATION_LABEL_ROOT = 'CATEGORY';
 
 /** The root of a label's resource path, read from the label tree where the errand's copy leaves the path out. */
 const labelRoot = (candidate: MockLabel): string =>
@@ -980,12 +981,7 @@ const mockErrandFacts = (errand: MockUpstreamErrand): Record<string, string> => 
     ),
     classification: fingerprint([
       errand.classification,
-      labelIds(
-        errand.labels.filter(
-          (candidate) =>
-            !ROUTING_LABEL_ROOTS.has(labelRoot(candidate)) && !PERMANENT_LABEL_ROOTS.has(labelRoot(candidate))
-        )
-      ),
+      labelIds(errand.labels.filter((candidate) => labelRoot(candidate) === CLASSIFICATION_LABEL_ROOT)),
     ]),
     assignedUserId: fingerprint(errand.assignedUserId?.trim().toLowerCase()),
     status: fingerprint(errand.status),
@@ -1801,7 +1797,11 @@ export async function installIafApiMock(page: Page, scenario: IafApiScenario = {
           JSON.stringify(scenario.labelStructure ?? []).includes(`"${highHslRisk.id}"`) &&
           !errandLabels.some(({ id }) => id === highHslRisk.id);
         if (marksHighHslRisk) {
-          errandLabels = [...errandLabels, withoutChildren(highHslRisk)];
+          // Like the BFF, the label is added with the level above it, as registration adds a label.
+          const riskChain = [riskRoot, highHslRisk].filter(
+            ({ id }) => !errandLabels.some((carried) => carried.id === id)
+          );
+          errandLabels = [...errandLabels, ...riskChain.map(withoutChildren)];
           errandVersion += 1;
         }
         const { etag, ...responseDocument } = updated;

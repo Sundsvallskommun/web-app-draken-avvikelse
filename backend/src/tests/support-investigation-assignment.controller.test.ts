@@ -9,6 +9,7 @@ import {
 } from '@/controllers/supportmanagement/support-investigation-assignment.controller';
 import { Label } from '@/data-contracts/supportmanagement/data-contracts';
 import { errandFacts } from '@/services/support-errand-facts';
+import { indexLabelPathsById } from '@/services/support-errand-label-paths';
 
 import { mockReq, mockRes } from './helpers/http';
 import { mockAdUsername, mockMunicipalityId, mockSupportErrandId, mockSupportNamespace } from './helpers/mock-data';
@@ -60,7 +61,7 @@ const servedErrand = (errandLabels: ErrandLabel[] = DEFAULT_ERRAND_LABELS) => ({
 });
 
 /** What the handler saw of an errand: the fingerprints a handover is checked against. */
-const seenOf = (errand: object = servedErrand()) => errandFacts(errand);
+const seenOf = (errand: object = servedErrand(), tree: Label[] = labelStructure) => errandFacts(errand, indexLabelPathsById(tree));
 
 const makeController = ({ errandLabels = DEFAULT_ERRAND_LABELS }: { errandLabels?: ErrandLabel[] } = {}) => {
   const controller = new SupportInvestigationAssignmentController();
@@ -310,7 +311,7 @@ describe('decline-lex', () => {
         mockReq(),
         mockSupportErrandId,
         'decline-lex',
-        { seenFacts: seenOf(seenErrand), assignedUserId: 'south.manager' },
+        { seenFacts: seenOf(seenErrand, [...labelStructure, reportTypeStructure]), assignedUserId: 'south.manager' },
         mockRes(),
       );
     return { decline, post, stubs };

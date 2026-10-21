@@ -86,6 +86,7 @@ import {
   type SeenErrandFacts,
   withErrandFacts,
 } from '@/services/support-errand-facts';
+import { indexLabelPathsById, type LabelPathsById, readLabelPathsById } from '@/services/support-errand-label-paths';
 import { parseStatusGroups, SupportErrandListingService, SupportErrandStatusGroupCounts } from '@/services/support-errand-listing.service';
 import { SupportInvestigationAccessService } from '@/services/support-investigation-access.service';
 import {
@@ -666,19 +667,41 @@ export class SupportErrandController {
   ): Promise<SupportErrand> {
     const url = `${this.SERVICE}/${MUNICIPALITY_ID}/${this.namespace}/errands?filter=errandNumber:'${errandNumber}'`;
     const errandResponse = await this.apiService.get<any>({ url }, req.user);
-    const errandData = errandResponse.data.content[0];
-    return response.send(withErrandFacts((await this.preparedErrandResponse(errandData, req)).data, errandData));
+    // The search only finds the errand. The errand itself is read by its id, as every command reads it before it
+    // writes, so the facts it is handed out with compare with that read.
+    const id = errandResponse.data?.content?.[0]?.id;
+    if (typeof id !== 'string' || id.length === 0) throw new HttpException(404, 'Errand not found');
+    return response.send(await this.readErrandWithFacts(req, id));
   }
 
   @Get('/supporterrands/:id')
   @OpenAPI({ summary: 'Return an errand by id' })
   @UseBefore(authMiddleware)
   async errand(@Req() req: RequestWithUser, @Param('id') id: string, @Res() response: any): Promise<SupportErrand> {
+    return response.send(await this.readErrandWithFacts(req, id));
+  }
+
+  /**
+   * The errand as the client gets it: read by its id, and handed out with the facts every errand-level command checks
+   * (`withErrandFacts`), taken from that same read.
+   */
+  private async readErrandWithFacts(req: RequestWithUser, id: string) {
     const url = `${this.SERVICE}/${MUNICIPALITY_ID}/${this.namespace}/errands/${id}`;
-    const errandResponse = await this.apiService.get<SupportErrand>({ url }, req.user);
+    const [errandResponse, labelPaths] = await Promise.all([this.apiService.get<SupportErrand>({ url }, req.user), this.readLabelPaths(req)]);
     const errandData = errandResponse.data;
 
-    return response.send(withErrandFacts((await this.preparedErrandResponse(errandData, req)).data, errandData));
+    return withErrandFacts((await this.preparedErrandResponse(errandData, req)).data, labelPaths, errandData);
+  }
+
+  /** What each label of the namespace is, by id (`readLabelPathsById`): the errand's facts are read through it. */
+  private readLabelPaths(req: RequestWithUser): Promise<LabelPathsById> {
+    return readLabelPathsById({
+      apiService: this.apiService,
+      baseURL: apiURL(this.SERVICE),
+      municipalityId: MUNICIPALITY_ID,
+      namespace: this.namespace,
+      user: req.user,
+    });
   }
 
   @Get('/supporterrands')
@@ -994,12 +1017,12 @@ export class SupportErrandController {
     const writtenFacts = errandFactsWrittenBy(changes);
     const url = `${MUNICIPALITY_ID}/${this.namespace}/errands/${id}`;
     const baseURL = apiURL(this.SERVICE);
-    const currentErrand = await this.apiService.get<SupportErrand>(
-      { url, baseURL, includeResponseHeaders: true, propagateClientError: true },
-      req.user,
-    );
+    const [currentErrand, labelPaths] = await Promise.all([
+      this.apiService.get<SupportErrand>({ url, baseURL, includeResponseHeaders: true, propagateClientError: true }, req.user),
+      this.readLabelPaths(req),
+    ]);
     const currentVersion = getErrandVersion(currentErrand.data, currentErrand.headers?.etag);
-    assertErrandFactsUnchanged(currentErrand.data, seenFacts, writtenFacts);
+    assertErrandFactsUnchanged(currentErrand.data, seenFacts, writtenFacts, labelPaths);
     assertSupportErrandWritable(currentErrand.data, 'generic changes');
     this.assertChannelUnchanged(currentErrand.data, changes);
 
@@ -1044,8 +1067,9 @@ export class SupportErrandController {
       supportMetadataCache.read<SupportMetadata>(this.apiService, { url: metadataUrl, baseURL, propagateClientError: true }, req.user),
     ]);
     const currentVersion = getErrandVersion(currentErrand.data, currentErrand.headers?.etag);
+    const labelPaths = indexLabelPathsById(metadata.data.labels?.labelStructure);
     // The transition starts from the status and the phase the handler saw; anything else of the errand may have moved.
-    assertErrandFactsUnchanged(currentErrand.data, data.seenFacts, STATUS_TRANSITION_FACTS);
+    assertErrandFactsUnchanged(currentErrand.data, data.seenFacts, STATUS_TRANSITION_FACTS, labelPaths);
     const assertMeasuresHandled = () =>
       assertMeasuresHandledBeforeClose({
         apiService: this.apiService,
@@ -1105,7 +1129,7 @@ export class SupportErrandController {
         req.user,
       );
       const noted = await this.apiService.get<SupportErrand>({ url, baseURL, includeResponseHeaders: true, propagateClientError: true }, req.user);
-      assertErrandFactsUnchanged(noted.data, data.seenFacts, STATUS_TRANSITION_FACTS);
+      assertErrandFactsUnchanged(noted.data, data.seenFacts, STATUS_TRANSITION_FACTS, labelPaths);
       version = getErrandVersion(noted.data, noted.headers?.etag);
     }
     for (const step of phaseSteps) {
@@ -1146,7 +1170,7 @@ export class SupportErrandController {
       req.user,
     );
     return response.status(200).send({
-      ...withErrandFacts(savedErrand.data),
+      ...withErrandFacts(savedErrand.data, labelPaths),
       version: getErrandVersion(savedErrand.data, savedErrand.headers?.etag),
     });
   }
@@ -1196,9 +1220,10 @@ export class SupportErrandController {
       }),
     ]);
     const currentVersion = getErrandVersion(currentErrand.data, currentErrand.headers?.etag);
+    const labelPaths = indexLabelPathsById(labelMetadata.data?.labelStructure);
     // The classification the handler changed, as they saw it - not the errand's other labels, which the document saved
     // with it may itself have added to (a high HSL risk), and which the write below keeps as they now are.
-    assertErrandFactsUnchanged(currentErrand.data, data.seenFacts, ['classification']);
+    assertErrandFactsUnchanged(currentErrand.data, data.seenFacts, ['classification'], labelPaths);
     assertSupportErrandWritable(currentErrand.data, 'investigation classification changes');
     if (classificationDocument.etag !== data.documentETag) {
       throw new HttpException(409, 'Investigation document has changed since classification was edited');
@@ -1237,7 +1262,7 @@ export class SupportErrandController {
     );
     const savedVersion = getErrandVersion(savedErrand.data, savedErrand.headers?.etag);
 
-    return response.status(200).send({ ...withErrandFacts(savedErrand.data), version: savedVersion });
+    return response.status(200).send({ ...withErrandFacts(savedErrand.data, labelPaths), version: savedVersion });
   }
 
   @Patch('/supporterrands/:id/admin')
@@ -1251,13 +1276,13 @@ export class SupportErrandController {
   ): Promise<{ data: any; message: string }> {
     const url = `${MUNICIPALITY_ID}/${this.namespace}/errands/${id}`;
     const baseURL = apiURL(this.SERVICE);
-    const currentErrand = await this.apiService.get<SupportErrand>(
-      { url, baseURL, includeResponseHeaders: true, propagateClientError: true },
-      req.user,
-    );
+    const [currentErrand, labelPaths] = await Promise.all([
+      this.apiService.get<SupportErrand>({ url, baseURL, includeResponseHeaders: true, propagateClientError: true }, req.user),
+      this.readLabelPaths(req),
+    ]);
     const currentVersion = getErrandVersion(currentErrand.data, currentErrand.headers?.etag);
     // The errand is given away from the handler the handler saw holding it.
-    assertErrandFactsUnchanged(currentErrand.data, data.seenFacts, ['assignedUserId']);
+    assertErrandFactsUnchanged(currentErrand.data, data.seenFacts, ['assignedUserId'], labelPaths);
     assertSupportErrandAdminAssignable(currentErrand.data, 'administrator changes');
 
     const body: Pick<AssignSupportErrandDto, 'assignedUserId'> = { assignedUserId: data.assignedUserId };
