@@ -1,7 +1,10 @@
+import { PDF_PAGE_STYLE, SUNDSVALL_LOGO_HEADER, SUNDSVALL_LOGO_STYLE } from './templating-resources';
+
 /**
  * The Pebble template the Templating API renders measure action plans with, kept in the repo and
  * sent with every render (`render/direct/pdf`) so the plan and the code that feeds it are
- * versioned together. Its only input is a `MeasureActionPlanModel` under `plan`. Every value is
+ * versioned together. Its only input is a `MeasureActionPlanModel` under `plan`; the logo at its top
+ * is the municipality's own, which Templating holds (`SUNDSVALL_LOGO_HEADER`). Every value is
  * pre-formatted by the BFF; the template only places text, so Pebble's escaping applies throughout.
  */
 export const MEASURE_ACTION_PLAN_TEMPLATE = `<!DOCTYPE html>
@@ -10,7 +13,7 @@ export const MEASURE_ACTION_PLAN_TEMPLATE = `<!DOCTYPE html>
 <meta charset="utf-8">
 <title>{{ plan.title }} {{ plan.sequence }} – {{ plan.errand.errandNumber }}</title>
 <style>
-  @page { size: A4; margin: 22mm 18mm 24mm 18mm; }
+  ${PDF_PAGE_STYLE}
   body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #1a1a1a; line-height: 1.45; }
   h1 { font-size: 20pt; margin: 0 0 2mm 0; }
   h2 { font-size: 13pt; margin: 9mm 0 3mm 0; padding-bottom: 1.5mm; border-bottom: 1px solid #b9b9b9; }
@@ -25,9 +28,11 @@ export const MEASURE_ACTION_PLAN_TEMPLATE = `<!DOCTYPE html>
   table.rows th { background: #f1f1f1; }
   .small { color: #555; font-size: 9pt; margin: 1mm 0 0 0; }
   .footer { margin-top: 10mm; padding-top: 2mm; border-top: 1px solid #b9b9b9; color: #555; font-size: 9pt; }
+  ${SUNDSVALL_LOGO_STYLE}
 </style>
 </head>
 <body>
+  ${SUNDSVALL_LOGO_HEADER}
   <h1>{{ plan.title }}</h1>
   <p class="meta">Ärende {{ plan.errand.errandNumber }}{% if plan.errand.title != "" %} · {{ plan.errand.title }}{% endif %} · Handlingsplan {{ plan.sequence }}</p>
   <p class="meta">Genererad {{ plan.generatedAt }} av {{ plan.generatedBy }}</p>

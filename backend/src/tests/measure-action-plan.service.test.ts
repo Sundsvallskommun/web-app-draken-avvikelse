@@ -7,6 +7,7 @@ import {
   nextMeasureActionPlanSequence,
 } from '@/services/measure-action-plan.service';
 import { MEASURE_ACTION_PLAN_TEMPLATE } from '@/services/measure-action-plan.template';
+import { PDF_PAGE_STYLE, SUNDSVALL_LOGO_HEADER } from '@/services/templating-resources';
 
 import { mockAdUsername, mockSupportErrandNumber } from './helpers/mock-data';
 
@@ -182,5 +183,15 @@ describe('MEASURE_ACTION_PLAN_TEMPLATE', () => {
     expect(MEASURE_ACTION_PLAN_TEMPLATE).toContain('{{ plan.counts.total }}');
     // Every value is plain text: nothing is rendered raw, so Pebble's escaping covers the whole plan.
     expect(MEASURE_ACTION_PLAN_TEMPLATE).not.toContain('| raw');
+  });
+
+  it('puts the municipality’s logo above the title', () => {
+    expect(MEASURE_ACTION_PLAN_TEMPLATE).toContain('{% include "resource.image.logo.sundsvallskommun-medium" %}');
+    expect(MEASURE_ACTION_PLAN_TEMPLATE.indexOf(SUNDSVALL_LOGO_HEADER)).toBeLessThan(MEASURE_ACTION_PLAN_TEMPLATE.indexOf('<h1>'));
+  });
+
+  it('is laid out on the page every rendered document shares', () => {
+    expect(MEASURE_ACTION_PLAN_TEMPLATE).toContain(PDF_PAGE_STYLE);
+    expect(MEASURE_ACTION_PLAN_TEMPLATE.match(/@page/gu)).toHaveLength(1);
   });
 });

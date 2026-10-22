@@ -1,7 +1,10 @@
+import { PDF_PAGE_STYLE, SUNDSVALL_LOGO_HEADER, SUNDSVALL_LOGO_STYLE } from './templating-resources';
+
 /**
  * The Pebble template the Templating API renders investigation reports with, kept in the repo and
  * sent with every render (`render/direct/pdf`) so the report and the code that feeds it are
- * versioned together. Its only input is an `InvestigationReportModel` under `report`.
+ * versioned together. Its only input is an `InvestigationReportModel` under `report`; the logo at
+ * its top is the municipality's own, which Templating holds (`SUNDSVALL_LOGO_HEADER`).
  */
 export const INVESTIGATION_REPORT_TEMPLATE = `<!DOCTYPE html>
 <html lang="sv">
@@ -9,7 +12,7 @@ export const INVESTIGATION_REPORT_TEMPLATE = `<!DOCTYPE html>
 <meta charset="utf-8">
 <title>{{ report.title }} {{ report.sequence }} – {{ report.errand.errandNumber }}</title>
 <style>
-  @page { size: A4; margin: 22mm 18mm 24mm 18mm; }
+  ${PDF_PAGE_STYLE}
   body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #1a1a1a; line-height: 1.45; }
   h1 { font-size: 20pt; margin: 0 0 2mm 0; }
   h2 { font-size: 13pt; margin: 9mm 0 3mm 0; padding-bottom: 1.5mm; border-bottom: 1px solid #b9b9b9; }
@@ -25,9 +28,11 @@ export const INVESTIGATION_REPORT_TEMPLATE = `<!DOCTYPE html>
   table.rows th { background: #f1f1f1; }
   .empty { color: #777; font-style: italic; }
   .footer { margin-top: 10mm; padding-top: 2mm; border-top: 1px solid #b9b9b9; color: #555; font-size: 9pt; }
+  ${SUNDSVALL_LOGO_STYLE}
 </style>
 </head>
 <body>
+  ${SUNDSVALL_LOGO_HEADER}
   <h1>{{ report.title }}</h1>
   <p class="meta">Rapport {{ report.sequence }} · Ärende {{ report.errand.errandNumber }} · Ansvarig roll: {{ report.ownerLabel }}</p>
   <p class="meta">Genererad {{ report.generatedAt }} av {{ report.generatedBy }}</p>

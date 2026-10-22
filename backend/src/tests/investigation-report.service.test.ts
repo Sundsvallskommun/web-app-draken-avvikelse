@@ -3,6 +3,7 @@ import type { Errand } from '@/data-contracts/supportmanagement/data-contracts';
 import { buildInvestigationReportModel, EMPTY_VALUE, investigationReportFileName } from '@/services/investigation-report.service';
 import { INVESTIGATION_REPORT_TEMPLATE, renderInvestigationReportTemplate } from '@/services/investigation-report.template';
 import type { JsonObject } from '@/services/schema-bound-json.service';
+import { PDF_PAGE_STYLE, SUNDSVALL_LOGO_HEADER } from '@/services/templating-resources';
 
 const schema = {
   id: '2281_utredning-test_1.0',
@@ -177,11 +178,26 @@ describe('investigation report model', () => {
   it('expands the field fragment into the template with one loop variable per nesting level', () => {
     const template = renderInvestigationReportTemplate();
     expect(INVESTIGATION_REPORT_TEMPLATE).toContain('{% include "field"');
-    expect(template).not.toContain('{% include');
+    expect(template).not.toContain('{% include "field"');
     expect(template).not.toContain('__NESTED__');
     expect(template).toContain('{% for field2 in field.fields %}');
     expect(template).toContain('{% for field3 in field2.fields %}');
     expect(template).toContain('{{ field.html | raw }}');
     expect(template).toContain('{{ field3.label }}');
+  });
+
+  // The logo is Templating's own resource, included by name: the field expansion leaves that include alone.
+  it('puts the municipality’s logo above the title', () => {
+    const template = renderInvestigationReportTemplate();
+
+    expect(template).toContain('{% include "resource.image.logo.sundsvallskommun-medium" %}');
+    expect(template.indexOf(SUNDSVALL_LOGO_HEADER)).toBeLessThan(template.indexOf('<h1>'));
+  });
+
+  it('is laid out on the page every rendered document shares', () => {
+    const template = renderInvestigationReportTemplate();
+
+    expect(template).toContain(PDF_PAGE_STYLE);
+    expect(template.match(/@page/gu)).toHaveLength(1);
   });
 });
